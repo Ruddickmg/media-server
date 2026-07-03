@@ -34,16 +34,33 @@ in
         move_completed_path = "/media/downloads/completed";
         copy_torrent_file = false;
         del_copy_torrent_file = false;
-        max_connections_global = 400;
-        max_active_limit = 20;
-        max_active_downloading = 12;
-        max_active_seeding = 8;
         prioritize_first_last_pieces = false;
-        max_upload_speed = -1.0;
-        max_download_speed = -1.0;
         random_port = true;
         listen_random_port_range = [ 49152 65535 ];
         outgoing_ports = [ 49152 65535 ];
+
+        # Bandwidth (capped at ~80% of 73.4/10.3 Mbps connection)
+        max_download_speed = 7000.0;
+        max_upload_speed = 1000.0;
+
+        # Connections
+        max_connections_global = 500;
+        max_connections_per_torrent = 100;
+        max_upload_slots_per_torrent = 8;
+
+        # Queue — *arrs remove their own torrents via per-indexer goals
+        max_active_limit = 50;
+        max_active_downloading = 5;
+        max_active_seeding = 40;
+
+        # Seeding ceiling: stop at 3.0 ratio or 14 days, whichever first
+        # *arrs will remove their torrents earlier; manual torrents hit this cap
+        stop_seed_at_ratio = true;
+        stop_seed_ratio = 3.0;
+        seed_time_limit = 20160;  # 14 days in minutes
+        share_ratio_limit = 3.0;
+        remove_seed_at_ratio = false;
+        auto_managed = true;
       };
       daemonUser = "deluge";
       daemonGroup = "deluge";

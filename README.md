@@ -113,6 +113,19 @@ For each service:
    - Category: `sonarr`, `radarr`, or `lidarr` (match the app)
 5. Test and save
 
+### Seeding and ratio management
+
+Deluge's global seeding ceiling is set intentionally high (`stop_seed_ratio = 3.0`, `seed_time_limit = 14` days) as a safety net for manually-added torrents. It should never be hit by *arr-managed torrents — those are handled per-indexer.
+
+For each indexer, set realistic seed goals in Sonarr, Radarr, and Lidarr:
+
+1. Go to **Settings → Indexers**
+2. Click an indexer, then **Show Advanced** (top right)
+3. Set **Seed Ratio** and/or **Seed Time** (e.g. `2.0` or `72` hours)
+4. Repeat for each indexer
+
+Prowlarr can sync these settings to all connected *arrs from **Settings → Apps** if you enable **Sync Seed Ratio** / **Sync Seed Time** on each app. Once configured, the *arr will remove the torrent from Deluge when the goal is met, well before the global ceiling kicks in.
+
 ### Prowlarr — sync to Sonarr, Radarr, Lidarr
 
 1. Open `http://<machine-ip>:9696`
