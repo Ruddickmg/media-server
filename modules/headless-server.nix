@@ -34,11 +34,13 @@ in
     services.logind = {
       lidSwitch = "ignore";
       lidSwitchExternalPower = "ignore";
-      extraConfig = ''
-        HandlePowerKey=ignore
-        HandleSuspendKey=ignore
-        HandleHibernateKey=ignore
-      '';
+      settings = {
+        Login = {
+          HandlePowerKey = "ignore";
+          HandleSuspendKey = "ignore";
+          HandleHibernateKey = "ignore";
+        };
+      };
     };
 
     systemd.sleep.settings.Sleep = {
