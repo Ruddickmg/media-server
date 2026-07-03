@@ -3,6 +3,7 @@
   imports = [
     ./hardware-configuration.nix
     ../../modules/common.nix
+    ../../modules/headless-server.nix
     ../../modules/auto-update.nix
     ../../modules/vpn-confinement.nix
     ../../modules/services/tailscale.nix
