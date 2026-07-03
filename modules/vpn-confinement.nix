@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 let
   cfg = config.media-server.vpn;
   ns = cfg.namespace;
@@ -32,10 +37,12 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    assertions = [{
-      assertion = cfg.wireguardConfig != null;
-      message = "media-server.vpn.wireguardConfig must be set when VPN is enabled";
-    }];
+    assertions = [
+      {
+        assertion = cfg.wireguardConfig != null;
+        message = "media-server.vpn.wireguardConfig must be set when VPN is enabled";
+      }
+    ];
 
     systemd.services."create-netns-${ns}" = {
       description = "Create network namespace ${ns}";
