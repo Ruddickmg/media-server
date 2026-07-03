@@ -21,7 +21,10 @@
 
   networking.firewall = {
     enable = true;
-    trustedInterfaces = [ "tailscale0" "lo" ];
+    trustedInterfaces = [
+      "tailscale0"
+      "lo"
+    ];
     allowedTCPPorts = [
       # Deluge, Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Plex
       # opened conditionally per-service via openFirewall option

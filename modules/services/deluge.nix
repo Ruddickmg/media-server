@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 let
   inherit (lib) mkIf mkOption types;
   cfg = config.media-server.deluge;
@@ -37,8 +42,14 @@ in
         del_copy_torrent_file = false;
         prioritize_first_last_pieces = false;
         random_port = true;
-        listen_random_port_range = [ 49152 65535 ];
-        outgoing_ports = [ 49152 65535 ];
+        listen_random_port_range = [
+          49152
+          65535
+        ];
+        outgoing_ports = [
+          49152
+          65535
+        ];
 
         # Bandwidth (capped at ~80% of 73.4/10.3 Mbps connection)
         max_download_speed = 7000.0;
@@ -58,7 +69,7 @@ in
         # *arrs will remove their torrents earlier; manual torrents hit this cap
         stop_seed_at_ratio = true;
         stop_seed_ratio = 3.0;
-        seed_time_limit = 20160;  # 14 days in minutes
+        seed_time_limit = 20160; # 14 days in minutes
         share_ratio_limit = 3.0;
         remove_seed_at_ratio = false;
         auto_managed = true;
@@ -99,7 +110,8 @@ in
         RestrictNamespaces = true;
         ReadWritePaths = [ "/var/lib/deluge" ];
       };
-    } // mkIf useVpn {
+    }
+    // mkIf useVpn {
       serviceConfig.NetworkNamespacePath = "/var/run/netns/${vpnNs}";
     };
 
@@ -111,8 +123,14 @@ in
 
     systemd.services.proxy-deluge = mkIf useVpn {
       description = "Proxy Deluge daemon from VPN namespace to root namespace";
-      requires = [ "deluged.service" "proxy-deluge.socket" ];
-      after = [ "deluged.service" "proxy-deluge.socket" ];
+      requires = [
+        "deluged.service"
+        "proxy-deluge.socket"
+      ];
+      after = [
+        "deluged.service"
+        "proxy-deluge.socket"
+      ];
       unitConfig.JoinsNamespaceOf = "deluged.service";
       serviceConfig = {
         User = "deluge";

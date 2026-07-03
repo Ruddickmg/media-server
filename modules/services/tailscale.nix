@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 {
   services.tailscale = {
     enable = true;
@@ -8,7 +13,10 @@
   networking.nftables.enable = true;
 
   networking.firewall = {
-    trustedInterfaces = [ "tailscale0" "lo" ];
+    trustedInterfaces = [
+      "tailscale0"
+      "lo"
+    ];
     allowedUDPPorts = [ config.services.tailscale.port ];
   };
 

@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 let
   inherit (builtins) substring hashString;
   inherit (config.networking) hostName;
@@ -54,7 +59,7 @@ in
   };
 
   config = {
-    users.groups.media = {};
+    users.groups.media = { };
 
     systemd.tmpfiles.rules = [
       "d /media 2775 root media"
