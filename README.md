@@ -25,10 +25,10 @@ Deluge ──► /media/downloads/completed/
 ### Filesystem layout (Btrfs subvolumes)
 
 ```
-500GB SSD
+1TB SSD
 ├── /boot        (ESP, vfat, 512M)
 ├── swap         (8G)
-└── Btrfs volume (rest)
+└── Btrfs volume (rest, ~991G)
     ├── @         → /              — root OS
     ├── @nix      → /nix           — nix store (noatime)
     ├── @state    → /var/lib       — app state / Plex metadata
@@ -43,6 +43,53 @@ Deluge ──► /media/downloads/completed/
 ```
 
 All services share the `media` group for file access.
+
+## Headless Server
+
+This machine is a repurposed laptop running as a dedicated server. The following are configured automatically:
+
+| Setting | Behavior |
+|---------|----------|
+| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. Root's authorized keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
+| **Lid close** | Ignored — system stays running |
+| **Suspend / Hibernate** | Disabled entirely — all sleep targets masked |
+| **Power/Sleep keys** | Ignored |
+| **CPU governor** | `performance` (always plugged in) |
+| **Sudo** | Passwordless for `wheel` group members |
+
+### SSH key setup
+
+Public keys are committed to the repo and baked into the system at build time. The private key never leaves your laptop.
+
+1. **Generate a key pair** on your laptop:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/media-server
+   ```
+
+2. **Copy the public key** and add it to `hosts/media-server/default.nix`:
+   ```bash
+   cat ~/.ssh/media-server.pub
+   ```
+   ```nix
+   media-server.headless.authorizedKeys = [
+     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL4J... user@laptop"
+   ];
+   ```
+
+3. **Deploy** — `nixos-rebuild switch` installs the key to `root`'s `authorized_keys`.
+
+4. **Connect** from your laptop:
+   ```bash
+   ssh -i ~/.ssh/media-server root@<machine-ip>
+   ```
+
+The private key (`~/.ssh/media-server`) is yours alone — never commit it. The public key (`~/.ssh/media-server.pub`) is safe to commit; it's meant to be shared.
+
+### Auto-power-on after power loss
+
+> **BIOS/firmware setting — not configurable from NixOS.**
+
+To make the laptop boot automatically when plugged in after a power loss, you must set the **"After Power Loss"** (or *"AC Recovery" / "Restore on AC Power Loss"*) option in your BIOS setup to **"Power On"** or **"Last State"**. This is typically found in the *Power Management* menu. Not all laptops support this feature.
 
 ## Quick Start
 
