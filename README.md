@@ -119,7 +119,7 @@ This creates the partition table, filesystems, and Btrfs subvolumes, then mounts
 ### 5. Generate hardware config
 
 ```bash
-nixos-generate-config --root /mnt --dir /mnt/etc/nixos/hosts/media-server
+nixos-generate-config --root /mnt --dir hosts/media-server
 ```
 
 This overwrites `hosts/media-server/hardware-configuration.nix` with the autodetected kernel modules for your machine. Disko handles `fileSystems` and `swap` — the generated config only needs `boot.initrd.availableKernelModules`.
