@@ -2,7 +2,7 @@
   description = "NixOS media server - Plex + *arr suite + Deluge";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
     disko = {
       url = "github:nix-community/disko";
