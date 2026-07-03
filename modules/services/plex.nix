@@ -12,8 +12,8 @@ in
     };
     openFirewall = mkOption {
       type = types.bool;
-      default = false;
-      description = "Open ports in firewall for Plex";
+      default = true;
+      description = "Open ports in firewall for Plex (remote access via Plex auth)";
     };
   };
 

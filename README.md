@@ -135,14 +135,23 @@ For each service:
 
 ## Security Architecture
 
-### Remote access via Tailscale
+### Access model
 
-All services listen on `0.0.0.0` but the host firewall blocks all external interfaces by default. The `tailscale0` interface is trusted, so traffic from the tailnet is allowed. This means you access the web UIs via the Tailscale IP (e.g., `http://100.x.x.x:8989`).
+The firewall uses two tiers:
 
-To access from the same physical network (LAN), override the firewall:
+| Tier | Services | How to access | Auth |
+|------|----------|---------------|------|
+| **Tailscale-only** | Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Unpackerr, Deluge | Via Tailscale IP (`http://100.x.x.x:<port>`) | Forms auth + Tailscale identity |
+| **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app/TV app | Plex.tv account auth |
+
+**Plex** has `openFirewall = true` by default because it's designed to be shared with friends and family. They connect via the Plex app on their TV, phone, or browser — no Tailscale needed. Plex handles authentication itself (Plex.tv accounts).
+
+> **DLNA note:** Plex also opens UDP ports 1900 (DLNA) and 5353 (mDNS) for local device discovery. DLNA broadcasts your library to any device on your LAN without authentication. This is fine for a home network. If you want to disable it, turn off DLNA in Plex's settings.
+
+**All other services** are locked down to Tailscale only — their ports are not opened on any physical interface. You access them via the Tailscale IP (e.g., `http://100.x.x.x:8989` for Sonarr). To expose them on LAN as well, set the service's `openFirewall = true` or add ports to the interface directly:
 
 ```nix
-networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 32400 8989 7878 8686 9696 6767 ];
+networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
 ```
 
 ### Form-based authentication
