@@ -4,6 +4,7 @@
     enable = true;
     user = "deluge";
     group = "media";
+    dataDir = "/var/lib/deluge";
 
     config = {
       download_location = "/media/downloads/completed";
@@ -20,9 +21,27 @@
       daemon_port = 58846;
       allow_remote = true;
     };
+  };
 
-    authFile = pkgs.writeText "deluge-auth" ''
-      localclient:localclient:10
+  systemd.services.deluge-auth = {
+    description = "Generate Deluge auth credentials";
+    before = [ "deluged.service" ];
+    requiredBy = [ "deluged.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      if [ ! -f /var/lib/deluge/auth ]; then
+        PASSWORD=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+        echo "localclient:$PASSWORD:10" > /var/lib/deluge/auth
+        chown deluge:deluge /var/lib/deluge/auth
+        chmod 600 /var/lib/deluge/auth
+        echo "$PASSWORD" > /var/lib/deluge/.password
+        chown deluge:deluge /var/lib/deluge/.password
+        chmod 600 /var/lib/deluge/.password
+        echo "Deluge thin client credentials: localclient / $PASSWORD" | systemd-cat -t deluge-auth
+      fi
     '';
   };
 
