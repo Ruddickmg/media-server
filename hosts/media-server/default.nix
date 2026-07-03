@@ -36,6 +36,8 @@
     logReversePathDrops = true;
   };
 
+  nixpkgs.config.allowUnfree = true;
+
   nix.gc = {
     automatic = true;
     dates = "daily";
