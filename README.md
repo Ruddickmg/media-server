@@ -22,43 +22,76 @@ Deluge ──► /media/downloads/completed/
          Plex
 ```
 
-Directory layout on the NixOS machine:
+### Filesystem layout (Btrfs subvolumes)
 
 ```
-/media/
-├── downloads/
-│   ├── incomplete/   # Deluge active downloads
-│   └── completed/    # Finished downloads (watched by Unpackerr)
-├── movies/           # Managed by Radarr
-├── tv/               # Managed by Sonarr
-└── music/            # Managed by Lidarr
+500GB SSD
+├── /boot        (ESP, vfat, 512M)
+├── swap         (8G)
+└── Btrfs volume (rest)
+    ├── @         → /              — root OS
+    ├── @nix      → /nix           — nix store (noatime)
+    ├── @state    → /var/lib       — app state / Plex metadata
+    ├── @log      → /var/log       — logs
+    └── @media    → /media         — bulk storage
+        ├── downloads/
+        │   ├── incomplete/   # Deluge active downloads
+        │   └── completed/    # Finished downloads (watched by Unpackerr)
+        ├── movies/           # Managed by Radarr
+        ├── tv/               # Managed by Sonarr
+        └── music/            # Managed by Lidarr
 ```
 
 All services share the `media` group for file access.
 
 ## Quick Start
 
-### 1. Clone on the target NixOS machine
+### 1. Boot the NixOS ISO
+
+Boot the target machine with the [NixOS minimal ISO](https://nixos.org/download).
+
+### 2. Clone the flake
 
 ```bash
-git clone <repo-url> /etc/nixos
+nix-shell -p git
+git clone <repo-url> /mnt/etc/nixos
 ```
 
-### 2. Generate hardware config
+### 3. Set the target disk
+
+Edit `hosts/media-server/disko.nix` and change the `device` path to match your disk (e.g. `/dev/nvme0n1` or `/dev/sda`).
+
+### 4. Partition and format
 
 ```bash
-nixos-generate-config --dir /etc/nixos/hosts/media-server
+sudo nix run github:nix-community/disko -- --mode disko /mnt/etc/nixos/hosts/media-server/disko.nix
 ```
 
-This overwrites `hosts/media-server/hardware-configuration.nix` with the autodetected hardware config for your machine.
+This creates the partition table, filesystems, and Btrfs subvolumes, then mounts everything.
 
-### 3. Rebuild
+### 5. Generate hardware config
 
 ```bash
-nixos-rebuild switch --flake /etc/nixos
+nixos-generate-config --root /mnt --dir /mnt/etc/nixos/hosts/media-server
 ```
 
-### 4. Authenticate Tailscale
+This overwrites `hosts/media-server/hardware-configuration.nix` with the autodetected kernel modules for your machine. Disko handles `fileSystems` and `swap` — the generated config only needs `boot.initrd.availableKernelModules`.
+
+### 6. Install
+
+```bash
+sudo nixos-install --flake /mnt/etc/nixos#media-server
+```
+
+Set the root password when prompted.
+
+### 7. Reboot
+
+```bash
+sudo reboot
+```
+
+### 8. Authenticate Tailscale
 
 ```bash
 tailscale up --accept-routes
@@ -150,15 +183,15 @@ Prowlarr can sync these settings to all connected *arrs from **Settings → Apps
 
 Seerr provides a clean UI for friends and family to request movies and TV shows, which flow through Sonarr and Radarr automatically.
 
+On first deploy, Seerr is pre-configured with Sonarr and Radarr connections (API keys, hostnames, default quality profiles, and root folders). The setup wizard is skipped entirely.
+
 1. Open `http://<tailscale-ip>:5055`
 2. Sign in with your **Plex account** (Seerr uses Plex for authentication)
 3. Grant Seerr access to your Plex server when prompted
-4. Go to **Settings → Services** and add Sonarr and Radarr:
-   - Host: `127.0.0.1`
-   - Port: `8989` (Sonarr) / `7878` (Radarr)
-   - API key: from `config.media-server.apiKeys.sonarr` / `config.media-server.apiKeys.radarr`
-   - Select quality profiles and root folders
+4. Review pre-filled settings at **Settings → Services** — connections to Sonarr and Radarr are already in place
 5. Configure user permissions and notification settings as desired
+
+> If you add custom quality profiles in Sonarr/Radarr later, update the profile selection in Seerr's service settings to match.
 
 ## Security Architecture
 
@@ -241,10 +274,18 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 | Prowlarr | 9696 | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
 | Bazarr | 6767 | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
 | Unpackerr | — | — | folder-based (no API config needed) |
-| Seerr | 5055 | `/var/lib/seerr` | N/A (Plex OAuth login) |
+| Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded via `disko` (Plex OAuth login) |
 | Plex | 32400 | `/var/lib/plex` | N/A |
 
 ## Customization
+
+### Disk device
+
+The target disk is set in `hosts/media-server/disko.nix` — change `device` to match your hardware before running disko:
+
+```nix
+disko.devices.disk.main.device = "/dev/nvme0n1";  # or /dev/sda, /dev/vda, etc.
+```
 
 ### API keys and passwords
 
@@ -332,3 +373,23 @@ sudo rm -rf /var/lib/wgnord /etc/wireguard/wgnord.conf /etc/wireguard/wgnord.key
 ## Auto-Updates
 
 A systemd timer runs daily: `git pull --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes and unclean working trees before pulling, so local modifications won't be overwritten.
+
+## Nix Store Maintenance
+
+Garbage collection runs daily, removing generations older than 30 days:
+
+```nix
+nix.gc = {
+  automatic = true;
+  dates = "daily";
+  options = "--delete-older-than 30d";
+};
+```
+
+The store is also automatically optimised after every build to deduplicate identical files:
+
+```nix
+nix.settings.auto-optimise-store = true;
+```
+
+With aggressive GC, the `/nix` subvolume (50G allocated, pooled via Btrfs) stays well within bounds for a headless server.
