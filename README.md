@@ -111,7 +111,7 @@ Edit `hosts/media-server/disko.nix` and change the `device` path to match your d
 ### 4. Partition and format
 
 ```bash
-sudo nix run github:nix-community/disko -- --mode disko /mnt/etc/nixos/hosts/media-server/disko.nix
+sudo nix run --extra-experimental-features nix-command --extra-experimental-features flakes github:nix-community/disko -- --mode disko /mnt/etc/nixos/hosts/media-server/disko.nix
 ```
 
 This creates the partition table, filesystems, and Btrfs subvolumes, then mounts everything.
