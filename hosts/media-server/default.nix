@@ -4,7 +4,6 @@
     ./hardware-configuration.nix
     ../../modules/common.nix
     ../../modules/auto-update.nix
-    ../../modules/init.nix
     ../../modules/services/deluge.nix
     ../../modules/services/unpackerr.nix
     ../../modules/services/prowlarr.nix

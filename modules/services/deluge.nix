@@ -1,10 +1,14 @@
-{ lib, pkgs, ... }:
+{ lib, config, ... }:
+let
+  dataDir = "/var/lib/deluge";
+  password = config.media-server.credentials.delugePassword;
+in
 {
   services.deluge = {
     enable = true;
     user = "deluge";
     group = "media";
-    dataDir = "/var/lib/deluge";
+    inherit dataDir;
 
     config = {
       download_location = "/media/downloads/completed";
@@ -23,27 +27,10 @@
     };
   };
 
-  systemd.services.deluge-auth = {
-    description = "Generate Deluge auth credentials";
-    before = [ "deluged.service" ];
-    requiredBy = [ "deluged.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      if [ ! -f /var/lib/deluge/auth ]; then
-        PASSWORD=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
-        echo "localclient:$PASSWORD:10" > /var/lib/deluge/auth
-        chown deluge:deluge /var/lib/deluge/auth
-        chmod 600 /var/lib/deluge/auth
-        echo "$PASSWORD" > /var/lib/deluge/.password
-        chown deluge:deluge /var/lib/deluge/.password
-        chmod 600 /var/lib/deluge/.password
-        echo "Deluge thin client credentials: localclient / $PASSWORD" | systemd-cat -t deluge-auth
-      fi
-    '';
-  };
+  systemd.services.deluged.preStart =
+    "install -d -o deluge -g deluge -m 700 ${dataDir} && "
+    + "echo 'localclient:${password}:10' > ${dataDir}/auth && "
+    + "chmod 600 ${dataDir}/auth";
 
   users.users.deluge.extraGroups = [ "media" ];
 }
