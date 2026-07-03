@@ -1,7 +1,10 @@
 { lib, pkgs, config, pkgs-unstable, ... }:
 let
-  inherit (lib) mkIf mkOption types;
+  inherit (lib) mkIf mkOption types optionalString;
   cfg = config.media-server.seerr;
+  apiKeys = config.media-server.apiKeys;
+  sonarrEnabled = config.media-server.sonarr.enable or false;
+  radarrEnabled = config.media-server.radarr.enable or false;
 in
 {
   options.media-server.seerr = {
@@ -38,7 +41,62 @@ in
         SEERR_DATA_DIR = "/var/lib/seerr";
         PORT = toString cfg.port;
         NODE_ENV = "production";
+        SEERR_API_KEY = apiKeys.seerr;
       };
+      preStart = ''
+        CONFIG_FILE="/var/lib/seerr/settings.json"
+        if [ ! -f "$CONFIG_FILE" ]; then
+          cat > "$CONFIG_FILE" << EOF
+      {
+        "initialized": true,
+        "seerrApiKey": "${apiKeys.seerr}"${optionalString sonarrEnabled ''
+        ,
+        "sonarr": [
+          {
+            "name": "Sonarr",
+            "hostname": "localhost",
+            "port": 8989,
+            "apiKey": "${apiKeys.sonarr}",
+            "useSsl": false,
+            "baseUrl": "",
+            "activeProfileId": 1,
+            "activeProfileName": "Any",
+            "activeAnimeProfileId": 1,
+            "activeAnimeProfileName": "Any",
+            "activeDirectory": "/media/tv",
+            "activeAnimeDirectory": "/media/tv",
+            "id": 0,
+            "is4k": false,
+            "enableScan": true,
+            "enableAutomaticSearch": false
+          }
+        ]''}${optionalString radarrEnabled ''
+        ,
+        "radarr": [
+          {
+            "name": "Radarr",
+            "hostname": "localhost",
+            "port": 7878,
+            "apiKey": "${apiKeys.radarr}",
+            "useSsl": false,
+            "baseUrl": "",
+            "activeProfileId": 1,
+            "activeProfileName": "Any",
+            "activeDirectory": "/media/movies",
+            "id": 0,
+            "is4k": false,
+            "enableScan": true,
+            "enableAutomaticSearch": false,
+            "minimumAvailability": "announced"
+          }
+        ]''}
+      }
+EOF
+          chown seerr:seerr "$CONFIG_FILE"
+          chmod 600 "$CONFIG_FILE"
+          echo "Seeded Seerr settings.json with Sonarr/Radarr configuration"
+        fi
+      '';
       serviceConfig = {
         Type = "exec";
         User = "seerr";

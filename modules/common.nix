@@ -27,6 +27,11 @@ in
         default = key "prowlarr";
         description = "API key for Prowlarr";
       };
+      seerr = lib.mkOption {
+        type = lib.types.str;
+        default = key "seerr";
+        description = "API key for Seerr";
+      };
     };
     credentials = {
       delugePassword = lib.mkOption {
