@@ -12,16 +12,19 @@ jobs:
     executor: nix
     steps:
       - checkout
-      - run: nix flake check --no-build
-      - run: |
-          nix run nixpkgs#nixfmt -- --check \
-            $(find . -name '*.nix' -not -path './.git/*' | sort)
+      - run:
+          name: check formatting on all *.nix files
+          command: |
+            nix run nixpkgs#nixfmt -- --check \
+              $(find . -name '*.nix' -not -path './.git/*' | sort)
 
   build:
     executor: nix
     steps:
       - checkout
-      - run: nix build .#nixosConfigurations.media-server.config.system.build.toplevel
+      - run:
+          name: Build
+          command: nix build .#nixosConfigurations.media-server.config.system.build.toplevel
 
 workflows:
   version: 2

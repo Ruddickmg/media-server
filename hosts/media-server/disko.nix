@@ -21,7 +21,6 @@
               size = "8G";
               content = {
                 type = "swap";
-                discard = true;
               };
             };
             root = {
