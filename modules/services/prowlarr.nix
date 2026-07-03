@@ -22,7 +22,6 @@ in
   config = mkIf cfg.enable {
     services.prowlarr = {
       enable = true;
-      group = "media";
       openFirewall = cfg.openFirewall;
     };
 

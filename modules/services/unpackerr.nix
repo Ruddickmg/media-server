@@ -2,6 +2,7 @@
 let
   inherit (lib) mkIf mkOption types;
   cfg = config.media-server.unpackerr;
+  apiKeys = config.media-server.apiKeys;
 in
 {
   options.media-server.unpackerr = {
@@ -18,36 +19,52 @@ in
   };
 
   config = mkIf cfg.enable {
-    services.unpackerr = {
-      enable = true;
+    users.users.unpackerr = {
       group = "media";
-      openFirewall = cfg.openFirewall;
-      settings = {
-        sonarr = {
-          "0" = {
-            api_key = config.media-server.apiKeys.sonarr;
-            urls = [ "http://127.0.0.1:8989" ];
-          };
-        };
-        radarr = {
-          "0" = {
-            api_key = config.media-server.apiKeys.radarr;
-            urls = [ "http://127.0.0.1:7878" ];
-          };
-        };
-        lidarr = {
-          "0" = {
-            api_key = config.media-server.apiKeys.lidarr;
-            urls = [ "http://127.0.0.1:8686" ];
-          };
-        };
-        extractor_paths = [ "/media/downloads/completed" ];
-        delete_after_extraction = true;
-      };
+      isSystemUser = true;
     };
 
     systemd.services.unpackerr = {
+      description = "Unpackerr - automated archive extraction";
+      after = [ "network.target" "sonarr.service" "radarr.service" "lidarr.service" ];
+      wantedBy = [ "multi-user.target" ];
+
+      preStart = ''
+        CONFIG_FILE="/var/lib/unpackerr/unpackerr.conf"
+        if [ ! -f "$CONFIG_FILE" ]; then
+          mkdir -p "$(dirname "$CONFIG_FILE")"
+          cat > "$CONFIG_FILE" << EOF
+sonarr:
+  - api_key: "${apiKeys.sonarr}"
+    urls:
+      - http://localhost:8989
+radarr:
+  - api_key: "${apiKeys.radarr}"
+    urls:
+      - http://localhost:7878
+lidarr:
+  - api_key: "${apiKeys.lidarr}"
+    urls:
+      - http://localhost:8686
+extractor_paths:
+  - /media/downloads/completed
+delete_after_extraction: true
+EOF
+          chown unpackerr:media "$CONFIG_FILE"
+          chmod 600 "$CONFIG_FILE"
+          echo "Seeded Unpackerr config"
+        fi
+      '';
+
       serviceConfig = {
+        Type = "simple";
+        User = "unpackerr";
+        Group = "media";
+        ExecStart = "${pkgs.unpackerr}/bin/unpackerr -c /var/lib/unpackerr/unpackerr.conf";
+        Restart = "on-failure";
+        RestartSec = "10";
+        StateDirectory = "unpackerr";
+        StateDirectoryMode = "0750";
         ProtectHome = true;
         PrivateTmp = true;
         NoNewPrivileges = true;
@@ -57,11 +74,14 @@ in
         ProtectControlGroups = true;
         RestrictRealtime = true;
         SystemCallArchitectures = "native";
-        MemoryDenyWriteExecute = true;
         PrivateDevices = true;
         LockPersonality = true;
         RestrictNamespaces = true;
       };
+    };
+
+    networking.firewall = mkIf cfg.openFirewall {
+      allowedTCPPorts = [ 6767 ];
     };
   };
 }

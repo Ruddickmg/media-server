@@ -27,6 +27,7 @@ in
   config = mkIf cfg.enable {
     services.deluge = {
       enable = true;
+      declarative = true;
       config = {
         daemon_port = 58846;
         download_location = "/media/downloads/incomplete";
