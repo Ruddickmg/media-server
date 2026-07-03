@@ -14,6 +14,7 @@
     ../../modules/services/lidarr.nix
     ../../modules/services/bazarr.nix
     ../../modules/services/plex.nix
+    ../../modules/services/seerr.nix
   ];
 
   networking.hostName = "media-server";

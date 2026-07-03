@@ -146,6 +146,20 @@ Prowlarr can sync these settings to all connected *arrs from **Settings → Apps
    - **TV Shows** → `/media/tv`
    - **Music** → `/media/music`
 
+### Seerr — media request portal
+
+Seerr provides a clean UI for friends and family to request movies and TV shows, which flow through Sonarr and Radarr automatically.
+
+1. Open `http://<tailscale-ip>:5055`
+2. Sign in with your **Plex account** (Seerr uses Plex for authentication)
+3. Grant Seerr access to your Plex server when prompted
+4. Go to **Settings → Services** and add Sonarr and Radarr:
+   - Host: `127.0.0.1`
+   - Port: `8989` (Sonarr) / `7878` (Radarr)
+   - API key: from `config.media-server.apiKeys.sonarr` / `config.media-server.apiKeys.radarr`
+   - Select quality profiles and root folders
+5. Configure user permissions and notification settings as desired
+
 ## Security Architecture
 
 ### Access model
@@ -154,7 +168,7 @@ The firewall uses two tiers:
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale-only** | Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Unpackerr, Deluge | Via Tailscale IP (`http://100.x.x.x:<port>`) | Forms auth + Tailscale identity |
+| **Tailscale-only** | Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Unpackerr, Deluge, Seerr | Via Tailscale IP (`http://100.x.x.x:<port>`) | Plex OAuth (Seerr) / Forms auth + Tailscale identity |
 | **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app/TV app | Plex.tv account auth |
 
 **Plex** has `openFirewall = true` by default because it's designed to be shared with friends and family. They connect via the Plex app on their TV, phone, or browser — no Tailscale needed. Plex handles authentication itself (Plex.tv accounts).
@@ -227,6 +241,7 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 | Prowlarr | 9696 | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
 | Bazarr | 6767 | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
 | Unpackerr | — | — | folder-based (no API config needed) |
+| Seerr | 5055 | `/var/lib/seerr` | N/A (Plex OAuth login) |
 | Plex | 32400 | `/var/lib/plex` | N/A |
 
 ## Customization
