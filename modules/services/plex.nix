@@ -1,11 +1,42 @@
-{ lib, ... }:
+{ lib, pkgs, config, ... }:
+let
+  inherit (lib) mkIf mkOption types;
+  cfg = config.media-server.plex;
+in
 {
-  services.plex = {
-    enable = true;
-    openFirewall = true;
-    user = "plex";
-    group = "media";
+  options.media-server.plex = {
+    enable = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Enable Plex Media Server";
+    };
+    openFirewall = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Open ports in firewall for Plex";
+    };
   };
 
-  users.users.plex.extraGroups = [ "media" ];
+  config = mkIf cfg.enable {
+    services.plex = {
+      enable = true;
+      group = "media";
+      openFirewall = cfg.openFirewall;
+    };
+
+    systemd.services.plex = {
+      serviceConfig = {
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        PrivateDevices = true;
+        LockPersonality = true;
+      };
+    };
+  };
 }

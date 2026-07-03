@@ -1,6 +1,6 @@
 # Media Server — NixOS Flake
 
-NixOS configuration for a media server running Plex, Deluge, and the *arr suite.
+NixOS configuration for a media server running Plex, Deluge, and the *arr suite with security hardening.
 
 ## Architecture
 
@@ -58,9 +58,21 @@ This overwrites `hosts/media-server/hardware-configuration.nix` with the autodet
 nixos-rebuild switch --flake /etc/nixos
 ```
 
+### 4. Authenticate Tailscale
+
+```bash
+tailscale up --accept-routes
+```
+
+Once authenticated, the server is reachable via the Tailscale IP rather than exposing ports on your LAN.
+
 ## Post-Deploy Steps
 
 These steps require the web UIs — they involve credentials you provide (indexer accounts) or state stored in application databases (connection configs).
+
+### Form authentication setup
+
+If `media-server.security.enableAuthentication = true` (default), the *arr web UIs require a username and password on first visit. Set these via each service's web UI before configuring them.
 
 ### Deluge thin client
 
@@ -74,7 +86,7 @@ These steps require the web UIs — they involve credentials you provide (indexe
    ```
 
 2. Connect with the Deluge Thin Client:
-   - Daemon host: `<machine-ip>`
+   - Daemon host: `<machine-ip>` or `<tailscale-ip>`
    - Port: `58846`
    - Username: `localclient`
    - Password: *(from step 1)*
@@ -121,6 +133,66 @@ For each service:
    - **TV Shows** → `/media/tv`
    - **Music** → `/media/music`
 
+## Security Architecture
+
+### Remote access via Tailscale
+
+All services listen on `0.0.0.0` but the host firewall blocks all external interfaces by default. The `tailscale0` interface is trusted, so traffic from the tailnet is allowed. This means you access the web UIs via the Tailscale IP (e.g., `http://100.x.x.x:8989`).
+
+To access from the same physical network (LAN), override the firewall:
+
+```nix
+networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 32400 8989 7878 8686 9696 6767 ];
+```
+
+### Form-based authentication
+
+All *arr services (Sonarr, Radarr, Lidarr, Prowlarr) are configured to use Forms authentication. On the first visit to each web UI, you must set an admin username and password. This can be disabled per-service by setting:
+
+```nix
+media-server.security.enableAuthentication = false;
+```
+
+### Systemd hardening
+
+All services apply the following hardening directives where compatible:
+
+| Directive | Purpose |
+|-----------|---------|
+| `ProtectHome=true` | No access to `/home` |
+| `PrivateTmp=true` | Isolated `/tmp` |
+| `NoNewPrivileges=true` | Block privilege escalation |
+| `CapabilityBoundingSet=` | Drop all capabilities |
+| `ProtectKernelTunables=true` | Read-only kernel tunables |
+| `ProtectKernelModules=true` | No kernel module access |
+| `ProtectControlGroups=true` | Read-only cgroups |
+| `RestrictRealtime=true` | No realtime scheduling |
+| `SystemCallArchitectures=native` | Only native syscalls |
+| `PrivateDevices=true` | Minimal device access |
+| `LockPersonality=true` | Lock execution domain |
+| `RestrictNamespaces=true` (where supported) | Block namespace creation |
+
+Plex skips `CapabilityBoundingSet` and `MemoryDenyWriteExecute` for transcoding compatibility.
+
+### VPN confinement (Deluge)
+
+Deluge can be isolated in a dedicated network namespace with a WireGuard VPN to anonymize torrent traffic. This provides a built-in kill switch — if the VPN drops, Deluge loses all network connectivity.
+
+Enable it by:
+
+1. Placing a WireGuard configuration file from a VPN provider on the server (e.g., `/etc/nixos/secrets/vpn.conf`)
+2. Enabling the feature:
+
+```nix
+{
+  media-server.vpn.enable = true;
+  media-server.vpn.wireguardConfig = "/etc/nixos/secrets/vpn.conf";
+  media-server.deluge.vpnConfinement = true;
+}
+```
+
+When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the Deluge daemon port (58846) from the root namespace so the thin client can still connect. The proxy is available on `127.0.0.1:58846`.
+
 ## Service Reference
 
 | Service | Port | Config file | API key location |
@@ -160,13 +232,19 @@ Then add `secrets/` to `.gitignore`.
 
 ### Firewall
 
-All service ports are opened in the default config. To restrict access to your LAN only, override in your host config:
+The host firewall blocks all inbound traffic on physical interfaces by default. Only the `tailscale0` and `lo` interfaces are trusted. Each service exposes its port on the tailnet only unless `openFirewall = true` is set.
 
-```nix
-networking.firewall.interfaces."enp0s3".allowedTCPPorts = [
-  # ... services you want exposed on LAN
-];
-# Or use a wireguard interface for remote access
+To restrict further, see the firewall section under [Security Architecture](#security-architecture).
+
+### VPN provider WireGuard config
+
+The VPN confinement module expects a standard `.conf` file from your VPN provider. For Mullvad:
+
+```bash
+# After downloading your WireGuard config from Mullvad:
+sudo mkdir -p /etc/nixos/secrets
+sudo cp ~/Downloads/mullvad-us123.conf /etc/nixos/secrets/vpn.conf
+sudo chmod 600 /etc/nixos/secrets/vpn.conf
 ```
 
 ## Auto-Updates

@@ -1,32 +1,65 @@
-{ lib, config, pkgs, ... }:
+{ lib, pkgs, config, ... }:
 let
-  dataDir = "/var/lib/sonarr";
-  apiKey = config.media-server.apiKeys.sonarr;
-  configXml = pkgs.writeText "sonarr-config.xml" (
-    ''<?xml version="1.0" encoding="utf-8"?>
-<Config>
-  <ApiKey>'' + "${apiKey}" + ''</ApiKey>
-  <Port>8989</Port>
-  <SslPort>9898</SslPort>
-  <EnableSsl>False</EnableSsl>
-  <LaunchBrowser>False</LaunchBrowser>
-  <UpdateMechanism>External</UpdateMechanism>
-  <BindAddress>*</BindAddress>
-  <LogLevel>Info</LogLevel>
-</Config>''
-  );
+  inherit (lib) mkIf mkOption types;
+  cfg = config.media-server.sonarr;
+  authXml = lib.optionalString config.media-server.security.enableAuthentication
+    "<AuthenticationMethod>Forms</AuthenticationMethod>";
 in
 {
-  services.sonarr = {
-    enable = true;
-    user = "sonarr";
-    group = "media";
-    inherit dataDir;
+  options.media-server.sonarr = {
+    enable = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Enable Sonarr";
+    };
+    openFirewall = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Open ports in firewall for Sonarr";
+    };
   };
 
-  systemd.services.sonarr.preStart =
-    "if [ ! -f ${dataDir}/config.xml ]; then "
-    + "install -m 0644 -o sonarr -g sonarr ${configXml} ${dataDir}/config.xml; fi";
+  config = mkIf cfg.enable {
+    services.sonarr = {
+      enable = true;
+      group = "media";
+      openFirewall = cfg.openFirewall;
+    };
 
-  users.users.sonarr.extraGroups = [ "media" ];
+    systemd.services.sonarr = {
+      preStart = ''
+        CONFIG_FILE="/var/lib/sonarr/config.xml"
+        API_KEY="${config.media-server.apiKeys.sonarr}"
+        if [ ! -f "$CONFIG_FILE" ]; then
+          cat > "$CONFIG_FILE" << EOF
+<Config>
+  <ApiKey>''${API_KEY}</ApiKey>
+  <Port>8989</Port>
+  <UrlBase></UrlBase>
+  <BindAddress>*</BindAddress>
+  <EnableSsl>False</EnableSsl>
+  ${authXml}
+</Config>
+EOF
+          chown sonarr:sonarr "$CONFIG_FILE"
+          chmod 600 "$CONFIG_FILE"
+          echo "Seeded Sonarr config.xml"
+        fi
+      '';
+      serviceConfig = {
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = [ "" ];
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        PrivateDevices = true;
+        LockPersonality = true;
+        RestrictNamespaces = true;
+      };
+    };
+  };
 }

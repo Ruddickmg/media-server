@@ -35,6 +35,17 @@ in
         description = "Password for Deluge thin client authentication";
       };
     };
+    security = {
+      enableAuthentication = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Enable form-based authentication on Sonarr, Radarr, Lidarr,
+          and Prowlarr web UIs. First visit to each web UI will prompt
+          to set an admin username and password.
+        '';
+      };
+    };
   };
 
   users.groups.media = {};
