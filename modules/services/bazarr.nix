@@ -38,12 +38,12 @@ port = 6767
 base_url =
 
 [sonarr]
-api_key = ${SONARR_KEY}
+api_key = ''${SONARR_KEY}
 full_update = True
 enabled = True
 
 [radarr]
-api_key = ${RADARR_KEY}
+api_key = ''${RADARR_KEY}
 full_update = True
 enabled = True
 EOF
