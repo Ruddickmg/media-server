@@ -238,13 +238,58 @@ To restrict further, see the firewall section under [Security Architecture](#sec
 
 ### VPN provider WireGuard config
 
-The VPN confinement module expects a standard `.conf` file from your VPN provider. For Mullvad:
+The VPN confinement module expects a standard WireGuard `.conf` file. You generate this on any machine (your laptop, a desktop, wherever), then copy the resulting file to the server via `scp`.
+
+> **The `.conf` file contains a PrivateKey — treat it as a secret and never commit it to the repository.**
+
+#### NordVPN
+
+NordVPN uses a proprietary NordLynx protocol (based on WireGuard) and does not distribute `.conf` files directly. The [`wgnord`](https://search.nixos.org/packages?show=wgnord) tool (available in nixpkgs 24.11) generates one from your access token.
+
+**1. Create an access token**
+
+Go to [NordVPN access tokens](https://my.nordaccount.com/dashboard/nordvpn/access-tokens/) and generate a new token.
+
+**2. Generate a WireGuard `.conf` file**
+
+Run this on any machine with Nix (your laptop, a desktop, etc.):
 
 ```bash
-# After downloading your WireGuard config from Mullvad:
-sudo mkdir -p /etc/nixos/secrets
-sudo cp ~/Downloads/mullvad-us123.conf /etc/nixos/secrets/vpn.conf
+# Enter a shell with wgnord and its dependencies
+nix shell nixpkgs#wgnord nixpkgs#wireguard-tools nixpkgs#openresolv
+
+# Set up the template
+sudo mkdir -p /var/lib/wgnord
+sudo curl -o /var/lib/wgnord/template.conf \
+  https://raw.githubusercontent.com/phirecc/wgnord/master/template.conf
+
+# Log in with your NordVPN access token
+sudo wgnord l "your-access-token"
+
+# Generate the config for a specific country (e.g. us, de, nl)
+sudo wgnord c us
+
+# The config is now at /etc/wireguard/wgnord.conf
+```
+
+If your local machine isn't NixOS (e.g. Ubuntu with Nix installed), the `nix shell` command works identically.
+
+**3. Copy to the server**
+
+```bash
+scp /etc/wireguard/wgnord.conf media-server:/etc/nixos/secrets/vpn.conf
+```
+
+On the server:
+
+```bash
 sudo chmod 600 /etc/nixos/secrets/vpn.conf
+```
+
+**4. (Optional) Clean up wgnord state on your local machine**
+
+```bash
+sudo rm -rf /var/lib/wgnord /etc/wireguard/wgnord.conf /etc/wireguard/wgnord.key
 ```
 
 ## Auto-Updates
