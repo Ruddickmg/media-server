@@ -27,9 +27,8 @@
     description = "Daily NixOS auto-update check";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "daily";
+      OnCalendar = "*:0,15,30,45";
       Persistent = true;
-      RandomizedDelaySec = "1h";
     };
   };
 }
