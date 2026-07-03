@@ -62,8 +62,8 @@ in
         remove_seed_at_ratio = false;
         auto_managed = true;
       };
-      daemonUser = "deluge";
-      daemonGroup = "deluge";
+      user = "deluge";
+      group = "deluge";
       dataDir = "/var/lib/deluge";
     };
 
