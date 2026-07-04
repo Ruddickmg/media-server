@@ -32,10 +32,10 @@ in
     };
 
     services.logind = {
-      lidSwitch = "ignore";
-      lidSwitchExternalPower = "ignore";
       settings = {
         Login = {
+          HandleLidSwitch = "ignore";
+          HandleLidSwitchExternalPower = "ignore";
           HandlePowerKey = "ignore";
           HandleSuspendKey = "ignore";
           HandleHibernateKey = "ignore";
