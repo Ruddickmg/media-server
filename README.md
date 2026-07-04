@@ -50,12 +50,13 @@ This machine is a repurposed laptop running as a dedicated server. The following
 
 | Setting | Behavior |
 |---------|----------|
-| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. Root's authorized keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
+| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. Root and `media-server` user keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
+| **Console** | Auto-login to `media-server` user on tty1 — no password needed |
 | **Lid close** | Ignored — system stays running |
 | **Suspend / Hibernate** | Disabled entirely — all sleep targets masked |
 | **Power/Sleep keys** | Ignored |
 | **CPU governor** | `performance` (always plugged in) |
-| **Sudo** | Passwordless for `wheel` group members |
+| **Sudo** | Disabled entirely — no user has sudo access |
 
 
 ## Quick Start
@@ -105,13 +106,19 @@ Set the root password when prompted.
 sudo reboot
 ```
 
-### 8. Authenticate Tailscale
+### 8. Create Tailscale auth key
+
+Before `nixos-install`, place a reusable Tailscale auth key on the install media:
 
 ```bash
-tailscale up --accept-routes
+mkdir -p /mnt/etc/nixos/secrets
+echo "tskey-auth-<your-auth-key>" > /mnt/etc/nixos/secrets/tailscale-auth
+chmod 600 /mnt/etc/nixos/secrets/tailscale-auth
 ```
 
-Once authenticated, the server is reachable via the Tailscale IP rather than exposing ports on your LAN.
+Generate the auth key from the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys) — use a **reusable** key so it persists across rebuilds. The `secrets/` directory is gitignored and never committed to the repository.
+
+On first boot, `tailscaled` reads this key and joins your tailnet automatically. No interactive `tailscale up` needed.
 
 ### SSH key setup
 
@@ -132,11 +139,11 @@ Public keys are committed to the repo and baked into the system at build time. T
    ];
    ```
 
-3. **Deploy** — `nixos-rebuild switch` installs the key to `root`'s `authorized_keys`.
+3. **Deploy** — `nixos-rebuild switch` installs the key to both `root`'s and `media-server`'s `authorized_keys`.
 
 4. **Connect** from your laptop:
    ```bash
-   ssh -i ~/.ssh/media-server root@<machine-ip>
+   ssh -i ~/.ssh/media-server media-server@<machine-ip>
    ```
 
 The private key (`~/.ssh/media-server`) is yours alone — never commit it. The public key (`~/.ssh/media-server.pub`) is safe to commit; it's meant to be shared.
@@ -144,6 +151,18 @@ The private key (`~/.ssh/media-server`) is yours alone — never commit it. The 
 ## Post-Deploy Steps
 
 These steps require the web UIs — they involve credentials you provide (indexer accounts) or external service configuration (Plex).
+
+### (One-time) Create the Tailscale auth key
+
+If deploying to an existing server (not a fresh install), SSH in as root once to create the auth key file:
+
+```bash
+mkdir -p /etc/nixos/secrets
+echo "tskey-auth-<your-auth-key>" > /etc/nixos/secrets/tailscale-auth
+chmod 600 /etc/nixos/secrets/tailscale-auth
+```
+
+On the next rebuild, `tailscaled` reads the key and authenticates automatically. Root SSH access is preserved for this purpose and can be disabled later.
 
 ### Deluge thin client
 

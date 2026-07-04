@@ -13,7 +13,7 @@ in
     authorizedKeys = mkOption {
       type = types.listOf types.str;
       default = [ ];
-      description = "SSH public keys to authorize for root login";
+      description = "SSH public keys authorized for root and media-server users";
       example = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL4JPTmz5x0W4C+l7Jd5F0... user@laptop"
       ];
@@ -52,18 +52,19 @@ in
 
     powerManagement.cpuFreqGovernor = "performance";
 
-    security.sudo.extraRules = [
-      {
-        groups = [ "wheel" ];
-        commands = [
-          {
-            command = "ALL";
-            options = [ "NOPASSWD" ];
-          }
-        ];
-      }
-    ];
+    services.getty.autologinUser = "media-server";
+
+    services.tailscale.authKeyFile = "/etc/nixos/secrets/tailscale-auth";
 
     users.users.root.openssh.authorizedKeys.keys = cfg.authorizedKeys;
+
+    users.users.media-server = {
+      isNormalUser = true;
+      group = "media-server";
+      extraGroups = [ "media" "systemd-journal" ];
+      openssh.authorizedKeys.keys = cfg.authorizedKeys;
+    };
+
+    users.groups.media-server = { };
   };
 }
