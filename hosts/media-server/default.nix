@@ -5,6 +5,7 @@
     ../../modules/common.nix
     ../../modules/headless-server.nix
     ../../modules/auto-update.nix
+    ../../modules/auto-reboot.nix
     ../../modules/vpn-confinement.nix
     ../../modules/services/tailscale.nix
     ../../modules/services/deluge.nix
@@ -25,6 +26,8 @@
   };
 
   networking.hostName = "media-server";
+
+  time.timeZone = "Pacific/Honolulu";
 
   media-server = {
     headless.authorizedKeys = [
