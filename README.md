@@ -152,18 +152,6 @@ The private key (`~/.ssh/media-server`) is yours alone — never commit it. The 
 
 These steps require the web UIs — they involve credentials you provide (indexer accounts) or external service configuration (Plex).
 
-### (One-time) Create the Tailscale auth key
-
-If deploying to an existing server (not a fresh install), SSH in as root once to create the auth key file:
-
-```bash
-mkdir -p /etc/nixos/secrets
-echo "tskey-auth-<your-auth-key>" > /etc/nixos/secrets/tailscale-auth
-chmod 600 /etc/nixos/secrets/tailscale-auth
-```
-
-On the next rebuild, `tailscaled` reads the key and authenticates automatically. Root SSH access is preserved for this purpose and can be disabled later.
-
 ### Prowlarr — add indexers
 
 1. Open `http://<machine-ip>:9696`
