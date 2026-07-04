@@ -84,29 +84,26 @@ in
       extraGroups = [ "media" ];
     };
 
-    systemd.services.deluged = {
-      serviceConfig = {
-        ProtectHome = true;
-        PrivateTmp = true;
-        NoNewPrivileges = true;
-        CapabilityBoundingSet = [ "" ];
-        ProtectSystem = "strict";
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
-        RestrictRealtime = true;
-        SystemCallArchitectures = "native";
-        PrivateDevices = true;
-        LockPersonality = true;
-        RestrictNamespaces = true;
-        ReadWritePaths = [
-          "/var/lib/deluge"
-          "/media/downloads"
-        ];
-      };
-    }
-    // mkIf useVpn {
-      serviceConfig.NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+    systemd.services.deluged.serviceConfig = {
+      ProtectHome = true;
+      PrivateTmp = true;
+      NoNewPrivileges = true;
+      CapabilityBoundingSet = [ "" ];
+      ProtectSystem = "strict";
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      ProtectControlGroups = true;
+      RestrictRealtime = true;
+      SystemCallArchitectures = "native";
+      PrivateDevices = true;
+      LockPersonality = true;
+      RestrictNamespaces = true;
+      ReadWritePaths = [
+        "/var/lib/deluge"
+        "/media/downloads"
+      ];
+    } // mkIf useVpn {
+      NetworkNamespacePath = "/var/run/netns/${vpnNs}";
     };
 
     systemd.sockets.proxy-deluge = mkIf useVpn {

@@ -209,15 +209,6 @@ The firewall uses two tiers:
 networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
 ```
 
-### Authentication
-
-Forms authentication is **disabled by default** — all *arr services (Sonarr, Radarr, Lidarr, Prowlarr) start with no login prompt, and declarr connects to them via API without credentials. Access is restricted via the Tailscale-only firewall.
-
-To re-enable form-based authentication:
-
-```nix
-media-server.security.enableAuthentication = true;
-```
 
 ### Systemd hardening
 
