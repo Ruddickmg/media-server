@@ -270,7 +270,7 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 | Lidarr | 8686 | `/var/lib/lidarr/config.xml` | `config.media-server.apiKeys.lidarr` |
 | Prowlarr | 9696 | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
 | Bazarr | 6767 | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
-| Unpackerr | 6767 | `/var/lib/unpackerr/unpackerr.conf` | configured via *arr API keys (auto-extraction) |
+| Unpackerr | — | `/var/lib/unpackerr/unpackerr.conf` | configured via *arr API keys (auto-extraction); metrics endpoint disabled by default |
 | Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded (Plex OAuth login) |
 | Plex | 32400 | `/var/lib/plex` | N/A |
 | declarr | — | `/var/lib/declarr` | auto-configured from `config.media-server.apiKeys.*` |

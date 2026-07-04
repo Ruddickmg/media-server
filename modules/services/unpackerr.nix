@@ -19,7 +19,7 @@ in
     openFirewall = mkOption {
       type = types.bool;
       default = false;
-      description = "Open ports in firewall for Unpackerr web UI";
+      description = "Open ports in firewall for Unpackerr metrics endpoint";
     };
   };
 
@@ -91,7 +91,7 @@ in
     };
 
     networking.firewall = mkIf cfg.openFirewall {
-      allowedTCPPorts = [ 6767 ];
+      allowedTCPPorts = [ 5656 ];
     };
   };
 }
