@@ -22,6 +22,12 @@ let
         url = "http://localhost:8989";
       };
 
+      config = {
+        host = {
+          apiKey = apiKeys.sonarr;
+        };
+      };
+
       downloadClient.Deluge = {
         implementation = "Deluge";
         fields = {
@@ -44,6 +50,12 @@ let
         url = "http://localhost:7878";
       };
 
+      config = {
+        host = {
+          apiKey = apiKeys.radarr;
+        };
+      };
+
       downloadClient.Deluge = {
         implementation = "Deluge";
         fields = {
@@ -64,6 +76,12 @@ let
       declarr = {
         type = "lidarr";
         url = "http://localhost:8686";
+      };
+
+      config = {
+        host = {
+          apiKey = apiKeys.lidarr;
+        };
       };
 
       downloadClient.Deluge = {
@@ -93,6 +111,12 @@ let
       declarr = {
         type = "prowlarr";
         url = "http://localhost:9696";
+      };
+
+      config = {
+        host = {
+          apiKey = apiKeys.prowlarr;
+        };
       };
 
       appProfile = {

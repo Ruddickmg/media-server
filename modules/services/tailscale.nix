@@ -20,7 +20,7 @@
     allowedUDPPorts = [ config.services.tailscale.port ];
   };
 
-  systemd.services.tailscaled.serviceConfig.Environment = [
+  systemd.services.tailscaled.serviceConfig.Environment = lib.mkAfter [
     "TS_DEBUG_FIREWALL_MODE=nftables"
   ];
 

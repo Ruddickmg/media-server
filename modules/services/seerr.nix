@@ -37,6 +37,10 @@ in
   };
 
   config = mkIf cfg.enable {
+    systemd.tmpfiles.rules = [
+      "d /var/lib/seerr/config 0755 seerr seerr -"
+    ];
+
     users.users.seerr = {
       group = "seerr";
       isSystemUser = true;
@@ -59,8 +63,7 @@ in
                 if [ ! -f "$CONFIG_FILE" ]; then
                   cat > "$CONFIG_FILE" << EOF
               {
-                "initialized": true,
-                "seerrApiKey": "${apiKeys.seerr}"${optionalString sonarrEnabled ''
+                "initialized": true${optionalString sonarrEnabled ''
                   ,
                   "sonarr": [
                     {
@@ -130,6 +133,7 @@ in
         PrivateDevices = true;
         LockPersonality = true;
         RestrictNamespaces = true;
+        BindPaths = [ "/var/lib/seerr/config:${pkgs-unstable.seerr}/share/config" ];
       };
     };
 

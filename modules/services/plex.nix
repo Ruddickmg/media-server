@@ -29,18 +29,8 @@ in
       openFirewall = cfg.openFirewall;
     };
 
-    systemd.services.plex = {
-      serviceConfig = {
-        ProtectHome = true;
-        PrivateTmp = true;
-        NoNewPrivileges = true;
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
-        RestrictRealtime = true;
-        SystemCallArchitectures = "native";
-        LockPersonality = true;
-      };
+    systemd.services.plex.serviceConfig = {
+      SystemCallArchitectures = "native";
     };
   };
 }
