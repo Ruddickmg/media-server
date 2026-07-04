@@ -21,6 +21,10 @@ in
   };
 
   config = {
+    time.timeZone = "Pacific/Honolulu";
+
+    environment.systemPackages = [ pkgs.kitty.terminfo ];
+
     services.openssh = {
       enable = true;
       settings = {
