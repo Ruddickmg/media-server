@@ -8,6 +8,10 @@
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    declarr = {
+      url = "github:upidapi/declarr";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -16,6 +20,7 @@
       nixpkgs,
       nixpkgs-unstable,
       disko,
+      declarr,
       ...
     }:
     let
@@ -28,9 +33,10 @@
     {
       nixosConfigurations.media-server = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit pkgs-unstable; };
+        specialArgs = { inherit pkgs-unstable declarr; };
         modules = [
           disko.nixosModules.disko
+          declarr.nixosModules.default
           ./hosts/media-server/disko.nix
           ./hosts/media-server/default.nix
         ];

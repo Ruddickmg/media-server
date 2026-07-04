@@ -16,6 +16,7 @@
     ../../modules/services/bazarr.nix
     ../../modules/services/plex.nix
     ../../modules/services/seerr.nix
+    ../../modules/declarr.nix
   ];
 
   boot.loader = {
