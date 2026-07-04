@@ -26,9 +26,21 @@
 
   networking.hostName = "media-server";
 
-  media-server.headless.authorizedKeys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFtQlXM4BBmMjr0B35YzlQIOJRPRUdiCas6Yzk5So2w3 grant@grant-XPS-15-9530"
-  ];
+  media-server = {
+    headless.authorizedKeys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFtQlXM4BBmMjr0B35YzlQIOJRPRUdiCas6Yzk5So2w3 grant@grant-XPS-15-9530"
+    ];
+
+    sonarr.enable = true;
+    radarr.enable = true;
+    lidarr.enable = true;
+    prowlarr.enable = true;
+    deluge.enable = true;
+    bazarr.enable = true;
+    plex.enable = true;
+    seerr.enable = true;
+    unpackerr.enable = true;
+  };
 
   networking.firewall = {
     enable = true;
