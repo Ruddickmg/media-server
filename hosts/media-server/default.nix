@@ -27,6 +27,8 @@
 
   networking.hostName = "media-server";
 
+  time.timeZone = "Pacific/Honolulu";
+
   media-server = {
     headless.authorizedKeys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFtQlXM4BBmMjr0B35YzlQIOJRPRUdiCas6Yzk5So2w3 grant@grant-XPS-15-9530"
