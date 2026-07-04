@@ -74,6 +74,7 @@ in
         remove_seed_at_ratio = false;
         auto_managed = true;
       };
+      authFile = "/var/lib/deluge/auth";
       user = "deluge";
       group = "deluge";
       dataDir = "/var/lib/deluge";
