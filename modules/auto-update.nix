@@ -24,7 +24,7 @@
   };
 
   systemd.timers.nixos-auto-update = {
-    description = "Daily NixOS auto-update check";
+    description = "NixOS auto-update check every 15 minutes";
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnCalendar = "*:0,15,30,45";

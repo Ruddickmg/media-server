@@ -86,7 +86,10 @@ in
     systemd.services.deluged = {
       preStart = ''
         PASSWORD_FILE="/var/lib/deluge/auth"
-        PASSWORD="${config.media-server.credentials.delugePassword}"
+        # Tailscale/LAN firewall is the access control, not this password.
+        # The daemon port (58846) is only accessible via tailscale0 or lo.
+        # Change at runtime by editing this file and restarting deluged.
+        PASSWORD="deluge"
         if [ ! -f "$PASSWORD_FILE" ]; then
           echo "localclient:''${PASSWORD}:10" > "$PASSWORD_FILE"
           chown deluge:deluge "$PASSWORD_FILE"

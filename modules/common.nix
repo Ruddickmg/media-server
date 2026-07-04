@@ -38,17 +38,10 @@ in
         description = "API key for Seerr";
       };
     };
-    credentials = {
-      delugePassword = lib.mkOption {
-        type = lib.types.str;
-        default = substring 0 16 (hashString "sha256" "${hostName}-deluge");
-        description = "Password for Deluge thin client authentication";
-      };
-    };
     security = {
       enableAuthentication = lib.mkOption {
         type = lib.types.bool;
-        default = true;
+        default = false;
         description = ''
           Enable form-based authentication on Sonarr, Radarr, Lidarr,
           and Prowlarr web UIs. First visit to each web UI will prompt

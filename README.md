@@ -1,6 +1,6 @@
 # Media Server — NixOS Flake
 
-NixOS configuration for a media server running Plex, Deluge, and the *arr suite with security hardening.
+NixOS configuration for a media server running Plex, Deluge, and the *arr suite with security hardening and fully automated service configuration.
 
 ## Architecture
 
@@ -46,50 +46,18 @@ All services share the `media` group for file access.
 
 ## Headless Server
 
-This machine is a repurposed laptop running as a dedicated server. The following are configured automatically:
+The following are configured automatically:
 
 | Setting | Behavior |
 |---------|----------|
-| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. Root's authorized keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
+| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. Root and `media-server` user keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
+| **Console** | Auto-login to `media-server` user on tty1 — no password needed |
 | **Lid close** | Ignored — system stays running |
 | **Suspend / Hibernate** | Disabled entirely — all sleep targets masked |
 | **Power/Sleep keys** | Ignored |
 | **CPU governor** | `performance` (always plugged in) |
-| **Sudo** | Passwordless for `wheel` group members |
+| **Sudo** | Disabled entirely — no user has sudo access |
 
-### SSH key setup
-
-Public keys are committed to the repo and baked into the system at build time. The private key never leaves your laptop.
-
-1. **Generate a key pair** on your laptop:
-   ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/media-server
-   ```
-
-2. **Copy the public key** and add it to `hosts/media-server/default.nix`:
-   ```bash
-   cat ~/.ssh/media-server.pub
-   ```
-   ```nix
-   media-server.headless.authorizedKeys = [
-     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL4J... user@laptop"
-   ];
-   ```
-
-3. **Deploy** — `nixos-rebuild switch` installs the key to `root`'s `authorized_keys`.
-
-4. **Connect** from your laptop:
-   ```bash
-   ssh -i ~/.ssh/media-server root@<machine-ip>
-   ```
-
-The private key (`~/.ssh/media-server`) is yours alone — never commit it. The public key (`~/.ssh/media-server.pub`) is safe to commit; it's meant to be shared.
-
-### Auto-power-on after power loss
-
-> **BIOS/firmware setting — not configurable from NixOS.**
-
-To make the laptop boot automatically when plugged in after a power loss, you must set the **"After Power Loss"** (or *"AC Recovery" / "Restore on AC Power Loss"*) option in your BIOS setup to **"Power On"** or **"Last State"**. This is typically found in the *Power Management* menu. Not all laptops support this feature.
 
 ## Quick Start
 
@@ -138,84 +106,64 @@ Set the root password when prompted.
 sudo reboot
 ```
 
-### 8. Authenticate Tailscale
+### 8. Create Tailscale auth key
+
+Before `nixos-install`, place a reusable Tailscale auth key on the install media:
 
 ```bash
-tailscale up --accept-routes
+mkdir -p /mnt/etc/nixos/secrets
+echo "tskey-auth-<your-auth-key>" > /mnt/etc/nixos/secrets/tailscale-auth
+chmod 600 /mnt/etc/nixos/secrets/tailscale-auth
 ```
 
-Once authenticated, the server is reachable via the Tailscale IP rather than exposing ports on your LAN.
+Generate the auth key from the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys) — use a **reusable** key so it persists across rebuilds. The `secrets/` directory is gitignored and never committed to the repository.
+
+On first boot, `tailscaled` reads this key and joins your tailnet automatically. No interactive `tailscale up` needed.
+
+### SSH key setup
+
+Public keys are committed to the repo and baked into the system at build time.
+
+1. **Generate a key pair**:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/media-server
+   ```
+
+2. **Copy the public key** and add it to `hosts/media-server/default.nix`:
+   ```bash
+   cat ~/.ssh/media-server.pub
+   ```
+   ```nix
+   media-server.headless.authorizedKeys = [
+     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL4J... user@laptop"
+   ];
+   ```
+
+3. **Deploy** — `nixos-rebuild switch` installs the key to both `root`'s and `media-server`'s `authorized_keys`.
+
+4. **Connect**:
+   ```bash
+   ssh -i ~/.ssh/media-server media-server@<machine-ip>
+   ```
+
+The private key (`~/.ssh/media-server`) is yours alone — never commit it. The public key (`~/.ssh/media-server.pub`) is safe to commit; it's meant to be shared.
 
 ## Post-Deploy Steps
 
-These steps require the web UIs — they involve credentials you provide (indexer accounts) or state stored in application databases (connection configs).
-
-### Form authentication setup
-
-If `media-server.security.enableAuthentication = true` (default), the *arr web UIs require a username and password on first visit. Set these via each service's web UI before configuring them.
-
-### Deluge thin client
-
-1. Read the auto-generated password:
-   ```bash
-   journalctl -u deluged.service | grep "localclient"
-   ```
-   Or check the option value:
-   ```bash
-   nix eval '.#nixosConfigurations.media-server.config.media-server.credentials.delugePassword'
-   ```
-
-2. Connect with the Deluge Thin Client:
-   - Daemon host: `<machine-ip>` or `<tailscale-ip>`
-   - Port: `58846`
-   - Username: `localclient`
-   - Password: *(from step 1)*
+These steps require the web UIs — they involve credentials you provide (indexer accounts) or external service configuration (Plex).
 
 ### Prowlarr — add indexers
 
 1. Open `http://<machine-ip>:9696`
 2. Add your torrent indexers (requires your account credentials for each indexer)
 
-### Sonarr, Radarr, Lidarr — connect to Deluge
-
-For each service:
-
-1. Open its web UI:
-   - Sonarr: `http://<machine-ip>:8989`
-   - Radarr: `http://<machine-ip>:7878`
-   - Lidarr: `http://<machine-ip>:8686`
-2. Go to **Settings → Download Clients → Add**
-3. Select **Deluge**
-4. Set:
-   - Host: `127.0.0.1`
-   - Port: `58846`
-   - Password: *(Deluge password from above)*
-   - Category: `sonarr`, `radarr`, or `lidarr` (match the app)
-5. Test and save
+Indexers added in Prowlarr are automatically synced to Sonarr, Radarr, and Lidarr via the pre-configured application connections.
 
 ### Seeding and ratio management
 
 Deluge's global seeding ceiling is set intentionally high (`stop_seed_ratio = 3.0`, `seed_time_limit = 14` days) as a safety net for manually-added torrents. It should never be hit by *arr-managed torrents — those are handled per-indexer.
 
-For each indexer, set realistic seed goals in Sonarr, Radarr, and Lidarr:
-
-1. Go to **Settings → Indexers**
-2. Click an indexer, then **Show Advanced** (top right)
-3. Set **Seed Ratio** and/or **Seed Time** (e.g. `2.0` or `72` hours)
-4. Repeat for each indexer
-
-Prowlarr can sync these settings to all connected *arrs from **Settings → Apps** if you enable **Sync Seed Ratio** / **Sync Seed Time** on each app. Once configured, the *arr will remove the torrent from Deluge when the goal is met, well before the global ceiling kicks in.
-
-### Prowlarr — sync to Sonarr, Radarr, Lidarr
-
-1. Open `http://<machine-ip>:9696`
-2. Go to **Settings → Apps**
-3. Add Sonarr, Radarr, and Lidarr as applications:
-   - Each connects to `http://127.0.0.1:<port>`
-   - API key: found in `/var/lib/<service>/config.xml` on the server, or via:
-     ```bash
-     nix eval '.#nixosConfigurations.media-server.config.media-server.apiKeys.sonarr'
-     ```
+For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met, well before the global ceiling kicks in.
 
 ### Plex — add libraries
 
@@ -248,7 +196,7 @@ The firewall uses two tiers:
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale-only** | Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Unpackerr, Deluge, Seerr | Via Tailscale IP (`http://100.x.x.x:<port>`) | Plex OAuth (Seerr) / Forms auth + Tailscale identity |
+| **Tailscale-only** | Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Unpackerr, Deluge, Seerr | Via Tailscale IP (`http://100.x.x.x:<port>`) | Plex OAuth (Seerr) / Tailscale identity only |
 | **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app/TV app | Plex.tv account auth |
 
 **Plex** has `openFirewall = true` by default because it's designed to be shared with friends and family. They connect via the Plex app on their TV, phone, or browser — no Tailscale needed. Plex handles authentication itself (Plex.tv accounts).
@@ -261,12 +209,14 @@ The firewall uses two tiers:
 networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
 ```
 
-### Form-based authentication
+### Authentication
 
-All *arr services (Sonarr, Radarr, Lidarr, Prowlarr) are configured to use Forms authentication. On the first visit to each web UI, you must set an admin username and password. This can be disabled per-service by setting:
+Forms authentication is **disabled by default** — all *arr services (Sonarr, Radarr, Lidarr, Prowlarr) start with no login prompt, and declarr connects to them via API without credentials. Access is restricted via the Tailscale-only firewall.
+
+To re-enable form-based authentication:
 
 ```nix
-media-server.security.enableAuthentication = false;
+media-server.security.enableAuthentication = true;
 ```
 
 ### Systemd hardening
@@ -288,7 +238,7 @@ All services apply the following hardening directives where compatible:
 | `LockPersonality=true` | Lock execution domain |
 | `RestrictNamespaces=true` (where supported) | Block namespace creation |
 
-Plex skips `CapabilityBoundingSet` and `MemoryDenyWriteExecute` for transcoding compatibility.
+Plex skips `CapabilityBoundingSet` for transcoding compatibility.
 
 ### VPN confinement (Deluge)
 
@@ -313,16 +263,17 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 
 | Service | Port | Config file | API key location |
 |---------|------|-------------|------------------|
-| Deluge (daemon) | 58846 | `/var/lib/deluge/auth` | N/A (password-based) |
+| Deluge (daemon) | 58846 | `/var/lib/deluge/auth` | N/A (firewall-enforced) |
 | Deluge (web UI) | 8112 | — | — |
 | Sonarr | 8989 | `/var/lib/sonarr/config.xml` | `config.media-server.apiKeys.sonarr` |
 | Radarr | 7878 | `/var/lib/radarr/config.xml` | `config.media-server.apiKeys.radarr` |
 | Lidarr | 8686 | `/var/lib/lidarr/config.xml` | `config.media-server.apiKeys.lidarr` |
 | Prowlarr | 9696 | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
 | Bazarr | 6767 | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
-| Unpackerr | — | — | folder-based (no API config needed) |
-| Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded via `disko` (Plex OAuth login) |
+| Unpackerr | 6767 | `/var/lib/unpackerr/unpackerr.conf` | configured via *arr API keys (auto-extraction) |
+| Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded (Plex OAuth login) |
 | Plex | 32400 | `/var/lib/plex` | N/A |
+| declarr | — | `/var/lib/declarr` | auto-configured from `config.media-server.apiKeys.*` |
 
 ## Customization
 
@@ -334,14 +285,13 @@ The target disk is set in `hosts/media-server/disko.nix` — change `device` to 
 disko.devices.disk.main.device = "/dev/nvme0n1";  # or /dev/sda, /dev/vda, etc.
 ```
 
-### API keys and passwords
+### API keys
 
 Keys are derived deterministically from the hostname. To override any of them, set the option in your host config:
 
 ```nix
 { ... }: {
   media-server.apiKeys.sonarr = "my-custom-key";
-  media-server.credentials.delugePassword = "my-password";
 }
 ```
 
@@ -419,7 +369,7 @@ sudo rm -rf /var/lib/wgnord /etc/wireguard/wgnord.conf /etc/wireguard/wgnord.key
 
 ## Auto-Updates
 
-A systemd timer runs daily: `git pull --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes and unclean working trees before pulling, so local modifications won't be overwritten.
+A systemd timer runs every 15 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes before pulling, so local modifications won't be overwritten.
 
 ## Nix Store Maintenance
 
@@ -440,3 +390,20 @@ nix.settings.auto-optimise-store = true;
 ```
 
 With aggressive GC, the `/nix` subvolume (50G allocated, pooled via Btrfs) stays well within bounds for a headless server.
+
+## Automated Configuration
+
+On first boot, [declarr](https://github.com/upidapi/declarr) runs automatically after all *arr services start and configures the following via their REST APIs:
+
+| What | Details |
+|------|---------|
+| **Deluge download client** | Added to Sonarr, Radarr, and Lidarr |
+| **Root folders** | `/media/tv` (Sonarr), `/media/movies` (Radarr), `/media/music` (Lidarr) |
+| **Prowlarr applications** | Sonarr, Radarr, and Lidarr registered with full sync |
+| **Prowlarr app profiles** | Standard, Automatic, and Interactive Search profiles created |
+| **Authentication** | Disabled by default — no login prompts |
+
+Additionally, Bazarr and Unpackerr are pre-configured via their config files on first start with the appropriate *arr API keys and connections. Seerr is pre-configured with Sonarr and Radarr connections.
+
+No manual service-to-service configuration is needed.
+
