@@ -39,7 +39,7 @@ in
         ProtectControlGroups = true;
         RestrictRealtime = true;
         SystemCallArchitectures = "native";
-        PrivateDevices = true;
+        PrivateDevices = lib.mkForce true;
         LockPersonality = true;
       };
     };
