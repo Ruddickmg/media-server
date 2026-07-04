@@ -37,6 +37,10 @@ in
   };
 
   config = mkIf cfg.enable {
+    systemd.tmpfiles.rules = [
+      "d /var/lib/seerr/config 0755 seerr seerr -"
+    ];
+
     users.users.seerr = {
       group = "seerr";
       isSystemUser = true;
@@ -130,6 +134,7 @@ in
         PrivateDevices = true;
         LockPersonality = true;
         RestrictNamespaces = true;
+        BindPaths = [ "/var/lib/seerr/config:${pkgs-unstable.seerr}/share/config" ];
       };
     };
 
