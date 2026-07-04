@@ -9,7 +9,6 @@ let
   cfg = config.media-server.prowlarr;
   vpnNs = config.media-server.vpn.namespace;
   useVpn = cfg.vpnConfinement && config.media-server.vpn.enable;
-  authXml = lib.optionalString config.media-server.security.enableAuthentication "<AuthenticationMethod>Forms</AuthenticationMethod>";
 in
 {
   options.media-server.prowlarr = {
@@ -34,43 +33,22 @@ in
     services.prowlarr = {
       enable = true;
       openFirewall = cfg.openFirewall;
-      apiKeyFile = "${pkgs.writeText "prowlarr-api-key" config.media-server.apiKeys.prowlarr}";
+      settings.config.host.apiKey = config.media-server.apiKeys.prowlarr;
     };
 
-    systemd.services.prowlarr = {
-      preStart = ''
-                CONFIG_FILE="/var/lib/prowlarr/config.xml"
-                API_KEY="${config.media-server.apiKeys.prowlarr}"
-                if [ ! -f "$CONFIG_FILE" ]; then
-                  cat > "$CONFIG_FILE" << EOF
-        <Config>
-          <ApiKey>''${API_KEY}</ApiKey>
-          <Port>9696</Port>
-          <UrlBase></UrlBase>
-          <BindAddress>*</BindAddress>
-          <EnableSsl>False</EnableSsl>
-          ${authXml}
-        </Config>
-        EOF
-                  chown prowlarr:prowlarr "$CONFIG_FILE"
-                  chmod 600 "$CONFIG_FILE"
-                  echo "Seeded Prowlarr config.xml"
-                fi
-      '';
-      serviceConfig = {
-        ProtectHome = true;
-        PrivateTmp = true;
-        NoNewPrivileges = true;
-        CapabilityBoundingSet = [ "" ];
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
-        RestrictRealtime = true;
-        SystemCallArchitectures = "native";
-        PrivateDevices = true;
-        LockPersonality = true;
-        RestrictNamespaces = true;
-      };
+    systemd.services.prowlarr.serviceConfig = {
+      ProtectHome = true;
+      PrivateTmp = true;
+      NoNewPrivileges = true;
+      CapabilityBoundingSet = [ "" ];
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      ProtectControlGroups = true;
+      RestrictRealtime = true;
+      SystemCallArchitectures = "native";
+      PrivateDevices = true;
+      LockPersonality = true;
+      RestrictNamespaces = true;
     }
     // mkIf useVpn {
       serviceConfig.NetworkNamespacePath = "/var/run/netns/${vpnNs}";
