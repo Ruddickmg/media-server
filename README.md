@@ -57,39 +57,6 @@ This machine is a repurposed laptop running as a dedicated server. The following
 | **CPU governor** | `performance` (always plugged in) |
 | **Sudo** | Passwordless for `wheel` group members |
 
-### SSH key setup
-
-Public keys are committed to the repo and baked into the system at build time. The private key never leaves your laptop.
-
-1. **Generate a key pair** on your laptop:
-   ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/media-server
-   ```
-
-2. **Copy the public key** and add it to `hosts/media-server/default.nix`:
-   ```bash
-   cat ~/.ssh/media-server.pub
-   ```
-   ```nix
-   media-server.headless.authorizedKeys = [
-     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL4J... user@laptop"
-   ];
-   ```
-
-3. **Deploy** — `nixos-rebuild switch` installs the key to `root`'s `authorized_keys`.
-
-4. **Connect** from your laptop:
-   ```bash
-   ssh -i ~/.ssh/media-server root@<machine-ip>
-   ```
-
-The private key (`~/.ssh/media-server`) is yours alone — never commit it. The public key (`~/.ssh/media-server.pub`) is safe to commit; it's meant to be shared.
-
-### Auto-power-on after power loss
-
-> **BIOS/firmware setting — not configurable from NixOS.**
-
-To make the laptop boot automatically when plugged in after a power loss, you must set the **"After Power Loss"** (or *"AC Recovery" / "Restore on AC Power Loss"*) option in your BIOS setup to **"Power On"** or **"Last State"**. This is typically found in the *Power Management* menu. Not all laptops support this feature.
 
 ## Quick Start
 
@@ -146,23 +113,37 @@ tailscale up --accept-routes
 
 Once authenticated, the server is reachable via the Tailscale IP rather than exposing ports on your LAN.
 
+### SSH key setup
+
+Public keys are committed to the repo and baked into the system at build time. The private key never leaves your laptop.
+
+1. **Generate a key pair** on your laptop:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/media-server
+   ```
+
+2. **Copy the public key** and add it to `hosts/media-server/default.nix`:
+   ```bash
+   cat ~/.ssh/media-server.pub
+   ```
+   ```nix
+   media-server.headless.authorizedKeys = [
+     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL4J... user@laptop"
+   ];
+   ```
+
+3. **Deploy** — `nixos-rebuild switch` installs the key to `root`'s `authorized_keys`.
+
+4. **Connect** from your laptop:
+   ```bash
+   ssh -i ~/.ssh/media-server root@<machine-ip>
+   ```
+
+The private key (`~/.ssh/media-server`) is yours alone — never commit it. The public key (`~/.ssh/media-server.pub`) is safe to commit; it's meant to be shared.
+
 ## Post-Deploy Steps
 
 These steps require the web UIs — they involve credentials you provide (indexer accounts) or external service configuration (Plex).
-
-### Automated configuration (declarr)
-
-On first boot, [declarr](https://github.com/upidapi/declarr) runs automatically after all *arr services start and configures the following via their REST APIs:
-
-| What | Details |
-|------|---------|
-| **Deluge download client** | Added to Sonarr, Radarr, and Lidarr |
-| **Root folders** | `/media/tv` (Sonarr), `/media/movies` (Radarr), `/media/music` (Lidarr) |
-| **Prowlarr applications** | Sonarr, Radarr, and Lidarr registered with full sync |
-| **Prowlarr app profiles** | Standard, Automatic, and Interactive Search profiles created |
-| **Authentication** | Disabled by default — no login prompts |
-
-No manual service-to-service configuration is needed.
 
 ### Deluge thin client
 
@@ -267,7 +248,7 @@ All services apply the following hardening directives where compatible:
 | `LockPersonality=true` | Lock execution domain |
 | `RestrictNamespaces=true` (where supported) | Block namespace creation |
 
-Plex skips `CapabilityBoundingSet` and `MemoryDenyWriteExecute` for transcoding compatibility.
+Plex skips `CapabilityBoundingSet` for transcoding compatibility.
 
 ### VPN confinement (Deluge)
 
@@ -299,7 +280,7 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 | Lidarr | 8686 | `/var/lib/lidarr/config.xml` | `config.media-server.apiKeys.lidarr` |
 | Prowlarr | 9696 | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
 | Bazarr | 6767 | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
-| Unpackerr | — | `/var/lib/unpackerr/unpackerr.conf` | folder-based (no API config needed) |
+| Unpackerr | 6767 | `/var/lib/unpackerr/unpackerr.conf` | configured via *arr API keys (auto-extraction) |
 | Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded (Plex OAuth login) |
 | Plex | 32400 | `/var/lib/plex` | N/A |
 | declarr | — | `/var/lib/declarr` | auto-configured from `config.media-server.apiKeys.*` |
@@ -399,7 +380,7 @@ sudo rm -rf /var/lib/wgnord /etc/wireguard/wgnord.conf /etc/wireguard/wgnord.key
 
 ## Auto-Updates
 
-A systemd timer runs daily: `git pull --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes and unclean working trees before pulling, so local modifications won't be overwritten.
+A systemd timer runs every 15 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes before pulling, so local modifications won't be overwritten.
 
 ## Nix Store Maintenance
 
@@ -420,3 +401,20 @@ nix.settings.auto-optimise-store = true;
 ```
 
 With aggressive GC, the `/nix` subvolume (50G allocated, pooled via Btrfs) stays well within bounds for a headless server.
+
+## Automated Configuration
+
+On first boot, [declarr](https://github.com/upidapi/declarr) runs automatically after all *arr services start and configures the following via their REST APIs:
+
+| What | Details |
+|------|---------|
+| **Deluge download client** | Added to Sonarr, Radarr, and Lidarr |
+| **Root folders** | `/media/tv` (Sonarr), `/media/movies` (Radarr), `/media/music` (Lidarr) |
+| **Prowlarr applications** | Sonarr, Radarr, and Lidarr registered with full sync |
+| **Prowlarr app profiles** | Standard, Automatic, and Interactive Search profiles created |
+| **Authentication** | Disabled by default — no login prompts |
+
+Additionally, Bazarr and Unpackerr are pre-configured via their config files on first start with the appropriate *arr API keys and connections. Seerr is pre-configured with Sonarr and Radarr connections.
+
+No manual service-to-service configuration is needed.
+
