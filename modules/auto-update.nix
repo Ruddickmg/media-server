@@ -1,9 +1,10 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 {
   systemd.services.nixos-auto-update = {
     description = "Pull latest NixOS config from Git and rebuild";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
+    path = [ pkgs.gitMinimal ];
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = "/etc/nixos";
