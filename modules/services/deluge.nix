@@ -112,7 +112,10 @@ in
         PrivateDevices = true;
         LockPersonality = true;
         RestrictNamespaces = true;
-        ReadWritePaths = [ "/var/lib/deluge" ];
+        ReadWritePaths = [
+          "/var/lib/deluge"
+          "/media/downloads"
+        ];
       };
     }
     // mkIf useVpn {
