@@ -44,21 +44,21 @@ in
                 if [ ! -f "$CONFIG_FILE" ]; then
                   mkdir -p "$(dirname "$CONFIG_FILE")"
                   cat > "$CONFIG_FILE" << EOF
-        sonarr:
-          - api_key: "${apiKeys.sonarr}"
-            urls:
-              - http://localhost:8989
-        radarr:
-          - api_key: "${apiKeys.radarr}"
-            urls:
-              - http://localhost:7878
-        lidarr:
-          - api_key: "${apiKeys.lidarr}"
-            urls:
-              - http://localhost:8686
-        extractor_paths:
-          - /media/downloads/completed
-        delete_after_extraction: true
+        [[sonarr]]
+          url = "http://localhost:8989"
+          api_key = "${apiKeys.sonarr}"
+        [[radarr]]
+          url = "http://localhost:7878"
+          api_key = "${apiKeys.radarr}"
+        [[lidarr]]
+          url = "http://localhost:8686"
+          api_key = "${apiKeys.lidarr}"
+        [folders]
+          enable = true
+          paths = ["/media/downloads/completed"]
+          interval = "1s"
+        [extractor]
+          delete_after = true
         EOF
                   chown unpackerr:media "$CONFIG_FILE"
                   chmod 600 "$CONFIG_FILE"
