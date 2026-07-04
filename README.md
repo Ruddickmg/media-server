@@ -50,7 +50,7 @@ The following are configured automatically:
 
 | Setting | Behavior |
 |---------|----------|
-| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. Root and `media-server` user keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
+| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. `media-server` user keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
 | **Console** | Auto-login to `media-server` user on tty1 — no password needed |
 | **Lid close** | Ignored — system stays running |
 | **Suspend / Hibernate** | Disabled entirely — all sleep targets masked |
@@ -139,7 +139,7 @@ Public keys are committed to the repo and baked into the system at build time.
    ];
    ```
 
-3. **Deploy** — `nixos-rebuild switch` installs the key to both `root`'s and `media-server`'s `authorized_keys`.
+3. **Deploy** — `nixos-rebuild switch` installs the key to `media-server`'s `authorized_keys`.
 
 4. **Connect**:
    ```bash
