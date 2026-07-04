@@ -33,6 +33,7 @@ in
     services.prowlarr = {
       enable = true;
       openFirewall = cfg.openFirewall;
+      apiKeyFile = "${pkgs.writeText "prowlarr-api-key" config.media-server.apiKeys.prowlarr}";
       environmentFiles = [
         (pkgs.writeText "prowlarr-env" ''
           PROWLARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.prowlarr}

@@ -27,6 +27,7 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
+      apiKeyFile = "${pkgs.writeText "sonarr-api-key" config.media-server.apiKeys.sonarr}";
       environmentFiles = [
         (pkgs.writeText "sonarr-env" ''
           SONARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.sonarr}

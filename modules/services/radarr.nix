@@ -27,6 +27,7 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
+      apiKeyFile = "${pkgs.writeText "radarr-api-key" config.media-server.apiKeys.radarr}";
       environmentFiles = [
         (pkgs.writeText "radarr-env" ''
           RADARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.radarr}
