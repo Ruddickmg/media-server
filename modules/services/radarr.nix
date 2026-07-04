@@ -27,7 +27,11 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
-      settings.config.host.apiKey = config.media-server.apiKeys.radarr;
+      environmentFiles = [
+        (pkgs.writeText "radarr-env" ''
+          RADARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.radarr}
+        '')
+      ];
     };
 
     systemd.services.radarr.serviceConfig = {

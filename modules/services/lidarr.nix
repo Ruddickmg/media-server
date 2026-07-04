@@ -27,7 +27,11 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
-      settings.config.host.apiKey = config.media-server.apiKeys.lidarr;
+      environmentFiles = [
+        (pkgs.writeText "lidarr-env" ''
+          LIDARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.lidarr}
+        '')
+      ];
     };
 
     systemd.services.lidarr.serviceConfig = {

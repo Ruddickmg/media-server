@@ -27,7 +27,11 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
-      settings.config.host.apiKey = config.media-server.apiKeys.sonarr;
+      environmentFiles = [
+        (pkgs.writeText "sonarr-env" ''
+          SONARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.sonarr}
+        '')
+      ];
     };
 
     systemd.services.sonarr.serviceConfig = {
