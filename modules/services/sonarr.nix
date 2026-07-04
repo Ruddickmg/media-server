@@ -28,7 +28,7 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
-      apiKeyFile = pkgs.writeText "sonarr-api-key" config.media-server.apiKeys.sonarr;
+      apiKeyFile = "${pkgs.writeText "sonarr-api-key" config.media-server.apiKeys.sonarr}";
     };
 
     systemd.services.sonarr = {

@@ -34,7 +34,7 @@ in
     services.prowlarr = {
       enable = true;
       openFirewall = cfg.openFirewall;
-      apiKeyFile = pkgs.writeText "prowlarr-api-key" config.media-server.apiKeys.prowlarr;
+      apiKeyFile = "${pkgs.writeText "prowlarr-api-key" config.media-server.apiKeys.prowlarr}";
     };
 
     systemd.services.prowlarr = {

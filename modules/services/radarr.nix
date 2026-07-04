@@ -28,7 +28,7 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
-      apiKeyFile = pkgs.writeText "radarr-api-key" config.media-server.apiKeys.radarr;
+      apiKeyFile = "${pkgs.writeText "radarr-api-key" config.media-server.apiKeys.radarr}";
     };
 
     systemd.services.radarr = {
