@@ -1,6 +1,6 @@
 # Media Server — NixOS Flake
 
-NixOS configuration for a media server running Plex, Deluge, and the *arr suite with security hardening.
+NixOS configuration for a media server running Plex, Deluge, and the *arr suite with security hardening and fully automated service configuration.
 
 ## Architecture
 
@@ -148,11 +148,21 @@ Once authenticated, the server is reachable via the Tailscale IP rather than exp
 
 ## Post-Deploy Steps
 
-These steps require the web UIs — they involve credentials you provide (indexer accounts) or state stored in application databases (connection configs).
+These steps require the web UIs — they involve credentials you provide (indexer accounts) or external service configuration (Plex).
 
-### Form authentication setup
+### Automated configuration (declarr)
 
-If `media-server.security.enableAuthentication = true` (default), the *arr web UIs require a username and password on first visit. Set these via each service's web UI before configuring them.
+On first boot, [declarr](https://github.com/upidapi/declarr) runs automatically after all *arr services start and configures the following via their REST APIs:
+
+| What | Details |
+|------|---------|
+| **Deluge download client** | Added to Sonarr, Radarr, and Lidarr |
+| **Root folders** | `/media/tv` (Sonarr), `/media/movies` (Radarr), `/media/music` (Lidarr) |
+| **Prowlarr applications** | Sonarr, Radarr, and Lidarr registered with full sync |
+| **Prowlarr app profiles** | Standard, Automatic, and Interactive Search profiles created |
+| **Authentication** | Disabled by default — no login prompts |
+
+No manual service-to-service configuration is needed.
 
 ### Deluge thin client
 
@@ -176,46 +186,13 @@ If `media-server.security.enableAuthentication = true` (default), the *arr web U
 1. Open `http://<machine-ip>:9696`
 2. Add your torrent indexers (requires your account credentials for each indexer)
 
-### Sonarr, Radarr, Lidarr — connect to Deluge
-
-For each service:
-
-1. Open its web UI:
-   - Sonarr: `http://<machine-ip>:8989`
-   - Radarr: `http://<machine-ip>:7878`
-   - Lidarr: `http://<machine-ip>:8686`
-2. Go to **Settings → Download Clients → Add**
-3. Select **Deluge**
-4. Set:
-   - Host: `127.0.0.1`
-   - Port: `58846`
-   - Password: *(Deluge password from above)*
-   - Category: `sonarr`, `radarr`, or `lidarr` (match the app)
-5. Test and save
+Indexers added in Prowlarr are automatically synced to Sonarr, Radarr, and Lidarr via the pre-configured application connections.
 
 ### Seeding and ratio management
 
 Deluge's global seeding ceiling is set intentionally high (`stop_seed_ratio = 3.0`, `seed_time_limit = 14` days) as a safety net for manually-added torrents. It should never be hit by *arr-managed torrents — those are handled per-indexer.
 
-For each indexer, set realistic seed goals in Sonarr, Radarr, and Lidarr:
-
-1. Go to **Settings → Indexers**
-2. Click an indexer, then **Show Advanced** (top right)
-3. Set **Seed Ratio** and/or **Seed Time** (e.g. `2.0` or `72` hours)
-4. Repeat for each indexer
-
-Prowlarr can sync these settings to all connected *arrs from **Settings → Apps** if you enable **Sync Seed Ratio** / **Sync Seed Time** on each app. Once configured, the *arr will remove the torrent from Deluge when the goal is met, well before the global ceiling kicks in.
-
-### Prowlarr — sync to Sonarr, Radarr, Lidarr
-
-1. Open `http://<machine-ip>:9696`
-2. Go to **Settings → Apps**
-3. Add Sonarr, Radarr, and Lidarr as applications:
-   - Each connects to `http://127.0.0.1:<port>`
-   - API key: found in `/var/lib/<service>/config.xml` on the server, or via:
-     ```bash
-     nix eval '.#nixosConfigurations.media-server.config.media-server.apiKeys.sonarr'
-     ```
+For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met, well before the global ceiling kicks in.
 
 ### Plex — add libraries
 
@@ -248,7 +225,7 @@ The firewall uses two tiers:
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale-only** | Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Unpackerr, Deluge, Seerr | Via Tailscale IP (`http://100.x.x.x:<port>`) | Plex OAuth (Seerr) / Forms auth + Tailscale identity |
+| **Tailscale-only** | Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Unpackerr, Deluge, Seerr | Via Tailscale IP (`http://100.x.x.x:<port>`) | Plex OAuth (Seerr) / Tailscale identity only |
 | **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app/TV app | Plex.tv account auth |
 
 **Plex** has `openFirewall = true` by default because it's designed to be shared with friends and family. They connect via the Plex app on their TV, phone, or browser — no Tailscale needed. Plex handles authentication itself (Plex.tv accounts).
@@ -261,12 +238,14 @@ The firewall uses two tiers:
 networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
 ```
 
-### Form-based authentication
+### Authentication
 
-All *arr services (Sonarr, Radarr, Lidarr, Prowlarr) are configured to use Forms authentication. On the first visit to each web UI, you must set an admin username and password. This can be disabled per-service by setting:
+Forms authentication is **disabled by default** — all *arr services (Sonarr, Radarr, Lidarr, Prowlarr) start with no login prompt, and declarr connects to them via API without credentials. Access is restricted via the Tailscale-only firewall.
+
+To re-enable form-based authentication:
 
 ```nix
-media-server.security.enableAuthentication = false;
+media-server.security.enableAuthentication = true;
 ```
 
 ### Systemd hardening
@@ -320,9 +299,10 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 | Lidarr | 8686 | `/var/lib/lidarr/config.xml` | `config.media-server.apiKeys.lidarr` |
 | Prowlarr | 9696 | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
 | Bazarr | 6767 | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
-| Unpackerr | — | — | folder-based (no API config needed) |
-| Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded via `disko` (Plex OAuth login) |
+| Unpackerr | — | `/var/lib/unpackerr/unpackerr.conf` | folder-based (no API config needed) |
+| Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded (Plex OAuth login) |
 | Plex | 32400 | `/var/lib/plex` | N/A |
+| declarr | — | `/var/lib/declarr` | auto-configured from `config.media-server.apiKeys.*` |
 
 ## Customization
 
