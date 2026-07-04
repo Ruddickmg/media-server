@@ -46,7 +46,7 @@ All services share the `media` group for file access.
 
 ## Headless Server
 
-This machine is a repurposed laptop running as a dedicated server. The following are configured automatically:
+The following are configured automatically:
 
 | Setting | Behavior |
 |---------|----------|
@@ -122,9 +122,9 @@ On first boot, `tailscaled` reads this key and joins your tailnet automatically.
 
 ### SSH key setup
 
-Public keys are committed to the repo and baked into the system at build time. The private key never leaves your laptop.
+Public keys are committed to the repo and baked into the system at build time.
 
-1. **Generate a key pair** on your laptop:
+1. **Generate a key pair**:
    ```bash
    ssh-keygen -t ed25519 -f ~/.ssh/media-server
    ```
@@ -141,7 +141,7 @@ Public keys are committed to the repo and baked into the system at build time. T
 
 3. **Deploy** — `nixos-rebuild switch` installs the key to both `root`'s and `media-server`'s `authorized_keys`.
 
-4. **Connect** from your laptop:
+4. **Connect**:
    ```bash
    ssh -i ~/.ssh/media-server media-server@<machine-ip>
    ```
@@ -163,23 +163,6 @@ chmod 600 /etc/nixos/secrets/tailscale-auth
 ```
 
 On the next rebuild, `tailscaled` reads the key and authenticates automatically. Root SSH access is preserved for this purpose and can be disabled later.
-
-### Deluge thin client
-
-1. Read the auto-generated password:
-   ```bash
-   journalctl -u deluged.service | grep "localclient"
-   ```
-   Or check the option value:
-   ```bash
-   nix eval '.#nixosConfigurations.media-server.config.media-server.credentials.delugePassword'
-   ```
-
-2. Connect with the Deluge Thin Client:
-   - Daemon host: `<machine-ip>` or `<tailscale-ip>`
-   - Port: `58846`
-   - Username: `localclient`
-   - Password: *(from step 1)*
 
 ### Prowlarr — add indexers
 
@@ -292,7 +275,7 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 
 | Service | Port | Config file | API key location |
 |---------|------|-------------|------------------|
-| Deluge (daemon) | 58846 | `/var/lib/deluge/auth` | N/A (password-based) |
+| Deluge (daemon) | 58846 | `/var/lib/deluge/auth` | N/A (firewall-enforced) |
 | Deluge (web UI) | 8112 | — | — |
 | Sonarr | 8989 | `/var/lib/sonarr/config.xml` | `config.media-server.apiKeys.sonarr` |
 | Radarr | 7878 | `/var/lib/radarr/config.xml` | `config.media-server.apiKeys.radarr` |
@@ -314,14 +297,13 @@ The target disk is set in `hosts/media-server/disko.nix` — change `device` to 
 disko.devices.disk.main.device = "/dev/nvme0n1";  # or /dev/sda, /dev/vda, etc.
 ```
 
-### API keys and passwords
+### API keys
 
 Keys are derived deterministically from the hostname. To override any of them, set the option in your host config:
 
 ```nix
 { ... }: {
   media-server.apiKeys.sonarr = "my-custom-key";
-  media-server.credentials.delugePassword = "my-password";
 }
 ```
 

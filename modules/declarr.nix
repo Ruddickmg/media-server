@@ -11,7 +11,6 @@ let
     optionals
     ;
   apiKeys = config.media-server.apiKeys;
-  delugePassword = config.media-server.credentials.delugePassword;
   cfg = config.media-server;
 
   hasAnyArr = cfg.sonarr.enable || cfg.radarr.enable || cfg.lidarr.enable || cfg.prowlarr.enable;
@@ -28,7 +27,9 @@ let
         fields = {
           host = "localhost";
           port = 58846;
-          password = delugePassword;
+          # Tailscale/LAN firewall is the access control, not this password
+          # Change via Settings -> Download Client in the *arr web UI at runtime
+          password = "deluge";
         };
       };
 
@@ -48,7 +49,9 @@ let
         fields = {
           host = "localhost";
           port = 58846;
-          password = delugePassword;
+          # Tailscale/LAN firewall is the access control, not this password
+          # Change via Settings -> Download Client in the *arr web UI at runtime
+          password = "deluge";
         };
       };
 
@@ -68,7 +71,9 @@ let
         fields = {
           host = "localhost";
           port = 58846;
-          password = delugePassword;
+          # Tailscale/LAN firewall is the access control, not this password
+          # Change via Settings -> Download Client in the *arr web UI at runtime
+          password = "deluge";
         };
       };
 
