@@ -112,7 +112,7 @@ in
         Type = "exec";
         User = "seerr";
         Group = "seerr";
-        WorkingDirectory = "${pkgs-unstable.seerr}/share";
+        WorkingDirectory = "/var/lib/seerr";
         ExecStart = "${pkgs-unstable.seerr}/bin/seerr";
         Restart = "on-failure";
         RestartSec = "10";
