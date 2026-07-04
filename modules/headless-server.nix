@@ -61,7 +61,10 @@ in
     users.users.media-server = {
       isNormalUser = true;
       group = "media-server";
-      extraGroups = [ "media" "systemd-journal" ];
+      extraGroups = [
+        "media"
+        "systemd-journal"
+      ];
       openssh.authorizedKeys.keys = cfg.authorizedKeys;
     };
 

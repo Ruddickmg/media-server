@@ -14,11 +14,7 @@ let
   delugePassword = config.media-server.credentials.delugePassword;
   cfg = config.media-server;
 
-  hasAnyArr =
-    cfg.sonarr.enable
-    || cfg.radarr.enable
-    || cfg.lidarr.enable
-    || cfg.prowlarr.enable;
+  hasAnyArr = cfg.sonarr.enable || cfg.radarr.enable || cfg.lidarr.enable || cfg.prowlarr.enable;
 
   sonarrCfg = mkIf cfg.sonarr.enable {
     sonarr = {
