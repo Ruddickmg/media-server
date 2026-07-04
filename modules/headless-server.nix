@@ -26,16 +26,16 @@ in
       settings = {
         PasswordAuthentication = false;
         KbdInteractiveAuthentication = false;
-        PermitRootLogin = "prohibit-password";
+        PermitRootLogin = "no";
       };
       startWhenNeeded = true;
     };
 
     services.logind = {
-      lidSwitch = "ignore";
-      lidSwitchExternalPower = "ignore";
       settings = {
         Login = {
+          HandleLidSwitch = "ignore";
+          HandleLidSwitchExternalPower = "ignore";
           HandlePowerKey = "ignore";
           HandleSuspendKey = "ignore";
           HandleHibernateKey = "ignore";

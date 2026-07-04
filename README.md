@@ -50,7 +50,7 @@ The following are configured automatically:
 
 | Setting | Behavior |
 |---------|----------|
-| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. Root and `media-server` user keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
+| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. `media-server` user keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
 | **Console** | Auto-login to `media-server` user on tty1 — no password needed |
 | **Lid close** | Ignored — system stays running |
 | **Suspend / Hibernate** | Disabled entirely — all sleep targets masked |
@@ -139,7 +139,7 @@ Public keys are committed to the repo and baked into the system at build time.
    ];
    ```
 
-3. **Deploy** — `nixos-rebuild switch` installs the key to both `root`'s and `media-server`'s `authorized_keys`.
+3. **Deploy** — `nixos-rebuild switch` installs the key to `media-server`'s `authorized_keys`.
 
 4. **Connect**:
    ```bash
@@ -270,7 +270,7 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 | Lidarr | 8686 | `/var/lib/lidarr/config.xml` | `config.media-server.apiKeys.lidarr` |
 | Prowlarr | 9696 | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
 | Bazarr | 6767 | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
-| Unpackerr | 6767 | `/var/lib/unpackerr/unpackerr.conf` | configured via *arr API keys (auto-extraction) |
+| Unpackerr | — | `/var/lib/unpackerr/unpackerr.conf` | configured via *arr API keys (auto-extraction); metrics endpoint disabled by default |
 | Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded (Plex OAuth login) |
 | Plex | 32400 | `/var/lib/plex` | N/A |
 | declarr | — | `/var/lib/declarr` | auto-configured from `config.media-server.apiKeys.*` |

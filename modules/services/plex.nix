@@ -39,7 +39,6 @@ in
         ProtectControlGroups = true;
         RestrictRealtime = true;
         SystemCallArchitectures = "native";
-        PrivateDevices = true;
         LockPersonality = true;
       };
     };
