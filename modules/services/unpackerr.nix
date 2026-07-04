@@ -39,38 +39,24 @@ in
       ];
       wantedBy = [ "multi-user.target" ];
 
-      preStart = ''
-                CONFIG_FILE="/var/lib/unpackerr/unpackerr.conf"
-                if [ ! -f "$CONFIG_FILE" ]; then
-                  mkdir -p "$(dirname "$CONFIG_FILE")"
-                  cat > "$CONFIG_FILE" << EOF
-        [[sonarr]]
-          url = "http://localhost:8989"
-          api_key = "${apiKeys.sonarr}"
-        [[radarr]]
-          url = "http://localhost:7878"
-          api_key = "${apiKeys.radarr}"
-        [[lidarr]]
-          url = "http://localhost:8686"
-          api_key = "${apiKeys.lidarr}"
-        [folders]
-          enable = true
-          paths = ["/media/downloads/completed"]
-          interval = "1s"
-        [extractor]
-          delete_after = true
-        EOF
-                  chown unpackerr:media "$CONFIG_FILE"
-                  chmod 600 "$CONFIG_FILE"
-                  echo "Seeded Unpackerr config"
-                fi
-      '';
+      environment = {
+        UN_SONARR_0_URL = "http://localhost:8989";
+        UN_SONARR_0_API_KEY = apiKeys.sonarr;
+        UN_RADARR_0_URL = "http://localhost:7878";
+        UN_RADARR_0_API_KEY = apiKeys.radarr;
+        UN_LIDARR_0_URL = "http://localhost:8686";
+        UN_LIDARR_0_API_KEY = apiKeys.lidarr;
+        UN_FOLDER_0_ENABLE = "true";
+        UN_FOLDER_0_PATH = "/media/downloads/completed";
+        UN_FOLDER_0_INTERVAL = "1s";
+        UN_EXTRACTOR_DELETE_AFTER = "true";
+      };
 
       serviceConfig = {
         Type = "simple";
         User = "unpackerr";
         Group = "media";
-        ExecStart = "${pkgs.unpackerr}/bin/unpackerr -c /var/lib/unpackerr/unpackerr.conf";
+        ExecStart = "${pkgs.unpackerr}/bin/unpackerr";
         Restart = "on-failure";
         RestartSec = "10";
         StateDirectory = "unpackerr";

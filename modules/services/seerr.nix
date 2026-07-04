@@ -63,8 +63,7 @@ in
                 if [ ! -f "$CONFIG_FILE" ]; then
                   cat > "$CONFIG_FILE" << EOF
               {
-                "initialized": true,
-                "seerrApiKey": "${apiKeys.seerr}"${optionalString sonarrEnabled ''
+                "initialized": true${optionalString sonarrEnabled ''
                   ,
                   "sonarr": [
                     {
