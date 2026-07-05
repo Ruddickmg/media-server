@@ -20,6 +20,9 @@
     ../../modules/declarr.nix
   ];
 
+  # we don't use jellyseerr, it is causing issues when attempting to start seerr so disabling it here
+  disabledModules = [ "jellyseerr.nix" ];
+
   boot.loader = {
     systemd-boot.enable = true;
     efi.canTouchEfiVariables = true;
@@ -44,6 +47,8 @@
     seerr.enable = true;
     unpackerr.enable = true;
   };
+
+  services.resolved.enable = true;
 
   networking.nameservers = [
     "1.1.1.1"

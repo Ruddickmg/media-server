@@ -20,9 +20,19 @@
     allowedUDPPorts = [ config.services.tailscale.port ];
   };
 
-  systemd.services.tailscaled.serviceConfig.Environment = lib.mkAfter [
-    "TS_DEBUG_FIREWALL_MODE=nftables"
-  ];
+  systemd.services.tailscaled = {
+    wants = [
+      "network-online.target"
+      "systemd-resolved.service"
+    ];
+    after = [
+      "network-online.target"
+      "systemd-resolved.service"
+    ];
+    serviceConfig.Environment = lib.mkAfter [
+      "TS_DEBUG_FIREWALL_MODE=nftables"
+    ];
+  };
 
   environment.systemPackages = [ pkgs.tailscale ];
 }
