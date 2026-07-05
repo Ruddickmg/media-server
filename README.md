@@ -148,14 +148,45 @@ Public keys are committed to the repo and baked into the system at build time.
 
 The private key (`~/.ssh/media-server`) is yours alone — never commit it. The public key (`~/.ssh/media-server.pub`) is safe to commit; it's meant to be shared.
 
+## HTTPS Access
+
+The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encrypt certificates via **Tailscale Serve**. The services bind exclusively to `127.0.0.1` — Tailscale Serve proxies HTTPS requests from the Tailscale interface to the local port.
+
+| URL | Backend | Service |
+|-----|---------|---------|
+| `https://media-server.ts.net/prowlarr` | `http://127.0.0.1:9696` | Prowlarr |
+| `https://media-server.ts.net/sonarr` | `http://127.0.0.1:8989` | Sonarr |
+| `https://media-server.ts.net/radarr` | `http://127.0.0.1:7878` | Radarr |
+| `https://media-server.ts.net/lidarr` | `http://127.0.0.1:8686` | Lidarr |
+
+The URL `media-server.ts.net` is your machine's MagicDNS hostname (the actual tailnet domain may differ — check the output of `tailscale status`).
+
+> **Prerequisite:** Enable **HTTPS Certificates** in the Tailscale admin console (DNS → HTTPS Certificates). Without this, Tailscale Serve cannot provision TLS certificates.
+
+### How it works
+
+A `tailscale-serve-paths` systemd oneshot service runs on boot and configures path-based routing:
+
+```
+tailscale serve --reset
+tailscale serve --set-path /prowlarr http://127.0.0.1:9696
+tailscale serve --set-path /sonarr  http://127.0.0.1:8989
+tailscale serve --set-path /radarr  http://127.0.0.1:7878
+tailscale serve --set-path /lidarr http://127.0.0.1:8686
+```
+
+The configuration persists across reboots and tailscaled restarts.
+
 ## Post-Deploy Steps
 
 These steps require the web UIs — they involve credentials you provide (indexer accounts) or external service configuration (Plex).
 
 ### Prowlarr — add indexers
 
-1. Open `http://<machine-ip>:9696`
+1. Open `https://media-server.ts.net/prowlarr`
 2. Add your torrent indexers (requires your account credentials for each indexer)
+
+Authentication is disabled by default (`auth.method = "None"`). If you need authentication, set a method and password in the web UI's Settings → General → Security, or set `services.prowlarr.settings.auth.method` in the Nix config.
 
 Indexers added in Prowlarr are automatically synced to Sonarr, Radarr, and Lidarr via the pre-configured application connections.
 
@@ -196,14 +227,22 @@ The firewall uses two tiers:
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale-only** | Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Unpackerr, Deluge, Seerr | Via Tailscale IP (`http://100.x.x.x:<port>`) | Plex OAuth (Seerr) / Tailscale identity only |
+| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr | `https://media-server.ts.net/<service>` (path-based HTTPS via Tailscale Serve) | None (Prowlarr) / Tailscale identity |
+| **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol, WireGuard encrypted) | `localclient:deluge` (auth file) |
+| **Tailscale-only** | Bazarr, Unpackerr, Seerr | Via Tailscale IP (`http://100.x.x.x:<port>`) | Plex OAuth (Seerr) / Tailscale identity only |
 | **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app/TV app | Plex.tv account auth |
 
 **Plex** has `openFirewall = true` by default because it's designed to be shared with friends and family. They connect via the Plex app on their TV, phone, or browser — no Tailscale needed. Plex handles authentication itself (Plex.tv accounts).
 
 > **DLNA note:** Plex also opens UDP ports 1900 (DLNA) and 5353 (mDNS) for local device discovery. DLNA broadcasts your library to any device on your LAN without authentication. This is fine for a home network. If you want to disable it, turn off DLNA in Plex's settings.
 
-**All other services** are locked down to Tailscale only — their ports are not opened on any physical interface. You access them via the Tailscale IP (e.g., `http://100.x.x.x:8989` for Sonarr). To expose them on LAN as well, set the service's `openFirewall = true` or add ports to the interface directly:
+**Prowlarr, Sonarr, Radarr, and Lidarr** bind exclusively to `127.0.0.1` — they have no direct network listener. All web UI access goes through **Tailscale Serve**, which provisions Let's Encrypt TLS certificates and proxies HTTPS paths to the local service ports. The URL format is `https://media-server.ts.net/<service>`.
+
+**Deluge** is accessed via its native RPC protocol on port 58846. The thin client (`deluge-gtk` / `deluge-console`) connects over the Tailscale WireGuard tunnel — no HTTP involved, fully encrypted. The web UI is not enabled.
+
+**Bazarr, Unpackerr, and Seerr** are reached directly via their Tailscale IP and port (e.g., `http://100.x.x.x:6767` for Bazarr). They are not yet routed through Tailscale Serve.
+
+To expose any service on LAN as well, set its `openFirewall = true` or add ports to the interface directly:
 
 ```nix
 networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
@@ -252,19 +291,19 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 
 ## Service Reference
 
-| Service | Port | Config file | API key location |
-|---------|------|-------------|------------------|
-| Deluge (daemon) | 58846 | `/var/lib/deluge/auth` | N/A (firewall-enforced) |
-| Deluge (web UI) | 8112 | — | — |
-| Sonarr | 8989 | `/var/lib/sonarr/config.xml` | `config.media-server.apiKeys.sonarr` |
-| Radarr | 7878 | `/var/lib/radarr/config.xml` | `config.media-server.apiKeys.radarr` |
-| Lidarr | 8686 | `/var/lib/lidarr/config.xml` | `config.media-server.apiKeys.lidarr` |
-| Prowlarr | 9696 | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
-| Bazarr | 6767 | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
-| Unpackerr | — | environment variables (`UN_*`) | configured via *arr API keys (auto-extraction); metrics endpoint disabled by default |
-| Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded (Plex OAuth login) |
-| Plex | 32400 | `/var/lib/plex` | N/A |
-| declarr | — | `/var/lib/declarr` | auto-configured from `config.media-server.apiKeys.*` |
+| Service | Port | Access | Config file | API key location |
+|---------|------|--------|-------------|------------------|
+| Prowlarr | 9696 | `https://media-server.ts.net/prowlarr` | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
+| Sonarr | 8989 | `https://media-server.ts.net/sonarr` | `/var/lib/sonarr/config.xml` | `config.media-server.apiKeys.sonarr` |
+| Radarr | 7878 | `https://media-server.ts.net/radarr` | `/var/lib/radarr/config.xml` | `config.media-server.apiKeys.radarr` |
+| Lidarr | 8686 | `https://media-server.ts.net/lidarr` | `/var/lib/lidarr/config.xml` | `config.media-server.apiKeys.lidarr` |
+| Deluge (daemon) | 58846 | `media-server:58846` (thin client RPC) | `/var/lib/deluge/auth` | `localclient:deluge` (auth file) |
+| Deluge (web UI) | — | not enabled | — | — |
+| Bazarr | 6767 | `http://100.x.x.x:6767` | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
+| Unpackerr | — | internal only | environment variables (`UN_*`) | configured via *arr API keys (auto-extraction); metrics endpoint disabled by default |
+| Seerr | 5055 | `http://100.x.x.x:5055` | `/var/lib/seerr/settings.json` | pre-seeded (Plex OAuth login) |
+| Plex | 32400 | `http://<lan-ip>:32400/web` or Plex app | `/var/lib/plex` | N/A |
+| declarr | — | N/A (oneshot) | `/var/lib/declarr` | auto-configured from `config.media-server.apiKeys.*` |
 
 ## Customization
 
@@ -392,7 +431,7 @@ On first boot, [declarr](https://github.com/upidapi/declarr) runs automatically 
 | **Root folders** | `/media/tv` (Sonarr), `/media/movies` (Radarr), `/media/music` (Lidarr) |
 | **Prowlarr applications** | Sonarr, Radarr, and Lidarr registered with full sync |
 | **Prowlarr app profiles** | Standard, Automatic, and Interactive Search profiles created |
-| **Authentication** | Disabled by default — no login prompts |
+| **Authentication** | Disabled in declarr's *arr configurations; Prowlarr also has `auth.method = "None"` — no login prompts for any *arr web UI |
 
 Bazarr is pre-configured via its config file on first start, Unpackerr via environment variables (`UN_*`), and Seerr via a pre-seeded settings.json — all with the appropriate *arr API keys and connections.
 
