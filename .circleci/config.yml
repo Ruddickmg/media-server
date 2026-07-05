@@ -23,6 +23,20 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Generate hardware configuration for CI
+          command: |
+            cat > hosts/media-server/hardware-configuration.nix << 'EOF'
+            { ... }:
+            {
+              boot.loader.systemd-boot.enable = true;
+              boot.loader.efi.canTouchEfiVariables = true;
+              fileSystems."/" = {
+                device = "/dev/null";
+                fsType = "ext4";
+              };
+            }
+            EOF
+      - run:
           name: Build
           command: nix build .#nixosConfigurations.media-server.config.system.build.toplevel
 
