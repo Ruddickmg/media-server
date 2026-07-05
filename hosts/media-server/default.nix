@@ -20,6 +20,7 @@
     ../../modules/declarr.nix
   ];
 
+  # we don't use jellyseerr, it is causing issues with the build so disabling it here
   disabledModules = [ "jellyseerr.nix" ];
 
   boot.loader = {
