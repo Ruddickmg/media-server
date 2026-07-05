@@ -21,8 +21,14 @@
   };
 
   systemd.services.tailscaled = {
-    wants = [ "network-online.target" "systemd-resolved.service" ];
-    after = [ "network-online.target" "systemd-resolved.service" ];
+    wants = [
+      "network-online.target"
+      "systemd-resolved.service"
+    ];
+    after = [
+      "network-online.target"
+      "systemd-resolved.service"
+    ];
     serviceConfig.Environment = lib.mkAfter [
       "TS_DEBUG_FIREWALL_MODE=nftables"
     ];
