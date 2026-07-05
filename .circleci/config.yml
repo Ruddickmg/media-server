@@ -26,14 +26,7 @@ jobs:
           name: Generate hardware configuration for CI
           command: |
             printf '%s\n' \
-              '{ ... }:' \
-              '{' \
-              '  boot.loader.systemd-boot.enable = true;' \
-              '  boot.loader.efi.canTouchEfiVariables = true;' \
-              '  fileSystems."/" = {' \
-              '    device = "/dev/null";' \
-              '    fsType = "ext4";' \
-              '  };' \
+              '{ ... }: {' \
               '}' \
               > hosts/media-server/hardware-configuration.nix
             git add -f hosts/media-server/hardware-configuration.nix
