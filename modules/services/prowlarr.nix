@@ -54,7 +54,8 @@ in
       PrivateDevices = true;
       LockPersonality = true;
       RestrictNamespaces = true;
-    } // mkIf useVpn {
+    }
+    // mkIf useVpn {
       NetworkNamespacePath = "/var/run/netns/${vpnNs}";
     };
 

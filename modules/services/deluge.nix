@@ -102,7 +102,8 @@ in
         "/var/lib/deluge"
         "/media/downloads"
       ];
-    } // mkIf useVpn {
+    }
+    // mkIf useVpn {
       NetworkNamespacePath = "/var/run/netns/${vpnNs}";
     };
 

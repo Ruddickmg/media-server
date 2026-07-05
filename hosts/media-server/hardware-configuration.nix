@@ -1,4 +1,5 @@
-{ ... }: {
+{ ... }:
+{
   boot.initrd.availableKernelModules = [
     "ahci"
     "nvme"
