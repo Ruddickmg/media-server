@@ -23,6 +23,14 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Generate hardware configuration for CI
+          command: |
+            printf '%s\n' \
+              '{ ... }: {' \
+              '}' \
+              > hosts/media-server/hardware-configuration.nix
+            git add -f hosts/media-server/hardware-configuration.nix
+      - run:
           name: Build
           command: nix build .#nixosConfigurations.media-server.config.system.build.toplevel
 

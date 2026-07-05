@@ -10,12 +10,62 @@ let
     mkIf
     mkOption
     types
-    optionalString
+    optionalAttrs
     ;
   cfg = config.media-server.seerr;
   apiKeys = config.media-server.apiKeys;
   sonarrEnabled = config.media-server.sonarr.enable or false;
   radarrEnabled = config.media-server.radarr.enable or false;
+
+  mkSonarr = {
+    name = "Sonarr";
+    hostname = "localhost";
+    port = 8989;
+    apiKey = apiKeys.sonarr;
+    useSsl = false;
+    baseUrl = "";
+    activeProfileId = 1;
+    activeProfileName = "Any";
+    activeAnimeProfileId = 1;
+    activeAnimeProfileName = "Any";
+    activeDirectory = "/media/tv";
+    activeAnimeDirectory = "/media/tv";
+    id = 0;
+    is4k = false;
+    enableScan = true;
+    enableAutomaticSearch = false;
+  };
+
+  mkRadarr = {
+    name = "Radarr";
+    hostname = "localhost";
+    port = 7878;
+    apiKey = apiKeys.radarr;
+    useSsl = false;
+    baseUrl = "";
+    activeProfileId = 1;
+    activeProfileName = "Any";
+    activeDirectory = "/media/movies";
+    id = 0;
+    is4k = false;
+    enableScan = true;
+    enableAutomaticSearch = false;
+    minimumAvailability = "announced";
+  };
+
+  settingsJson = builtins.toJSON (
+    {
+      initialized = true;
+    }
+    // optionalAttrs sonarrEnabled {
+      sonarr = [ mkSonarr ];
+    }
+    // optionalAttrs radarrEnabled {
+      radarr = [ mkRadarr ];
+    }
+  );
+
+  settingsFile = pkgs.writeText "seerr-settings" settingsJson;
 in
 {
   options.media-server.seerr = {
@@ -43,51 +93,7 @@ in
       preStart = ''
         CONFIG_FILE="/var/lib/seerr/settings.json"
         if [ ! -f "$CONFIG_FILE" ]; then
-          cat > "$CONFIG_FILE" << EOF
-        {
-          "initialized": true${optionalString sonarrEnabled ''
-            ,
-            "sonarr": [
-              {
-                "name": "Sonarr",
-                "hostname": "localhost",
-                "port": 8989,
-                "apiKey": "${apiKeys.sonarr}",
-                "useSsl": false,
-                "baseUrl": "",
-                "activeProfileId": 1,
-                "activeProfileName": "Any",
-                "activeAnimeProfileId": 1,
-                "activeAnimeProfileName": "Any",
-                "activeDirectory": "/media/tv",
-                "activeAnimeDirectory": "/media/tv",
-                "id": 0,
-                "is4k": false,
-                "enableScan": true,
-                "enableAutomaticSearch": false
-              }
-            ]''}${optionalString radarrEnabled ''
-            ,
-            "radarr": [
-              {
-                "name": "Radarr",
-                "hostname": "localhost",
-                "port": 7878,
-                "apiKey": "${apiKeys.radarr}",
-                "useSsl": false,
-                "baseUrl": "",
-                "activeProfileId": 1,
-                "activeProfileName": "Any",
-                "activeDirectory": "/media/movies",
-                "id": 0,
-                "is4k": false,
-                "enableScan": true,
-                "enableAutomaticSearch": false,
-                "minimumAvailability": "announced"
-              }
-            ]''}
-        }
-        EOF
+          cp ${settingsFile} "$CONFIG_FILE"
           chmod 600 "$CONFIG_FILE"
           chown --reference=/var/lib/seerr "$CONFIG_FILE"
           echo "Seeded Seerr settings.json with Sonarr/Radarr configuration"

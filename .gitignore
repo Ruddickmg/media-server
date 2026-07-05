@@ -1,3 +1,4 @@
 result
 ssh-media-server
 secrets/
+hardware-configuration.nix
