@@ -35,6 +35,7 @@ in
       openFirewall = cfg.openFirewall;
       settings = {
         auth.method = "None";
+        server.urlbase = "/prowlarr";
       };
       apiKeyFile = "${pkgs.writeText "prowlarr-api-key" config.media-server.apiKeys.prowlarr}";
       environmentFiles = [

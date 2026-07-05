@@ -27,6 +27,7 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
+      settings.server.urlbase = "/lidarr";
       apiKeyFile = "${pkgs.writeText "lidarr-api-key" config.media-server.apiKeys.lidarr}";
       environmentFiles = [
         (pkgs.writeText "lidarr-env" ''
