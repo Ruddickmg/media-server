@@ -36,7 +36,7 @@ jobs:
               '  };' \
               '}' \
               > hosts/media-server/hardware-configuration.nix
-            git add hosts/media-server/hardware-configuration.nix
+            git add -f hosts/media-server/hardware-configuration.nix
       - run:
           name: Build
           command: nix build .#nixosConfigurations.media-server.config.system.build.toplevel
