@@ -33,6 +33,7 @@ let
         fields = {
           host = "localhost";
           port = 58846;
+          username = "localclient";
           # Tailscale/LAN firewall is the access control, not this password
           # Change via Settings -> Download Client in the *arr web UI at runtime
           password = "deluge";
@@ -61,6 +62,7 @@ let
         fields = {
           host = "localhost";
           port = 58846;
+          username = "localclient";
           # Tailscale/LAN firewall is the access control, not this password
           # Change via Settings -> Download Client in the *arr web UI at runtime
           password = "deluge";
@@ -89,6 +91,7 @@ let
         fields = {
           host = "localhost";
           port = 58846;
+          username = "localclient";
           # Tailscale/LAN firewall is the access control, not this password
           # Change via Settings -> Download Client in the *arr web UI at runtime
           password = "deluge";
