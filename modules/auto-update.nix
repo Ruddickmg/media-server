@@ -12,10 +12,6 @@
     };
     script = ''
       set -euo pipefail
-      if ! git diff --quiet; then
-        echo "Uncommitted changes in /etc/nixos - skipping auto-update"
-        exit 0
-      fi
       git fetch origin
       if ! git diff --quiet HEAD origin/main; then
         git merge --ff-only origin/main
