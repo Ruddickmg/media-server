@@ -56,7 +56,7 @@ in
       RestrictNamespaces = true;
     }
     // mkIf useVpn {
-      serviceConfig.NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+      NetworkNamespacePath = "/var/run/netns/${vpnNs}";
     };
 
     systemd.sockets.proxy-prowlarr = mkIf useVpn {

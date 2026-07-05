@@ -209,15 +209,6 @@ The firewall uses two tiers:
 networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
 ```
 
-### Authentication
-
-Forms authentication is **disabled by default** — all *arr services (Sonarr, Radarr, Lidarr, Prowlarr) start with no login prompt, and declarr connects to them via API without credentials. Access is restricted via the Tailscale-only firewall.
-
-To re-enable form-based authentication:
-
-```nix
-media-server.security.enableAuthentication = true;
-```
 
 ### Systemd hardening
 
@@ -270,7 +261,7 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 | Lidarr | 8686 | `/var/lib/lidarr/config.xml` | `config.media-server.apiKeys.lidarr` |
 | Prowlarr | 9696 | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
 | Bazarr | 6767 | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
-| Unpackerr | — | `/var/lib/unpackerr/unpackerr.conf` | configured via *arr API keys (auto-extraction); metrics endpoint disabled by default |
+| Unpackerr | — | environment variables (`UN_*`) | configured via *arr API keys (auto-extraction); metrics endpoint disabled by default |
 | Seerr | 5055 | `/var/lib/seerr/settings.json` | pre-seeded (Plex OAuth login) |
 | Plex | 32400 | `/var/lib/plex` | N/A |
 | declarr | — | `/var/lib/declarr` | auto-configured from `config.media-server.apiKeys.*` |
@@ -403,7 +394,7 @@ On first boot, [declarr](https://github.com/upidapi/declarr) runs automatically 
 | **Prowlarr app profiles** | Standard, Automatic, and Interactive Search profiles created |
 | **Authentication** | Disabled by default — no login prompts |
 
-Additionally, Bazarr and Unpackerr are pre-configured via their config files on first start with the appropriate *arr API keys and connections. Seerr is pre-configured with Sonarr and Radarr connections.
+Bazarr is pre-configured via its config file on first start, Unpackerr via environment variables (`UN_*`), and Seerr via a pre-seeded settings.json — all with the appropriate *arr API keys and connections.
 
 No manual service-to-service configuration is needed.
 
