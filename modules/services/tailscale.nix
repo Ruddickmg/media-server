@@ -47,7 +47,7 @@
       RemainAfterExit = true;
     };
     script = ''
-      ${pkgs.tailscale}/bin/tailscale serve --reset
+      ${pkgs.tailscale}/bin/tailscale serve reset
       ${pkgs.tailscale}/bin/tailscale serve --set-path /prowlarr http://127.0.0.1:9696
       ${pkgs.tailscale}/bin/tailscale serve --set-path /sonarr http://127.0.0.1:8989
       ${pkgs.tailscale}/bin/tailscale serve --set-path /radarr http://127.0.0.1:7878
