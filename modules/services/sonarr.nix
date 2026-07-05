@@ -27,7 +27,10 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
-      settings.server.urlbase = "/sonarr";
+      settings = {
+        server.bindaddress = "127.0.0.1";
+        server.urlbase = "/sonarr";
+      };
       apiKeyFile = "${pkgs.writeText "sonarr-api-key" config.media-server.apiKeys.sonarr}";
       environmentFiles = [
         (pkgs.writeText "sonarr-env" ''

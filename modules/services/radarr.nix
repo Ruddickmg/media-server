@@ -27,7 +27,10 @@ in
       enable = true;
       group = "media";
       openFirewall = cfg.openFirewall;
-      settings.server.urlbase = "/radarr";
+      settings = {
+        server.bindaddress = "127.0.0.1";
+        server.urlbase = "/radarr";
+      };
       apiKeyFile = "${pkgs.writeText "radarr-api-key" config.media-server.apiKeys.radarr}";
       environmentFiles = [
         (pkgs.writeText "radarr-env" ''
