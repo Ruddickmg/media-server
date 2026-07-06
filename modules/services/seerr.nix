@@ -94,13 +94,9 @@ in
       environment.SEERR_API_KEY = apiKeys.seerr;
       serviceConfig.ExecStart = mkOverride 40 (lib.getExe pkgs-unstable.seerr);
       preStart = ''
-        CONFIG_FILE="/var/lib/seerr/settings.json"
-        if [ ! -f "$CONFIG_FILE" ]; then
-          cp ${settingsFile} "$CONFIG_FILE"
-          chmod 600 "$CONFIG_FILE"
-          chown --reference=/var/lib/seerr "$CONFIG_FILE"
-          echo "Seeded Seerr settings.json with Sonarr/Radarr configuration"
-        fi
+        cp ${settingsFile} /var/lib/seerr/settings.json
+        chmod 600 /var/lib/seerr/settings.json
+        chown --reference=/var/lib/seerr /var/lib/seerr/settings.json
       '';
     };
   };
