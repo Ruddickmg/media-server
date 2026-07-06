@@ -33,6 +33,7 @@ in
     services.deluge = {
       enable = true;
       declarative = true;
+      web.enable = true;
       config = {
         daemon_port = 58846;
         download_location = "/media/downloads/incomplete";
