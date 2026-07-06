@@ -57,6 +57,7 @@ let
   settingsJson = builtins.toJSON (
     {
       initialized = true;
+      main = { };
     }
     // optionalAttrs sonarrEnabled {
       sonarr = [ mkSonarr ];
