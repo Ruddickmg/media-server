@@ -36,7 +36,6 @@ in
       settings = {
         auth.method = "None";
         server.bindaddress = "127.0.0.1";
-        server.urlbase = "/prowlarr";
       };
       apiKeyFile = "${pkgs.writeText "prowlarr-api-key" config.media-server.apiKeys.prowlarr}";
       environmentFiles = [
