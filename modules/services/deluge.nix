@@ -36,6 +36,7 @@ in
       web.enable = true;
       config = {
         daemon_port = 58846;
+        enabled_plugins = [ "Label" ];
         download_location = "/media/downloads/incomplete";
         move_completed = true;
         move_completed_path = "/media/downloads/completed";
