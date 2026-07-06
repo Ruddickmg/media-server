@@ -36,9 +36,27 @@
     };
   };
 
+  services.caddy = {
+    enable = true;
+    virtualHosts.":8080".extraConfig = ''
+      bind 127.0.0.1
+      reverse_proxy /prowlarr* http://127.0.0.1:9696
+      reverse_proxy /sonarr* http://127.0.0.1:8989
+      reverse_proxy /radarr* http://127.0.0.1:7878
+      reverse_proxy /lidarr* http://127.0.0.1:8686
+      reverse_proxy /bazarr* http://127.0.0.1:6767
+      handle_path /seerr* {
+        reverse_proxy http://127.0.0.1:5055
+      }
+    '';
+  };
+
   systemd.services.tailscale-serve-paths = {
-    description = "Configure Tailscale Serve port-based routing for *arr apps";
-    after = [ "tailscaled.service" ];
+    description = "Configure Tailscale Serve path-based routing for *arr apps";
+    after = [
+      "tailscaled.service"
+      "caddy.service"
+    ];
     wants = [ "tailscaled.service" ];
     wantedBy = [ "multi-user.target" ];
     path = [ pkgs.tailscale ];
@@ -58,10 +76,9 @@
         sleep 1
       done
 
-      tailscale serve --bg --https=9696 http://127.0.0.1:9696
-      tailscale serve --bg --https=8989 http://127.0.0.1:8989
-      tailscale serve --bg --https=7878 http://127.0.0.1:7878
-      tailscale serve --bg --https=8686 http://127.0.0.1:8686
+      # Clear any existing serve config, then serve root to local Caddy
+      tailscale serve reset
+      tailscale serve --bg http://127.0.0.1:8080
     '';
   };
 

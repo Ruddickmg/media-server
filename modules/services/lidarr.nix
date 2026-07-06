@@ -29,6 +29,7 @@ in
       openFirewall = cfg.openFirewall;
       settings = {
         server.bindaddress = "127.0.0.1";
+        server.urlbase = "/lidarr";
       };
       apiKeyFile = "${pkgs.writeText "lidarr-api-key" config.media-server.apiKeys.lidarr}";
       environmentFiles = [

@@ -38,9 +38,9 @@ in
                   mkdir -p "$(dirname "$CONFIG_FILE")"
                   cat > "$CONFIG_FILE" << EOF
         [General]
-        ip = 0.0.0.0
+        ip = 127.0.0.1
         port = 6767
-        base_url =
+        base_url = /bazarr
 
         [sonarr]
         api_key = ''${SONARR_KEY}

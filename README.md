@@ -2,48 +2,6 @@
 
 NixOS configuration for a media server running Plex, Deluge, and the *arr suite with security hardening and fully automated service configuration.
 
-## Architecture
-
-```
-Deluge ──► /media/downloads/completed/
-                  │
-             Unpackerr (extracts .rar/.zip/.7z)
-                  │
-     ┌────────────┼────────────┐
-     ▼            ▼            ▼
-   Sonarr       Radarr      Lidarr
-   (TV)        (Movies)    (Music)
-     │            │
-     └─────┬──────┘
-           ▼
-        Bazarr (subtitles)
-           │
-           ▼
-         Plex
-```
-
-### Filesystem layout (Btrfs subvolumes)
-
-```
-1TB SSD
-├── /boot        (ESP, vfat, 512M)
-├── swap         (8G)
-└── Btrfs volume (rest, ~991G)
-    ├── @         → /              — root OS
-    ├── @nix      → /nix           — nix store (noatime)
-    ├── @state    → /var/lib       — app state / Plex metadata
-    ├── @log      → /var/log       — logs
-    └── @media    → /media         — bulk storage
-        ├── downloads/
-        │   ├── incomplete/   # Deluge active downloads
-        │   └── completed/    # Finished downloads (watched by Unpackerr)
-        ├── movies/           # Managed by Radarr
-        ├── tv/               # Managed by Sonarr
-        └── music/            # Managed by Lidarr
-```
-
-All services share the `media` group for file access.
-
 ## Headless Server
 
 The following are configured automatically:
@@ -57,7 +15,6 @@ The following are configured automatically:
 | **Power/Sleep keys** | Ignored |
 | **CPU governor** | `performance` (always plugged in) |
 | **Sudo** | Disabled entirely — no user has sudo access |
-
 
 ## Quick Start
 
@@ -82,15 +39,11 @@ Edit `hosts/media-server/disko.nix` and change the `device` path to match your d
 sudo nix run --extra-experimental-features nix-command --extra-experimental-features flakes github:nix-community/disko -- --mode disko /mnt/etc/nixos/hosts/media-server/disko.nix
 ```
 
-This creates the partition table, filesystems, and Btrfs subvolumes, then mounts everything.
-
 ### 5. Generate hardware config
 
 ```bash
 nixos-generate-config --root /mnt --dir hosts/media-server --no-filesystems
 ```
-
-This overwrites `hosts/media-server/hardware-configuration.nix` with the autodetected kernel modules for your machine. The `--no-filesystems` flag prevents generating `fileSystems` and `swapDevices` entries — disko handles those declaratively.
 
 ### 6. Install
 
@@ -118,8 +71,6 @@ chmod 600 /mnt/etc/nixos/secrets/tailscale-auth
 
 Generate the auth key from the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys) — use a **reusable** key so it persists across rebuilds. The `secrets/` directory is gitignored and never committed to the repository.
 
-On first boot, `tailscaled` reads this key and joins your tailnet automatically. No interactive `tailscale up` needed.
-
 ### SSH key setup
 
 Public keys are committed to the repo and baked into the system at build time.
@@ -146,47 +97,31 @@ Public keys are committed to the repo and baked into the system at build time.
    ssh -i ~/.ssh/media-server media-server@<machine-ip>
    ```
 
-The private key (`~/.ssh/media-server`) is yours alone — never commit it. The public key (`~/.ssh/media-server.pub`) is safe to commit; it's meant to be shared.
+The private key (`~/.ssh/media-server`) is yours alone — never commit it.
 
 ## HTTPS Access
 
-The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encrypt certificates via **Tailscale Serve**. The services bind exclusively to `127.0.0.1` — Tailscale Serve proxies HTTPS requests from the Tailscale interface to the local port.
+The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encrypt certificates via **Tailscale Serve**. Tailscale terminates TLS and proxies to a local Caddy instance, which routes by path prefix to each service.
 
-| URL | Backend | Service |
-|-----|---------|---------|
-| `https://media-server.ts.net/prowlarr` | `http://127.0.0.1:9696` | Prowlarr |
-| `https://media-server.ts.net/sonarr` | `http://127.0.0.1:8989` | Sonarr |
-| `https://media-server.ts.net/radarr` | `http://127.0.0.1:7878` | Radarr |
-| `https://media-server.ts.net/lidarr` | `http://127.0.0.1:8686` | Lidarr |
+| URL | Service |
+|-----|---------|
+| `https://media-server.tailbac0df.ts.net/prowlarr` | Prowlarr |
+| `https://media-server.tailbac0df.ts.net/sonarr` | Sonarr |
+| `https://media-server.tailbac0df.ts.net/radarr` | Radarr |
+| `https://media-server.tailbac0df.ts.net/lidarr` | Lidarr |
+| `https://media-server.tailbac0df.ts.net/bazarr` | Bazarr |
+| `https://media-server.tailbac0df.ts.net/seerr` | Seerr |
 
-The URL `media-server.ts.net` is your machine's MagicDNS hostname (the actual tailnet domain may differ — check the output of `tailscale status`).
+The hostname is the machine's MagicDNS name (check `tailscale status` for yours).
 
 > **Prerequisite:** Enable **HTTPS Certificates** in the Tailscale admin console (DNS → HTTPS Certificates). Without this, Tailscale Serve cannot provision TLS certificates.
 
-### How it works
-
-A `tailscale-serve-paths` systemd oneshot service runs on boot and configures path-based routing:
-
-```
-tailscale serve --reset
-tailscale serve --set-path /prowlarr http://127.0.0.1:9696
-tailscale serve --set-path /sonarr  http://127.0.0.1:8989
-tailscale serve --set-path /radarr  http://127.0.0.1:7878
-tailscale serve --set-path /lidarr http://127.0.0.1:8686
-```
-
-The configuration persists across reboots and tailscaled restarts.
-
 ## Post-Deploy Steps
-
-These steps require the web UIs — they involve credentials you provide (indexer accounts) or external service configuration (Plex).
 
 ### Prowlarr — add indexers
 
-1. Open `https://media-server.ts.net/prowlarr`
+1. Open `https://media-server.tailbac0df.ts.net/prowlarr`
 2. Add your torrent indexers (requires your account credentials for each indexer)
-
-Authentication is disabled by default (`auth.method = "None"`). If you need authentication, set a method and password in the web UI's Settings → General → Security, or set `services.prowlarr.settings.auth.method` in the Nix config.
 
 Indexers added in Prowlarr are automatically synced to Sonarr, Radarr, and Lidarr via the pre-configured application connections.
 
@@ -209,13 +144,11 @@ For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers
 
 Seerr provides a clean UI for friends and family to request movies and TV shows, which flow through Sonarr and Radarr automatically.
 
-On first deploy, Seerr is pre-configured with Sonarr and Radarr connections (API keys, hostnames, default quality profiles, and root folders). The setup wizard is skipped entirely.
+On first deploy, Seerr is pre-configured with Sonarr and Radarr connections.
 
-1. Open `http://<tailscale-ip>:5055`
+1. Open `https://media-server.tailbac0df.ts.net/seerr`
 2. Sign in with your **Plex account** (Seerr uses Plex for authentication)
-3. Grant Seerr access to your Plex server when prompted
-4. Review pre-filled settings at **Settings → Services** — connections to Sonarr and Radarr are already in place
-5. Configure user permissions and notification settings as desired
+3. Configure user permissions and notification settings as desired
 
 > If you add custom quality profiles in Sonarr/Radarr later, update the profile selection in Seerr's service settings to match.
 
@@ -223,52 +156,28 @@ On first deploy, Seerr is pre-configured with Sonarr and Radarr connections (API
 
 ### Access model
 
-The firewall uses two tiers:
-
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr | `https://media-server.ts.net/<service>` (path-based HTTPS via Tailscale Serve) | None (Prowlarr) / Tailscale identity |
-| **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol, WireGuard encrypted) | `localclient:deluge` (auth file) |
-| **Tailscale-only** | Bazarr, Unpackerr, Seerr | Via Tailscale IP (`http://100.x.x.x:<port>`) | Plex OAuth (Seerr) / Tailscale identity only |
-| **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app/TV app | Plex.tv account auth |
+| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
+| **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol) | `localclient:deluge` (auth file) |
+| **Tailscale-only** | Unpackerr | internal only | N/A |
+| **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app | Plex.tv account auth |
 
-**Plex** has `openFirewall = true` by default because it's designed to be shared with friends and family. They connect via the Plex app on their TV, phone, or browser — no Tailscale needed. Plex handles authentication itself (Plex.tv accounts).
+**Plex** has `openFirewall = true` by default because it's designed to be shared with friends and family.
 
-> **DLNA note:** Plex also opens UDP ports 1900 (DLNA) and 5353 (mDNS) for local device discovery. DLNA broadcasts your library to any device on your LAN without authentication. This is fine for a home network. If you want to disable it, turn off DLNA in Plex's settings.
+> **DLNA note:** Plex also opens UDP ports 1900 (DLNA) and 5353 (mDNS) for local device discovery. DLNA broadcasts your library to any device on your LAN without authentication. If you want to disable it, turn off DLNA in Plex's settings.
 
-**Prowlarr, Sonarr, Radarr, and Lidarr** bind exclusively to `127.0.0.1` — they have no direct network listener. All web UI access goes through **Tailscale Serve**, which provisions Let's Encrypt TLS certificates and proxies HTTPS paths to the local service ports. The URL format is `https://media-server.ts.net/<service>`.
+All *arr apps bind exclusively to `127.0.0.1` — they have no direct network listener. Web UI access goes through **Tailscale Serve** which terminates TLS, then a local Caddy reverse proxy routes by path prefix to the correct service.
 
-**Deluge** is accessed via its native RPC protocol on port 58846. The thin client (`deluge-gtk` / `deluge-console`) connects over the Tailscale WireGuard tunnel — no HTTP involved, fully encrypted. The web UI is not enabled.
+**Deluge** is accessed via its native RPC protocol on port 58846. The thin client (`deluge-gtk` / `deluge-console`) connects over Tailscale — fully encrypted.
 
-**Bazarr, Unpackerr, and Seerr** are reached directly via their Tailscale IP and port (e.g., `http://100.x.x.x:6767` for Bazarr). They are not yet routed through Tailscale Serve.
+**Bazarr and Seerr** are routed through Caddy and Tailscale Serve — same HTTPS URLs as the *arr apps. **Unpackerr** has no web UI (internal only).
 
-To expose any service on LAN as well, set its `openFirewall = true` or add ports to the interface directly:
+To expose any service on LAN as well, set its `openFirewall = true`:
 
 ```nix
 networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
 ```
-
-
-### Systemd hardening
-
-All services apply the following hardening directives where compatible:
-
-| Directive | Purpose |
-|-----------|---------|
-| `ProtectHome=true` | No access to `/home` |
-| `PrivateTmp=true` | Isolated `/tmp` |
-| `NoNewPrivileges=true` | Block privilege escalation |
-| `CapabilityBoundingSet=` | Drop all capabilities |
-| `ProtectKernelTunables=true` | Read-only kernel tunables |
-| `ProtectKernelModules=true` | No kernel module access |
-| `ProtectControlGroups=true` | Read-only cgroups |
-| `RestrictRealtime=true` | No realtime scheduling |
-| `SystemCallArchitectures=native` | Only native syscalls |
-| `PrivateDevices=true` | Minimal device access |
-| `LockPersonality=true` | Lock execution domain |
-| `RestrictNamespaces=true` (where supported) | Block namespace creation |
-
-Plex skips `CapabilityBoundingSet` for transcoding compatibility.
 
 ### VPN confinement (Deluge)
 
@@ -287,23 +196,20 @@ Enable it by:
 }
 ```
 
-When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the Deluge daemon port (58846) from the root namespace so the thin client can still connect. The proxy is available on `127.0.0.1:58846`.
+When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the Deluge daemon port (58846) from the root namespace so the thin client can still connect.
 
 ## Service Reference
 
-| Service | Port | Access | Config file | API key location |
-|---------|------|--------|-------------|------------------|
-| Prowlarr | 9696 | `https://media-server.ts.net/prowlarr` | `/var/lib/prowlarr/config.xml` | `config.media-server.apiKeys.prowlarr` |
-| Sonarr | 8989 | `https://media-server.ts.net/sonarr` | `/var/lib/sonarr/config.xml` | `config.media-server.apiKeys.sonarr` |
-| Radarr | 7878 | `https://media-server.ts.net/radarr` | `/var/lib/radarr/config.xml` | `config.media-server.apiKeys.radarr` |
-| Lidarr | 8686 | `https://media-server.ts.net/lidarr` | `/var/lib/lidarr/config.xml` | `config.media-server.apiKeys.lidarr` |
-| Deluge (daemon) | 58846 | `media-server:58846` (thin client RPC) | `/var/lib/deluge/auth` | `localclient:deluge` (auth file) |
-| Deluge (web UI) | — | not enabled | — | — |
-| Bazarr | 6767 | `http://100.x.x.x:6767` | `/var/lib/bazarr/config/config.ini` | set automatically from Sonarr/Radarr keys |
-| Unpackerr | — | internal only | environment variables (`UN_*`) | configured via *arr API keys (auto-extraction); metrics endpoint disabled by default |
-| Seerr | 5055 | `http://100.x.x.x:5055` | `/var/lib/seerr/settings.json` | pre-seeded (Plex OAuth login) |
-| Plex | 32400 | `http://<lan-ip>:32400/web` or Plex app | `/var/lib/plex` | N/A |
-| declarr | — | N/A (oneshot) | `/var/lib/declarr` | auto-configured from `config.media-server.apiKeys.*` |
+| Service | Port | Access |
+|---------|------|--------|
+| Plex | 32400 | `http://<lan-ip>:32400/web` or Plex app |
+| Deluge (daemon) | 58846 | `media-server:58846` (thin client RPC) |
+| Prowlarr | 9696 | `https://media-server.tailbac0df.ts.net/prowlarr` |
+| Sonarr | 8989 | `https://media-server.tailbac0df.ts.net/sonarr` |
+| Radarr | 7878 | `https://media-server.tailbac0df.ts.net/radarr` |
+| Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
+| Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
+| Seerr | 5055 | `https://media-server.tailbac0df.ts.net/seerr` |
 
 ## Customization
 
@@ -338,8 +244,6 @@ Then add `secrets/` to `.gitignore`.
 ### Firewall
 
 The host firewall blocks all inbound traffic on physical interfaces by default. Only the `tailscale0` and `lo` interfaces are trusted. Each service exposes its port on the tailnet only unless `openFirewall = true` is set.
-
-To restrict further, see the firewall section under [Security Architecture](#security-architecture).
 
 ### VPN provider WireGuard config
 
@@ -400,40 +304,3 @@ sudo rm -rf /var/lib/wgnord /etc/wireguard/wgnord.conf /etc/wireguard/wgnord.key
 ## Auto-Updates
 
 A systemd timer runs every 15 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes before pulling, so local modifications won't be overwritten.
-
-## Nix Store Maintenance
-
-Garbage collection runs daily, removing generations older than 30 days:
-
-```nix
-nix.gc = {
-  automatic = true;
-  dates = "daily";
-  options = "--delete-older-than 30d";
-};
-```
-
-The store is also automatically optimised after every build to deduplicate identical files:
-
-```nix
-nix.settings.auto-optimise-store = true;
-```
-
-With aggressive GC, the `/nix` subvolume (50G allocated, pooled via Btrfs) stays well within bounds for a headless server.
-
-## Automated Configuration
-
-On first boot, [declarr](https://github.com/upidapi/declarr) runs automatically after all *arr services start and configures the following via their REST APIs:
-
-| What | Details |
-|------|---------|
-| **Deluge download client** | Added to Sonarr, Radarr, and Lidarr |
-| **Root folders** | `/media/tv` (Sonarr), `/media/movies` (Radarr), `/media/music` (Lidarr) |
-| **Prowlarr applications** | Sonarr, Radarr, and Lidarr registered with full sync |
-| **Prowlarr app profiles** | Standard, Automatic, and Interactive Search profiles created |
-| **Authentication** | Disabled in declarr's *arr configurations; Prowlarr also has `auth.method = "None"` — no login prompts for any *arr web UI |
-
-Bazarr is pre-configured via its config file on first start, Unpackerr via environment variables (`UN_*`), and Seerr via a pre-seeded settings.json — all with the appropriate *arr API keys and connections.
-
-No manual service-to-service configuration is needed.
-
