@@ -40,11 +40,16 @@
       "tailscaled.service"
       "network-online.target"
     ];
-    wants = [ "tailscaled.service" ];
+    wants = [
+      "tailscaled.service"
+      "network-online.target"
+    ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
+      TimeoutStartSec = 30;
+      TimeoutStopSec = 10;
     };
     script = ''
       ${pkgs.tailscale}/bin/tailscale serve reset
