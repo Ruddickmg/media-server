@@ -43,7 +43,6 @@ let
 
       rootFolder = [ "/media/tv" ];
       qualityProfile = { };
-      customFormat = { };
     };
   };
 
@@ -74,7 +73,6 @@ let
 
       rootFolder = [ "/media/movies" ];
       qualityProfile = { };
-      customFormat = { };
     };
   };
 
