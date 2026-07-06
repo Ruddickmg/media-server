@@ -202,16 +202,14 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 
 | Service | Port | Access |
 |---------|------|--------|
+| Plex | 32400 | `http://<lan-ip>:32400/web` or Plex app |
+| Deluge (daemon) | 58846 | `media-server:58846` (thin client RPC) |
 | Prowlarr | 9696 | `https://media-server.tailbac0df.ts.net/prowlarr` |
 | Sonarr | 8989 | `https://media-server.tailbac0df.ts.net/sonarr` |
 | Radarr | 7878 | `https://media-server.tailbac0df.ts.net/radarr` |
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
-| Deluge (daemon) | 58846 | `media-server:58846` (thin client RPC) |
-| Deluge (web UI) | — | not enabled |
 | Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
-| Unpackerr | — | internal only |
 | Seerr | 5055 | `https://media-server.tailbac0df.ts.net/seerr` |
-| Plex | 32400 | `http://<lan-ip>:32400/web` or Plex app |
 
 ## Customization
 
