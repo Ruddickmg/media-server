@@ -31,7 +31,7 @@ let
       downloadClient.Deluge = {
         implementation = "Deluge";
         fields = {
-          host = "localhost";
+          host = "127.0.0.1";
           port = 58846;
           username = "localclient";
           # Tailscale/LAN firewall is the access control, not this password
@@ -60,7 +60,7 @@ let
       downloadClient.Deluge = {
         implementation = "Deluge";
         fields = {
-          host = "localhost";
+          host = "127.0.0.1";
           port = 58846;
           username = "localclient";
           # Tailscale/LAN firewall is the access control, not this password
@@ -89,7 +89,7 @@ let
       downloadClient.Deluge = {
         implementation = "Deluge";
         fields = {
-          host = "localhost";
+          host = "127.0.0.1";
           port = 58846;
           username = "localclient";
           # Tailscale/LAN firewall is the access control, not this password
