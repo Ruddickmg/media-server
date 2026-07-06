@@ -93,7 +93,10 @@ in
     };
 
     systemd.services.seerr = {
-      environment.SEERR_API_KEY = apiKeys.seerr;
+      environment = {
+        SEERR_API_KEY = apiKeys.seerr;
+        HOST = "127.0.0.1";
+      };
       serviceConfig.ExecStart = mkOverride 40 (lib.getExe pkgs-unstable.seerr);
       preStart = ''
         cp ${settingsFile} /var/lib/seerr/settings.json

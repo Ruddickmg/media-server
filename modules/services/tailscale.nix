@@ -44,6 +44,10 @@
       reverse_proxy /sonarr* http://127.0.0.1:8989
       reverse_proxy /radarr* http://127.0.0.1:7878
       reverse_proxy /lidarr* http://127.0.0.1:8686
+      reverse_proxy /bazarr* http://127.0.0.1:6767
+      handle_path /seerr* {
+        reverse_proxy http://127.0.0.1:5055
+      }
     '';
   };
 

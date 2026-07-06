@@ -109,6 +109,8 @@ The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encr
 | `https://media-server.tailbac0df.ts.net/sonarr` | Sonarr |
 | `https://media-server.tailbac0df.ts.net/radarr` | Radarr |
 | `https://media-server.tailbac0df.ts.net/lidarr` | Lidarr |
+| `https://media-server.tailbac0df.ts.net/bazarr` | Bazarr |
+| `https://media-server.tailbac0df.ts.net/seerr` | Seerr |
 
 The hostname is the machine's MagicDNS name (check `tailscale status` for yours).
 
@@ -144,7 +146,7 @@ Seerr provides a clean UI for friends and family to request movies and TV shows,
 
 On first deploy, Seerr is pre-configured with Sonarr and Radarr connections.
 
-1. Open `http://<tailscale-ip>:5055`
+1. Open `https://media-server.tailbac0df.ts.net/seerr`
 2. Sign in with your **Plex account** (Seerr uses Plex for authentication)
 3. Configure user permissions and notification settings as desired
 
@@ -156,9 +158,9 @@ On first deploy, Seerr is pre-configured with Sonarr and Radarr connections.
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr | `https://media-server.tailbac0df.ts.net/prowlarr` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
+| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
 | **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol) | `localclient:deluge` (auth file) |
-| **Tailscale-only** | Bazarr, Unpackerr, Seerr | Via Tailscale IP (`http://100.x.x.x:<port>`) | Plex OAuth (Seerr) / Tailscale identity only |
+| **Tailscale-only** | Unpackerr | internal only | N/A |
 | **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app | Plex.tv account auth |
 
 **Plex** has `openFirewall = true` by default because it's designed to be shared with friends and family.
@@ -169,7 +171,7 @@ All *arr apps bind exclusively to `127.0.0.1` — they have no direct network li
 
 **Deluge** is accessed via its native RPC protocol on port 58846. The thin client (`deluge-gtk` / `deluge-console`) connects over Tailscale — fully encrypted.
 
-**Bazarr, Unpackerr, and Seerr** are reached directly via their Tailscale IP and port (e.g., `http://100.x.x.x:6767` for Bazarr).
+**Bazarr and Seerr** are routed through Caddy and Tailscale Serve — same HTTPS URLs as the *arr apps. **Unpackerr** has no web UI (internal only).
 
 To expose any service on LAN as well, set its `openFirewall = true`:
 
@@ -206,9 +208,9 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
 | Deluge (daemon) | 58846 | `media-server:58846` (thin client RPC) |
 | Deluge (web UI) | — | not enabled |
-| Bazarr | 6767 | `http://100.x.x.x:6767` |
+| Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
 | Unpackerr | — | internal only |
-| Seerr | 5055 | `http://100.x.x.x:5055` |
+| Seerr | 5055 | `https://media-server.tailbac0df.ts.net/seerr` |
 | Plex | 32400 | `http://<lan-ip>:32400/web` or Plex app |
 
 ## Customization
