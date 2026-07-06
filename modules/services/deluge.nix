@@ -9,6 +9,21 @@ let
   cfg = config.media-server.deluge;
   vpnNs = config.media-server.vpn.namespace;
   useVpn = cfg.vpnConfinement && config.media-server.vpn.enable;
+
+  blocklistUrl = "https://github.com/colindean/transmission-blocklist/releases/latest/download/blocklist.gz";
+
+  blocklistConfig = pkgs.writeText "blocklist.conf" (
+    builtins.toJSON {
+      url = blocklistUrl;
+      load_on_start = true;
+      check_after_days = 3;
+      timeout = 180;
+      try_times = 3;
+      whitelisted = [ ];
+      list_type = "";
+      list_compression = "";
+    }
+  );
 in
 {
   options.media-server.deluge = {
@@ -36,7 +51,10 @@ in
       web.enable = true;
       config = {
         daemon_port = 58846;
-        enabled_plugins = [ "Label" ];
+        enabled_plugins = [
+          "Label"
+          "Blocklist"
+        ];
         download_location = "/media/downloads/incomplete";
         move_completed = true;
         move_completed_path = "/media/downloads/completed";
@@ -85,6 +103,10 @@ in
     users.users.deluge = {
       extraGroups = [ "media" ];
     };
+
+    systemd.services.deluged.preStart = lib.mkAfter ''
+      cp ${blocklistConfig} ${config.services.deluge.dataDir}/.config/deluge/blocklist.conf
+    '';
 
     systemd.services.deluged.serviceConfig = {
       ProtectHome = true;

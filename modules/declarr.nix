@@ -8,6 +8,7 @@ let
   inherit (lib)
     mkIf
     mkMerge
+    optionalAttrs
     optionals
     ;
   apiKeys = config.media-server.apiKeys;
@@ -143,8 +144,8 @@ let
         };
       };
 
-      applications = mkMerge [
-        (mkIf cfg.sonarr.enable {
+      applications =
+        optionalAttrs cfg.sonarr.enable {
           Sonarr = {
             implementation = "Sonarr";
             syncLevel = "fullSync";
@@ -154,8 +155,8 @@ let
               apiKey = apiKeys.sonarr;
             };
           };
-        })
-        (mkIf cfg.radarr.enable {
+        }
+        // optionalAttrs cfg.radarr.enable {
           Radarr = {
             implementation = "Radarr";
             syncLevel = "fullSync";
@@ -165,8 +166,8 @@ let
               apiKey = apiKeys.radarr;
             };
           };
-        })
-        (mkIf cfg.lidarr.enable {
+        }
+        // optionalAttrs cfg.lidarr.enable {
           Lidarr = {
             implementation = "Lidarr";
             syncLevel = "fullSync";
@@ -176,8 +177,7 @@ let
               apiKey = apiKeys.lidarr;
             };
           };
-        })
-      ];
+        };
     };
   };
 in
