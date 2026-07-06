@@ -4,7 +4,10 @@
     description = "Pull latest NixOS config from Git and rebuild";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
-    path = [ pkgs.gitMinimal pkgs.nixos-rebuild ];
+    path = [
+      pkgs.gitMinimal
+      pkgs.nixos-rebuild
+    ];
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = "/etc/nixos";
