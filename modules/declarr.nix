@@ -32,7 +32,7 @@ let
         implementation = "Deluge";
         fields = {
           host = "127.0.0.1";
-          port = 58846;
+          port = 8112;
           username = "localclient";
           # Tailscale/LAN firewall is the access control, not this password
           # Change via Settings -> Download Client in the *arr web UI at runtime
@@ -61,7 +61,7 @@ let
         implementation = "Deluge";
         fields = {
           host = "127.0.0.1";
-          port = 58846;
+          port = 8112;
           username = "localclient";
           # Tailscale/LAN firewall is the access control, not this password
           # Change via Settings -> Download Client in the *arr web UI at runtime
@@ -90,7 +90,7 @@ let
         implementation = "Deluge";
         fields = {
           host = "127.0.0.1";
-          port = 58846;
+          port = 8112;
           username = "localclient";
           # Tailscale/LAN firewall is the access control, not this password
           # Change via Settings -> Download Client in the *arr web UI at runtime
