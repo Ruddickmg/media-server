@@ -4,7 +4,10 @@
     description = "Pull latest NixOS config from Git and rebuild";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
-    path = [ pkgs.gitMinimal ];
+    path = [
+      pkgs.gitMinimal
+      pkgs.nixos-rebuild
+    ];
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = "/etc/nixos";
@@ -21,10 +24,10 @@
   };
 
   systemd.timers.nixos-auto-update = {
-    description = "NixOS auto-update check every 15 minutes";
+    description = "NixOS auto-update check every 5 minutes";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "*:0,15,30,45";
+      OnCalendar = "*:0/5";
       Persistent = true;
     };
   };

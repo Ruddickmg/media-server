@@ -9,6 +9,7 @@ let
   inherit (lib)
     mkIf
     mkOption
+    mkOverride
     types
     optionalAttrs
     ;
@@ -90,6 +91,7 @@ in
 
     systemd.services.seerr = {
       environment.SEERR_API_KEY = apiKeys.seerr;
+      serviceConfig.ExecStart = mkOverride 40 (lib.getExe pkgs-unstable.seerr);
       preStart = ''
         CONFIG_FILE="/var/lib/seerr/settings.json"
         if [ ! -f "$CONFIG_FILE" ]; then
