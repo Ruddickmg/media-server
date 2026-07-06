@@ -57,7 +57,9 @@ let
   settingsJson = builtins.toJSON (
     {
       initialized = true;
-      main = { };
+      main = {
+        mediaServerType = 2;
+      };
     }
     // optionalAttrs sonarrEnabled {
       sonarr = [ mkSonarr ];
