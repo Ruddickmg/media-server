@@ -178,6 +178,7 @@ let
             };
           };
         };
+      indexerProxy = null;
     };
   };
 in
