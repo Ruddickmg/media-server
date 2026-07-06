@@ -21,10 +21,10 @@
   };
 
   systemd.timers.nixos-auto-update = {
-    description = "NixOS auto-update check every 15 minutes";
+    description = "NixOS auto-update check every 5 minutes";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "*:0,15,30,45";
+      OnCalendar = "*:0/5";
       Persistent = true;
     };
   };
