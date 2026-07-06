@@ -204,5 +204,9 @@ in
       ++ optionals cfg.prowlarr.enable [ "prowlarr.service" ]
       ++ optionals cfg.deluge.enable [ "deluged.service" ];
     wants = [ "network.target" ];
+    serviceConfig = {
+      RestartSec = "1s";
+      StartLimitBurst = 10;
+    };
   };
 }
