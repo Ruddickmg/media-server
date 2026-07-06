@@ -29,7 +29,6 @@ in
       openFirewall = cfg.openFirewall;
       settings = {
         server.bindaddress = "127.0.0.1";
-        server.urlbase = "/sonarr";
       };
       apiKeyFile = "${pkgs.writeText "sonarr-api-key" config.media-server.apiKeys.sonarr}";
       environmentFiles = [

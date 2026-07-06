@@ -33,13 +33,36 @@
       Environment = lib.mkAfter [
         "TS_DEBUG_FIREWALL_MODE=nftables"
       ];
-      ExecStartPost = [
-        "-${pkgs.tailscale}/bin/tailscale serve --set-path /prowlarr http://127.0.0.1:9696"
-        "-${pkgs.tailscale}/bin/tailscale serve --set-path /sonarr http://127.0.0.1:8989"
-        "-${pkgs.tailscale}/bin/tailscale serve --set-path /radarr http://127.0.0.1:7878"
-        "-${pkgs.tailscale}/bin/tailscale serve --set-path /lidarr http://127.0.0.1:8686"
-      ];
     };
+  };
+
+  systemd.services.tailscale-serve-paths = {
+    description = "Configure Tailscale Serve port-based routing for *arr apps";
+    after = [ "tailscaled.service" ];
+    wants = [ "tailscaled.service" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.tailscale ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      Restart = "on-failure";
+      RestartSec = "3s";
+      TimeoutStartSec = "60s";
+    };
+    script = ''
+      # Wait for tailscale to be authenticated
+      for i in $(seq 1 30); do
+        if tailscale status --peers=false 2>/dev/null; then
+          break
+        fi
+        sleep 1
+      done
+
+      tailscale serve --bg --https=9696 http://127.0.0.1:9696
+      tailscale serve --bg --https=8989 http://127.0.0.1:8989
+      tailscale serve --bg --https=7878 http://127.0.0.1:7878
+      tailscale serve --bg --https=8686 http://127.0.0.1:8686
+    '';
   };
 
   environment.systemPackages = [ pkgs.tailscale ];
