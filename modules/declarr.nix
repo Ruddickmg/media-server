@@ -190,7 +190,10 @@ in
 
     config = mkMerge [
       {
-        declarr.stateDir = "/var/lib/declarr";
+        declarr = {
+          stateDir = "/var/lib/declarr";
+          formatDbRepo = "https://github.com/Dictionarry-Hub/Database";
+        };
       }
       sonarrCfg
       radarrCfg
