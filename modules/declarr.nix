@@ -42,6 +42,7 @@ let
       };
 
       rootFolder = [ "/media/tv" ];
+      qualityProfile = { };
     };
   };
 
@@ -71,6 +72,7 @@ let
       };
 
       rootFolder = [ "/media/movies" ];
+      qualityProfile = { };
     };
   };
 
