@@ -7,6 +7,10 @@
 let
   cfg = config.media-server.vpn;
   ns = cfg.namespace;
+
+  # Generate resolv.conf nameserver lines from a list of addresses.
+  nameserverLines = addrs: lib.concatMapStrings (a: "nameserver ${a}\n") addrs;
+  dnsAddrs = if cfg.dns != null then cfg.dns else [ "1.1.1.1" ];
 in
 {
   options.media-server.vpn = {
@@ -35,10 +39,14 @@ in
       '';
     };
     address = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
+      type = lib.types.nullOr (lib.types.listOf lib.types.str);
       default = null;
-      example = "10.5.0.2/32";
-      description = "IP address of the WireGuard interface inside the namespace";
+      example = [ "10.5.0.2/32" ];
+      description = ''
+        IP address(es) of the WireGuard interface inside the namespace.
+        Pass a list so both IPv4 and IPv6 can be included if the provider
+        assigns both (e.g. Proton VPN WireGuard configs).
+      '';
     };
     peerPublicKey = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
@@ -52,10 +60,14 @@ in
       description = "Endpoint of the WireGuard peer (host:port)";
     };
     dns = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
+      type = lib.types.nullOr (lib.types.listOf lib.types.str);
       default = null;
-      example = "10.2.0.1";
-      description = "DNS server for the network namespace. Falls back to 1.1.1.1 if not set.";
+      example = [ "10.2.0.1" ];
+      description = ''
+        DNS server(s) for the network namespace. Falls back to 1.1.1.1 if
+        not set. Pass a list when the provider gives multiple resolvers
+        (e.g. Proton VPN provides both IPv4 and IPv6 DNS addresses).
+      '';
     };
     persistentKeepalive = lib.mkOption {
       type = lib.types.int;
@@ -90,7 +102,7 @@ in
     ];
 
     networking.wireguard.interfaces."wg-${ns}" = {
-      ips = [ cfg.address ];
+      ips = cfg.address;
       privateKeyFile = cfg.privateKeyFile;
       interfaceNamespace = ns;
       peers = [
@@ -125,11 +137,11 @@ in
                 ip netns exec ${ns} ip link set lo up
 
                 # Write DNS configuration for confined services.
-                # Use the configured DNS server if available, otherwise fall
+                # Use the configured DNS servers if available, otherwise fall
                 # back to a public resolver.
                 mkdir -p /etc/netns/${ns}
                 cat > /etc/netns/${ns}/resolv.conf << EOF
-        nameserver ${if cfg.dns != null then cfg.dns else "1.1.1.1"}
+        ${nameserverLines dnsAddrs}
         nameserver 1.1.1.1
         options edns0 trust-ad
         EOF

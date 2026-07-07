@@ -270,10 +270,11 @@ Open `hosts/media-server/default.nix` and copy the non-secret fields from the `.
 media-server = {
   vpn.enable = true;
   vpn.privateKeyFile = "/etc/nixos/secrets/vpn-key";
-  vpn.address = "10.2.0.2/32";                    # from [Interface] Address
-  vpn.peerPublicKey = "...";                      # from [Peer] PublicKey
-  vpn.endpoint = "...";                           # from [Peer] Endpoint
-  vpn.dns = "10.2.0.1";                           # from [Interface] DNS
+  # If your provider assigns both IPv4 and IPv6 addresses, pass both as a list.
+  vpn.address = [ "10.2.0.2/32" "2a07:b944::2:2/128" ];  # from [Interface] Address
+  vpn.peerPublicKey = "...";                            # from [Peer] PublicKey
+  vpn.endpoint = "...";                                 # from [Peer] Endpoint
+  vpn.dns = [ "10.2.0.1" "2a07:b944::2:1" ];            # from [Interface] DNS
   deluge.vpnConfinement = true;
 };
 ```
