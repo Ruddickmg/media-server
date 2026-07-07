@@ -71,10 +71,11 @@ in
           6881
           6881
         ];
-        outgoing_ports = [
-          49152
-          65535
-        ];
+        # Deluge/libtorrent uses OS-assigned ephemeral ports for outgoing
+        # connections by default. Explicitly setting outgoing_ports is not
+        # recommended: it limits the number of concurrent peers and breaks
+        # reconnection to the same client due to socket TIME_WAIT. See
+        # libtorrent docs: https://libtorrent.org/reference-Settings.html
 
         # Service discovery — irrelevant behind VPN/Tailscale
         upnp = false;
