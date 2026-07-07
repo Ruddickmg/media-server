@@ -72,6 +72,11 @@ in
           65535
         ];
 
+        # Service discovery — irrelevant behind VPN/Tailscale
+        upnp = false;
+        natpmp = false;
+        lsd = false;
+
         # Bandwidth (capped at ~80% of 73.4/10.3 Mbps connection)
         max_download_speed = 7000.0;
         max_upload_speed = 1000.0;
@@ -79,10 +84,17 @@ in
         # Connections
         max_connections_global = 500;
         max_connections_per_torrent = 100;
+        max_connections_per_second = 20;
+        max_upload_slots_global = 20;
         max_upload_slots_per_torrent = 8;
+        max_half_open_connections = 50;
+
+        # Cache
+        cache_size = 8192;
+        cache_expiry = 90;
 
         # Queue — *arrs remove their own torrents via per-indexer goals
-        max_active_limit = 50;
+        max_active_limit = 100;
         max_active_downloading = 5;
         max_active_seeding = 40;
 
