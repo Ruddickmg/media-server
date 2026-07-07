@@ -6,6 +6,7 @@
 }:
 let
   inherit (lib)
+    mkForce
     mkIf
     mkMerge
     mkOption
@@ -126,6 +127,7 @@ in
           PrivateDevices = true;
           LockPersonality = true;
           RestrictNamespaces = true;
+          LimitNOFILE = mkForce 65536;
           ReadWritePaths = [
             "/var/lib/deluge"
             "/media/downloads"
@@ -159,6 +161,7 @@ in
       serviceConfig = {
         User = "deluge";
         Group = "deluge";
+        LimitNOFILE = mkForce 65536;
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --exit-idle-time=5min 127.0.0.1:58846";
       };
     };
