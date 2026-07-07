@@ -54,28 +54,32 @@ let
     minimumAvailability = "announced";
   };
 
-  settingsJson = builtins.toJSON ({
-    main = {
-      applicationUrl = "https://media-server.tailbac0df.ts.net";
-    };
-    network = {
-      trustProxy = true;
-    };
-  });
-
-  patchJson = builtins.toJSON (
+  settingsJson = builtins.toJSON (
     {
       main = {
-        mediaServerType = 1;
         applicationUrl = "https://media-server.tailbac0df.ts.net";
+        mediaServerType = 4;
       };
       network = {
         trustProxy = true;
       };
-      plex = {
-        ip = "127.0.0.1";
-        port = 32400;
-        useSsl = false;
+    }
+    // optionalAttrs sonarrEnabled {
+      sonarr = [ mkSonarr ];
+    }
+    // optionalAttrs radarrEnabled {
+      radarr = [ mkRadarr ];
+    }
+  );
+
+  patchJson = builtins.toJSON (
+    {
+      main = {
+        mediaServerType = 4;
+        applicationUrl = "https://media-server.tailbac0df.ts.net";
+      };
+      network = {
+        trustProxy = true;
       };
     }
     // optionalAttrs sonarrEnabled {
