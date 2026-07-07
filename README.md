@@ -128,7 +128,7 @@ Indexers added in Prowlarr are automatically synced to Sonarr, Radarr, and Lidar
 
 ### Seeding and ratio management
 
-Deluge's global seeding ceiling is set intentionally high (`stop_seed_ratio = 3.0`, `seed_time_limit = 14` days) as a safety net for manually-added torrents. It should never be hit by *arr-managed torrents — those are handled per-indexer.
+Deluge's global seeding ceiling is set intentionally high (`stop_seed_ratio = 3.0`, `seed_time_limit = 30` days) as a safety net for manually-added torrents. It should never be hit by *arr-managed torrents — those are handled per-indexer.
 
 For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met, well before the global ceiling kicks in.
 
@@ -238,39 +238,41 @@ A proxy service (`proxy-deluge`) forwards the daemon port (58846) from the root 
 
 The module expects a standard WireGuard `.conf` file. This file contains a PrivateKey — **treat it as a secret and never commit it to the repository.**
 
-#### Generating a config (NordVPN)
+#### Generating a config (Proton VPN)
 
-NordVPN uses NordLynx (WireGuard-based) and doesn't distribute `.conf` files directly. Use [`wg-nord`](https://github.com/n-thumann/wg-nord) to generate one:
+Proton VPN provides standard WireGuard `.conf` files directly from their web dashboard.
 
-1. Create an [access token](https://my.nordaccount.com/dashboard/nordvpn/access-tokens/)
-2. Install `wg-nord`:
-   ```bash
-   cargo install wg-nord --git https://github.com/n-thumann/wg-nord/
-   ```
-3. Pick a server and generate:
-   ```bash
-    curl -s 'https://api.nordvpn.com/v1/servers/recommendations?filters[servers_technologies][identifier]=wireguard_udp&limit=5' | jq -r '.[].hostname'
-   wg-nord --server is80.nordvpn.com --token YOUR_TOKEN > nordvpn-is80.conf
-   ```
-4. Copy to the server:
-   ```bash
-   scp nordvpn-is80.conf media-server:/etc/nixos/secrets/vpn.conf
-   ssh media-server sudo chmod 600 /etc/nixos/secrets/vpn.conf
-   ```
+1. Log in at [account.protonvpn.com](https://account.protonvpn.com)
+2. Go to **Account → Downloads → WireGuard configuration**
+3. Select a **P2P** server (double-arrow icon)
+4. Enable **NAT-PMP (port forwarding)** under VPN options
+5. Download the `.conf` file
+6. Copy the private key to the server to a file in `/etc/nixos/secrets/vpn-key`
+7. set permissions for key:
+```bash
+ssh media-server sudo chmod 600 /etc/nixos/secrets/vpn-key
+```
 
 #### Enabling
 
-In `hosts/media-server/default.nix`:
+Open `hosts/media-server/default.nix` and copy the non-secret fields from the wireguard configuration into the `vpn` block:
 
 ```nix
 media-server = {
   vpn.enable = true;
-  vpn.wireguardConfig = "/etc/nixos/secrets/vpn.conf";
+  vpn.privateKeyFile = "/etc/nixos/secrets/vpn-key";
+  # If your provider assigns both IPv4 and IPv6 addresses, pass both as a list.
+  vpn.address = [ "10.2.0.2/32" "2a07:b944::2:2/128" ];  # from [Interface] Address
+  vpn.peerPublicKey = "...";                            # from [Peer] PublicKey
+  vpn.endpoint = "...";                                 # from [Peer] Endpoint
+  vpn.dns = [ "10.2.0.1" "2a07:b944::2:1" ];            # from [Interface] DNS
   deluge.vpnConfinement = true;
 };
 ```
 
-Then `sudo nixos-rebuild switch`.
+#### Port forwarding
+
+When `deluge.vpnConfinement` is enabled, Deluge runs inside the VPN namespace and its BitTorrent listen port is refreshed automatically from Proton's NAT-PMP every ~45 s. You do not need to configure the port manually. The thin client is unaffected — it still connects to the daemon RPC port (`58846`) through `proxy-deluge`.
 
 ## Auto-Updates
 
