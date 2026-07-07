@@ -180,24 +180,7 @@ To expose any service on LAN as well, set its `openFirewall = true`:
 networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
 ```
 
-### VPN confinement (Deluge)
-
-Deluge can be isolated in a dedicated network namespace with a WireGuard VPN to anonymize torrent traffic. This provides a built-in kill switch — if the VPN drops, Deluge loses all network connectivity.
-
-Enable it by:
-
-1. Placing a WireGuard configuration file from a VPN provider on the server (e.g., `/etc/nixos/secrets/vpn.conf`)
-2. Enabling the feature:
-
-```nix
-{
-  media-server.vpn.enable = true;
-  media-server.vpn.wireguardConfig = "/etc/nixos/secrets/vpn.conf";
-  media-server.deluge.vpnConfinement = true;
-}
-```
-
-When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the Deluge daemon port (58846) from the root namespace so the thin client can still connect.
+For VPN confinement details, see [VPN confinement](#vpn-confinement).
 
 ## Service Reference
 
@@ -247,61 +230,47 @@ Then add `secrets/` to `.gitignore`.
 
 The host firewall blocks all inbound traffic on physical interfaces by default. Only the `tailscale0` and `lo` interfaces are trusted. Each service exposes its port on the tailnet only unless `openFirewall = true` is set.
 
-### VPN provider WireGuard config
+### VPN confinement
 
-The VPN confinement module expects a standard WireGuard `.conf` file. You generate this on any machine (your laptop, a desktop, wherever), then copy the resulting file to the server via `scp`.
+Deluge can be isolated in a dedicated network namespace with a WireGuard VPN to anonymize torrent traffic. This provides a built-in kill switch — if the VPN drops, Deluge has no network access.
 
-> **The `.conf` file contains a PrivateKey — treat it as a secret and never commit it to the repository.**
+A proxy service (`proxy-deluge`) forwards the daemon port (58846) from the root namespace so the thin client can still connect.
 
-#### NordVPN
+The module expects a standard WireGuard `.conf` file. This file contains a PrivateKey — **treat it as a secret and never commit it to the repository.**
 
-NordVPN uses a proprietary NordLynx protocol (based on WireGuard) and does not distribute `.conf` files directly. The [`wgnord`](https://search.nixos.org/packages?show=wgnord) tool (available in nixpkgs 24.11) generates one from your access token.
+#### Generating a config (NordVPN)
 
-**1. Create an access token**
+NordVPN uses NordLynx (WireGuard-based) and doesn't distribute `.conf` files directly. Use [`wg-nord`](https://github.com/n-thumann/wg-nord) to generate one:
 
-Go to [NordVPN access tokens](https://my.nordaccount.com/dashboard/nordvpn/access-tokens/) and generate a new token.
+1. Create an [access token](https://my.nordaccount.com/dashboard/nordvpn/access-tokens/)
+2. Install `wg-nord`:
+   ```bash
+   cargo install wg-nord --git https://github.com/n-thumann/wg-nord/
+   ```
+3. Pick a server and generate:
+   ```bash
+    curl -s 'https://api.nordvpn.com/v1/servers/recommendations?filters[servers_technologies][identifier]=wireguard_udp&limit=5' | jq -r '.[].hostname'
+   wg-nord --server is80.nordvpn.com --token YOUR_TOKEN > nordvpn-is80.conf
+   ```
+4. Copy to the server:
+   ```bash
+   scp nordvpn-is80.conf media-server:/etc/nixos/secrets/vpn.conf
+   ssh media-server sudo chmod 600 /etc/nixos/secrets/vpn.conf
+   ```
 
-**2. Generate a WireGuard `.conf` file**
+#### Enabling
 
-Run this on any machine with Nix (your laptop, a desktop, etc.):
+In `hosts/media-server/default.nix`:
 
-```bash
-# Enter a shell with wgnord and its dependencies
-nix shell nixpkgs#wgnord nixpkgs#wireguard-tools nixpkgs#openresolv
-
-# Set up the template
-sudo mkdir -p /var/lib/wgnord
-sudo curl -o /var/lib/wgnord/template.conf \
-  https://raw.githubusercontent.com/phirecc/wgnord/master/template.conf
-
-# Log in with your NordVPN access token
-sudo wgnord l "your-access-token"
-
-# Generate the config for a specific country (e.g. us, de, nl)
-sudo wgnord c us
-
-# The config is now at /etc/wireguard/wgnord.conf
+```nix
+media-server = {
+  vpn.enable = true;
+  vpn.wireguardConfig = "/etc/nixos/secrets/vpn.conf";
+  deluge.vpnConfinement = true;
+};
 ```
 
-If your local machine isn't NixOS (e.g. Ubuntu with Nix installed), the `nix shell` command works identically.
-
-**3. Copy to the server**
-
-```bash
-scp /etc/wireguard/wgnord.conf media-server:/etc/nixos/secrets/vpn.conf
-```
-
-On the server:
-
-```bash
-sudo chmod 600 /etc/nixos/secrets/vpn.conf
-```
-
-**4. (Optional) Clean up wgnord state on your local machine**
-
-```bash
-sudo rm -rf /var/lib/wgnord /etc/wireguard/wgnord.conf /etc/wireguard/wgnord.key
-```
+Then `sudo nixos-rebuild switch`.
 
 ## Auto-Updates
 

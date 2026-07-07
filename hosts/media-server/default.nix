@@ -37,11 +37,15 @@
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFtQlXM4BBmMjr0B35YzlQIOJRPRUdiCas6Yzk5So2w3 grant@grant-XPS-15-9530"
     ];
 
+    vpn.enable = true;
+    vpn.wireguardConfig = "/etc/nixos/secrets/vpn.conf";
+
     sonarr.enable = true;
     radarr.enable = true;
     lidarr.enable = true;
     prowlarr.enable = true;
     deluge.enable = true;
+    deluge.vpnConfinement = true;
     bazarr.enable = true;
     plex.enable = true;
     seerr.enable = true;
