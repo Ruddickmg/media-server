@@ -63,10 +63,6 @@ in
         del_copy_torrent_file = false;
         prioritize_first_last_pieces = false;
         random_port = true;
-        listen_random_port_range = [
-          49152
-          65535
-        ];
         outgoing_ports = [
           49152
           65535
