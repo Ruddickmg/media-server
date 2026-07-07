@@ -51,6 +51,7 @@ in
       web.enable = true;
       config = {
         daemon_port = 58846;
+        allow_remote = true;
         enabled_plugins = [
           "Label"
           "Blocklist"
@@ -94,7 +95,10 @@ in
         remove_seed_at_ratio = false;
         auto_managed = true;
       };
-      authFile = pkgs.writeText "deluge-auth" "localclient:deluge:10";
+      authFile = pkgs.writeText "deluge-auth" ''
+        localclient:deluge:10
+        ruddickmg:deluge:10
+      '';
       user = "deluge";
       group = "deluge";
       dataDir = "/var/lib/deluge";
