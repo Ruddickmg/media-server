@@ -7,6 +7,45 @@
 let
   inherit (lib) mkIf mkOption types;
   cfg = config.media-server.bazarr;
+
+  seedIni = pkgs.writeText "bazarr-seed.ini" ''
+    [General]
+    ip = 127.0.0.1
+    port = 6767
+    base_url = /bazarr
+
+    [sonarr]
+    api_key = ${config.media-server.apiKeys.sonarr}
+    full_update = True
+    enabled = True
+
+    [radarr]
+    api_key = ${config.media-server.apiKeys.radarr}
+    full_update = True
+    enabled = True
+  '';
+
+  mergeScript = pkgs.writeText "bazarr-merge.py" ''
+    import configparser
+    import sys
+
+    seed_path = sys.argv[1]
+    config_path = sys.argv[2]
+
+    seed = configparser.ConfigParser()
+    seed.read(seed_path)
+    cfg = configparser.ConfigParser()
+    cfg.read(config_path)
+
+    for section in seed.sections():
+        if not cfg.has_section(section):
+            cfg.add_section(section)
+        for key, value in seed.items(section):
+            cfg.set(section, key, value)
+
+    with open(config_path, "w") as f:
+        cfg.write(f)
+  '';
 in
 {
   options.media-server.bazarr = {
@@ -31,31 +70,17 @@ in
 
     systemd.services.bazarr = {
       preStart = ''
-                CONFIG_FILE="/var/lib/bazarr/config/config.ini"
-                SONARR_KEY="${config.media-server.apiKeys.sonarr}"
-                RADARR_KEY="${config.media-server.apiKeys.radarr}"
-                if [ ! -f "$CONFIG_FILE" ]; then
-                  mkdir -p "$(dirname "$CONFIG_FILE")"
-                  cat > "$CONFIG_FILE" << EOF
-        [General]
-        ip = 127.0.0.1
-        port = 6767
-        base_url = /bazarr
+        CONFIG_FILE="/var/lib/bazarr/config/config.ini"
+        mkdir -p "$(dirname "$CONFIG_FILE")"
 
-        [sonarr]
-        api_key = ''${SONARR_KEY}
-        full_update = True
-        enabled = True
+        if [ ! -f "$CONFIG_FILE" ]; then
+          cp ${seedIni} "$CONFIG_FILE"
+        else
+          ${pkgs.python3}/bin/python3 ${mergeScript} ${seedIni} "$CONFIG_FILE"
+        fi
 
-        [radarr]
-        api_key = ''${RADARR_KEY}
-        full_update = True
-        enabled = True
-        EOF
-                  chown -R bazarr:bazarr "$(dirname "$CONFIG_FILE")"
-                  chmod 600 "$CONFIG_FILE"
-                  echo "Seeded Bazarr config.ini"
-                fi
+        chown -R bazarr:bazarr "$(dirname "$CONFIG_FILE")"
+        chmod 600 "$CONFIG_FILE"
       '';
       serviceConfig = {
         ProtectHome = true;
