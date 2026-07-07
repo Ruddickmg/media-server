@@ -59,6 +59,10 @@ let
       initialized = true;
       main = {
         mediaServerType = 1;
+        applicationUrl = "https://media-server.tailbac0df.ts.net";
+      };
+      network = {
+        trustProxy = true;
       };
       plex = {
         ip = "127.0.0.1";
@@ -78,6 +82,10 @@ let
     {
       main = {
         mediaServerType = 1;
+        applicationUrl = "https://media-server.tailbac0df.ts.net";
+      };
+      network = {
+        trustProxy = true;
       };
       plex = {
         ip = "127.0.0.1";
