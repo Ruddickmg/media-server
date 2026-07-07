@@ -58,7 +58,31 @@ let
     {
       initialized = true;
       main = {
-        mediaServerType = 2;
+        mediaServerType = 1;
+      };
+      plex = {
+        ip = "127.0.0.1";
+        port = 32400;
+        useSsl = false;
+      };
+    }
+    // optionalAttrs sonarrEnabled {
+      sonarr = [ mkSonarr ];
+    }
+    // optionalAttrs radarrEnabled {
+      radarr = [ mkRadarr ];
+    }
+  );
+
+  patchJson = builtins.toJSON (
+    {
+      main = {
+        mediaServerType = 1;
+      };
+      plex = {
+        ip = "127.0.0.1";
+        port = 32400;
+        useSsl = false;
       };
     }
     // optionalAttrs sonarrEnabled {
@@ -70,6 +94,7 @@ let
   );
 
   settingsFile = pkgs.writeText "seerr-settings" settingsJson;
+  patchFile = pkgs.writeText "seerr-patch" patchJson;
 in
 {
   options.media-server.seerr = {
@@ -99,7 +124,12 @@ in
       };
       serviceConfig.ExecStart = mkOverride 40 (lib.getExe pkgs-unstable.seerr);
       preStart = ''
-        cp ${settingsFile} /var/lib/seerr/settings.json
+        if [ ! -f /var/lib/seerr/settings.json ]; then
+          cp ${settingsFile} /var/lib/seerr/settings.json
+        else
+          ${pkgs.jq}/bin/jq -s '.[0] * .[1]' /var/lib/seerr/settings.json ${patchFile} > /tmp/seerr-settings.json
+          mv /tmp/seerr-settings.json /var/lib/seerr/settings.json
+        fi
         chmod 600 /var/lib/seerr/settings.json
         chown --reference=/var/lib/seerr /var/lib/seerr/settings.json
       '';
