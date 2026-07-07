@@ -31,8 +31,22 @@ jobs:
               > hosts/media-server/hardware-configuration.nix
             git add -f hosts/media-server/hardware-configuration.nix
       - run:
+          name: Generate dummy VPN config for CI
+          command: |
+            mkdir -p /etc/nixos/secrets
+            printf '%s\n' \
+              '[Interface]' \
+              'Address = 10.2.0.2/32' \
+              'PrivateKey = dummydummydummydummydummydummydummydummydummydummyd=' \
+              'DNS = 10.2.0.1' \
+              '' \
+              '[Peer]' \
+              'PublicKey = dummydummydummydummydummydummydummydummydummydummyd=' \
+              'Endpoint = 10.2.0.1:51820' \
+              > /etc/nixos/secrets/vpn.conf
+      - run:
           name: Build
-          command: nix build .#nixosConfigurations.media-server.config.system.build.toplevel
+          command: nix build --impure .#nixosConfigurations.media-server.config.system.build.toplevel
 
 workflows:
   version: 2
