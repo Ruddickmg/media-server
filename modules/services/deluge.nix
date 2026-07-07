@@ -20,8 +20,6 @@ let
       timeout = 180;
       try_times = 3;
       whitelisted = [ ];
-      list_type = "";
-      list_compression = "";
     }
   );
 in
@@ -129,6 +127,11 @@ in
     }
     // mkIf useVpn {
       NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+    };
+
+    systemd.services.deluged = mkIf useVpn {
+      after = [ "create-netns-${vpnNs}.service" ];
+      requires = [ "create-netns-${vpnNs}.service" ];
     };
 
     systemd.sockets.proxy-deluge = mkIf useVpn {
