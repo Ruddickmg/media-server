@@ -48,30 +48,30 @@ in
 
     systemd.services.bazarr = {
       preStart = ''
-        CONFIG_FILE="/var/lib/bazarr/config/config.ini"
-        mkdir -p "$(dirname "$CONFIG_FILE")"
+                CONFIG_FILE="/var/lib/bazarr/config/config.ini"
+                mkdir -p "$(dirname "$CONFIG_FILE")"
 
-        if [ ! -f "$CONFIG_FILE" ]; then
-          cp ${seedIni} "$CONFIG_FILE"
-        else
-          ${pkgs.python3}/bin/python3 << PYEOF
-        import configparser
-        seed = configparser.ConfigParser()
-        seed.read("${seedIni}")
-        cfg = configparser.ConfigParser()
-        cfg.read("$CONFIG_FILE")
-        for section in seed.sections():
-            if not cfg.has_section(section):
-                cfg.add_section(section)
-            for key, value in seed.items(section):
-                cfg.set(section, key, value)
-        with open("$CONFIG_FILE", "w") as f:
-            cfg.write(f)
-PYEOF
-        fi
+                if [ ! -f "$CONFIG_FILE" ]; then
+                  cp ${seedIni} "$CONFIG_FILE"
+                else
+                  ${pkgs.python3}/bin/python3 << PYEOF
+                import configparser
+                seed = configparser.ConfigParser()
+                seed.read("${seedIni}")
+                cfg = configparser.ConfigParser()
+                cfg.read("$CONFIG_FILE")
+                for section in seed.sections():
+                    if not cfg.has_section(section):
+                        cfg.add_section(section)
+                    for key, value in seed.items(section):
+                        cfg.set(section, key, value)
+                with open("$CONFIG_FILE", "w") as f:
+                    cfg.write(f)
+        PYEOF
+                fi
 
-        chown -R bazarr:bazarr "$(dirname "$CONFIG_FILE")"
-        chmod 600 "$CONFIG_FILE"
+                chown -R bazarr:bazarr "$(dirname "$CONFIG_FILE")"
+                chmod 600 "$CONFIG_FILE"
       '';
       serviceConfig = {
         ProtectHome = true;
