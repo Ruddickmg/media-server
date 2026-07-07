@@ -22,7 +22,7 @@ let
       url = blocklistUrl;
       load_on_start = true;
       check_after_days = 3;
-      timeout = 180;
+      timeout = 600;
       try_times = 3;
       whitelisted = [ ];
     }
@@ -160,7 +160,6 @@ in
         User = "deluge";
         Group = "deluge";
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --exit-idle-time=5min 127.0.0.1:58846";
-        PrivateNetwork = true;
       };
     };
 

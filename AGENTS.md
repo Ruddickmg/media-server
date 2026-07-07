@@ -28,6 +28,10 @@ Belong as Nix comments alongside the code that configures them. Examples:
 
 Records project-wide conventions for LLM agents. Update it when new patterns are established.
 
+## Never Commit
+
+Do not commit, push, or create PRs. The user handles version control manually. Make edits only; tell the user what was changed and let them decide when to commit.
+
 ## Remote Server
 
 The target server (`192.168.0.124`) is remote. This machine is a development workstation. Nix config changes are edited here, pushed to git, and applied on the remote via `nixos-rebuild switch`. Do not attempt to run system commands (systemctl, journalctl, ss, etc.) to check service state — those won't reflect the remote server.
