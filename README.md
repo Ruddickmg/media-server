@@ -246,52 +246,43 @@ The VPN confinement module expects a standard WireGuard `.conf` file. You genera
 
 #### NordVPN
 
-NordVPN uses a proprietary NordLynx protocol (based on WireGuard) and does not distribute `.conf` files directly. The [`wgnord`](https://search.nixos.org/packages?show=wgnord) tool (available in nixpkgs 24.11) generates one from your access token.
+NordVPN uses a proprietary NordLynx protocol (based on WireGuard) and does not distribute `.conf` files directly. The [`wg-nord`](https://github.com/n-thumann/wg-nord) tool generates one from your access token.
 
 **1. Create an access token**
 
 Go to [NordVPN access tokens](https://my.nordaccount.com/dashboard/nordvpn/access-tokens/) and generate a new token.
 
-**2. Generate a WireGuard `.conf` file**
-
-Run this on any machine with Nix (your laptop, a desktop, etc.):
+**2. Install `wg-nord`**
 
 ```bash
-# Enter a shell with wgnord and its dependencies
-nix shell nixpkgs#wgnord nixpkgs#wireguard-tools nixpkgs#openresolv
-
-# Set up the template
-sudo mkdir -p /var/lib/wgnord
-sudo curl -o /var/lib/wgnord/template.conf \
-  https://raw.githubusercontent.com/phirecc/wgnord/master/template.conf
-
-# Log in with your NordVPN access token
-sudo wgnord l "your-access-token"
-
-# Generate the config for a specific country (e.g. us, de, nl)
-sudo wgnord c us
-
-# The config is now at /etc/wireguard/wgnord.conf
+cargo install wg-nord --git https://github.com/n-thumann/wg-nord/
 ```
 
-If your local machine isn't NixOS (e.g. Ubuntu with Nix installed), the `nix shell` command works identically.
+**3. Generate a WireGuard `.conf` file**
 
-**3. Copy to the server**
+Pick a server from [NordVPN's server list](https://nordvpn.com/servers/tools/) (WireGuard-compatible), or find recommended servers via the API:
 
 ```bash
-scp /etc/wireguard/wgnord.conf media-server:/etc/nixos/secrets/vpn.conf
+curl -s "https://api.nordvpn.com/v1/servers/recommendations?&filters\[servers_technologies\]\[identifier\]=wireguard_udp&limit=5" | \
+  jq -r '.[].hostname'
+```
+
+Then generate the config:
+
+```bash
+wg-nord --server is80.nordvpn.com --token YOUR_TOKEN > nordvpn-is80.conf
+```
+
+**4. Copy to the server**
+
+```bash
+scp nordvpn-is80.conf media-server:/etc/nixos/secrets/vpn.conf
 ```
 
 On the server:
 
 ```bash
 sudo chmod 600 /etc/nixos/secrets/vpn.conf
-```
-
-**4. (Optional) Clean up wgnord state on your local machine**
-
-```bash
-sudo rm -rf /var/lib/wgnord /etc/wireguard/wgnord.conf /etc/wireguard/wgnord.key
 ```
 
 ### VPN confinement (Deluge)
