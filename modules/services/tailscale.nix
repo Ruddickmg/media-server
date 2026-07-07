@@ -40,14 +40,24 @@
     enable = true;
     virtualHosts.":8080".extraConfig = ''
       bind 127.0.0.1
-      reverse_proxy /prowlarr* http://127.0.0.1:9696
-      reverse_proxy /sonarr* http://127.0.0.1:8989
-      reverse_proxy /radarr* http://127.0.0.1:7878
-      reverse_proxy /lidarr* http://127.0.0.1:8686
-      reverse_proxy /bazarr* http://127.0.0.1:6767
-      handle_path /seerr* {
-        reverse_proxy http://127.0.0.1:5055
-      }
+
+      # *arr path-based routing
+      handle /prowlarr* { reverse_proxy http://127.0.0.1:9696 }
+      handle /sonarr*   { reverse_proxy http://127.0.0.1:8989 }
+      handle /radarr*   { reverse_proxy http://127.0.0.1:7878 }
+      handle /lidarr*   { reverse_proxy http://127.0.0.1:8686 }
+      handle /bazarr*   { reverse_proxy http://127.0.0.1:6767 }
+
+      # Seerr — strip /seerr prefix so it thinks it runs at root
+      handle_path /seerr* { reverse_proxy http://127.0.0.1:5055 }
+
+      # Seerr root-relative Next.js static assets and API
+      handle /_next/*  { reverse_proxy http://127.0.0.1:5055 }
+      handle /api/v1/* { reverse_proxy http://127.0.0.1:5055 }
+
+      # Catch-all — everything else (including root /) goes to Seerr
+      # This makes refresh/deep-link work for Seerr SPA routes like /requests, /login
+      handle { reverse_proxy http://127.0.0.1:5055 }
     '';
   };
 
