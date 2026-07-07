@@ -67,11 +67,11 @@ in
       '';
     };
     wireguardConfig = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
+      type = lib.types.nullOr lib.types.str;
       default = null;
       example = "/etc/nixos/secrets/vpn.conf";
       description = ''
-        Path to a standard WireGuard .conf file. When set, Address,
+        Absolute path to a standard WireGuard .conf file. When set, Address,
         PublicKey, Endpoint, and DNS are parsed automatically at evaluation
         time (the file must be present on the machine that evaluates the
         configuration — i.e. the target server during `nixos-rebuild switch`).
@@ -81,11 +81,11 @@ in
       '';
     };
     privateKeyFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
+      type = lib.types.nullOr lib.types.str;
       default = null;
       example = "/etc/nixos/secrets/vpn-key";
       description = ''
-        Path to file containing the WireGuard private key (base64, one line).
+        Absolute path to file containing the WireGuard private key (base64, one line).
         Required if wireguardConfig is not used.
       '';
     };
@@ -150,15 +150,12 @@ in
     };
 
     # Ensure the netns exists before the WireGuard interface is brought up.
+    # If we are parsing a .conf file, extract the private key to /run before
+    # the wireguard interface starts so privateKeyFile points at a valid path.
     systemd.services."wireguard-wg-${ns}" = {
       bindsTo = [ "create-netns-${ns}.service" ];
       after = [ "create-netns-${ns}.service" ];
-    };
-
-    # If we are parsing a .conf file, extract the private key to /run before
-    # the wireguard interface starts so privateKeyFile points at a valid path.
-    systemd.services."wireguard-wg-${ns}" = lib.mkIf (cfg.wireguardConfig != null) {
-      preStart = ''
+      preStart = lib.mkIf (cfg.wireguardConfig != null) ''
         mkdir -p /run/vpn
         chmod 0700 /run/vpn
         ${pkgs.gawk}/bin/awk '/^PrivateKey/ {print $3}' ${cfg.wireguardConfig} > /run/vpn/wg-key

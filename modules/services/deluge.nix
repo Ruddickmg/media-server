@@ -205,6 +205,7 @@ in
         "wireguard-wg-${vpnNs}.service"
         "create-netns-${vpnNs}.service"
       ];
+      partOf = [ "deluged.service" ];
       path = with pkgs; [
         libnatpmp
         gawk
@@ -225,12 +226,20 @@ in
           tcp_out=$(natpmpc -a 1 0 tcp 60 -g 10.2.0.1) \
             || { echo "natpmpc TCP request failed" >&2; exit 1; }
 
-          port=$(awk '/Mapped public port/ {print $4; exit}' <<<"$tcp_out")
+          tcp_port=$(awk '/Mapped public port/ {print $4; exit}' <<<"$tcp_out")
+          udp_port=$(awk '/Mapped public port/ {print $4; exit}' <<<"$udp_out")
 
-          if [[ -z "$port" ]]; then
-            echo "natpmpc did not return a mapped port" >&2
+          if [[ -z "$tcp_port" || -z "$udp_port" ]]; then
+            echo "natpmpc did not return a mapped port (tcp=$tcp_port udp=$udp_port)" >&2
             exit 1
           fi
+
+          if [[ "$tcp_port" != "$udp_port" ]]; then
+            echo "natpmpc returned mismatched ports (tcp=$tcp_port udp=$udp_port)" >&2
+            exit 1
+          fi
+
+          port="$tcp_port"
 
           if [[ "$port" != "$LAST_PORT" ]]; then
             echo "ProtonVPN forwarded port changed: $port"
