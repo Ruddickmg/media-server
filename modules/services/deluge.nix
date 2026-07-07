@@ -66,7 +66,11 @@ in
         copy_torrent_file = false;
         del_copy_torrent_file = false;
         prioritize_first_last_pieces = false;
-        random_port = true;
+        random_port = false;
+        listen_ports = [
+          6881
+          6881
+        ];
         outgoing_ports = [
           49152
           65535
@@ -179,6 +183,91 @@ in
         Group = "deluge";
         LimitNOFILE = mkForce 65536;
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:58846";
+      };
+    };
+
+    # Keep ProtonVPN's NAT-PMP forwarded port in sync with Deluge's listen port.
+    # Proton assigns a random public port for both UDP and TCP; the mapping
+    # expires after 60 s, so we refresh every 45 s.  When the port changes we
+    # update Deluge via deluge-console (both run inside the VPN namespace, so
+    # the console connects to 127.0.0.1:58846 directly).  The thin client still
+    # reaches the daemon through proxy-deluge from the root namespace.
+    systemd.services.deluge-natpmp = mkIf useVpn {
+      description = "Refresh ProtonVPN NAT-PMP port mapping and sync Deluge listen port";
+      wantedBy = [ "multi-user.target" ];
+      after = [
+        "deluged.service"
+        "wireguard-wg-${vpnNs}.service"
+        "create-netns-${vpnNs}.service"
+      ];
+      requires = [
+        "deluged.service"
+        "wireguard-wg-${vpnNs}.service"
+        "create-netns-${vpnNs}.service"
+      ];
+      path = with pkgs; [
+        libnatpmp
+        gawk
+        deluge
+      ];
+      environment.HOME = config.services.deluge.dataDir;
+      script = ''
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        LAST_PORT=""
+
+        while true; do
+          # Refresh both UDP and TCP mappings — Proton assigns the same public
+          # port for both.  Lifetime is 60 s; we refresh every 45 s.
+          udp_out=$(natpmpc -a 1 0 udp 60 -g 10.2.0.1) \
+            || { echo "natpmpc UDP request failed" >&2; exit 1; }
+          tcp_out=$(natpmpc -a 1 0 tcp 60 -g 10.2.0.1) \
+            || { echo "natpmpc TCP request failed" >&2; exit 1; }
+
+          port=$(awk '/Mapped public port/ {print $4; exit}' <<<"$tcp_out")
+
+          if [[ -z "$port" ]]; then
+            echo "natpmpc did not return a mapped port" >&2
+            exit 1
+          fi
+
+          if [[ "$port" != "$LAST_PORT" ]]; then
+            echo "ProtonVPN forwarded port changed: $port"
+            deluge-console \
+              "connect 127.0.0.1:58846 localclient deluge; \
+               config --set random_port False; \
+               config --set listen_ports ($port,$port)"
+            LAST_PORT="$port"
+          fi
+
+          sleep 45
+        done
+      '';
+      serviceConfig = {
+        NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+        BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
+        User = "deluge";
+        Group = "deluge";
+        Restart = "on-failure";
+        RestartSec = "10s";
+        # Hardening — mirror the deluged service profile.
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = [ "" ];
+        ProtectSystem = "strict";
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        PrivateDevices = true;
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ReadWritePaths = [
+          "/var/lib/deluge"
+        ];
       };
     };
 
