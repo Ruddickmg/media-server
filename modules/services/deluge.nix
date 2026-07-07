@@ -102,7 +102,7 @@ in
         # *arrs will remove their torrents earlier; manual torrents hit this cap
         stop_seed_at_ratio = true;
         stop_seed_ratio = 3.0;
-        seed_time_limit = 20160; # 14 days in minutes
+        seed_time_limit = 43200; # 30 days in minutes
         share_ratio_limit = 3.0;
         remove_seed_at_ratio = false;
         auto_managed = true;
@@ -149,7 +149,10 @@ in
       (mkIf useVpn {
         after = [ "create-netns-${vpnNs}.service" ];
         requires = [ "create-netns-${vpnNs}.service" ];
-        serviceConfig.NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+        serviceConfig = {
+          NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+          BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
+        };
       })
     ];
 
@@ -171,6 +174,7 @@ in
       ];
       serviceConfig = {
         NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+        BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
         User = "deluge";
         Group = "deluge";
         LimitNOFILE = mkForce 65536;

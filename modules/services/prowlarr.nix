@@ -61,6 +61,7 @@ in
     }
     // mkIf useVpn {
       NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+      BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
     };
 
     systemd.sockets.proxy-prowlarr = mkIf useVpn {
@@ -82,6 +83,7 @@ in
       serviceConfig = {
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --exit-idle-time=5min 127.0.0.1:9696";
         NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+        BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
       };
     };
 
