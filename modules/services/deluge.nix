@@ -5,7 +5,12 @@
   ...
 }:
 let
-  inherit (lib) mkIf mkOption types;
+  inherit (lib)
+    mkIf
+    mkMerge
+    mkOption
+    types
+    ;
   cfg = config.media-server.deluge;
   vpnNs = config.media-server.vpn.namespace;
   useVpn = cfg.vpnConfinement && config.media-server.vpn.enable;
@@ -20,8 +25,6 @@ let
       timeout = 180;
       try_times = 3;
       whitelisted = [ ];
-      list_type = "";
-      list_compression = "";
     }
   );
 in
@@ -104,32 +107,37 @@ in
       extraGroups = [ "media" ];
     };
 
-    systemd.services.deluged.preStart = lib.mkAfter ''
-      cp ${blocklistConfig} ${config.services.deluge.dataDir}/.config/deluge/blocklist.conf
-    '';
-
-    systemd.services.deluged.serviceConfig = {
-      ProtectHome = true;
-      PrivateTmp = true;
-      NoNewPrivileges = true;
-      CapabilityBoundingSet = [ "" ];
-      ProtectSystem = "strict";
-      ProtectKernelTunables = true;
-      ProtectKernelModules = true;
-      ProtectControlGroups = true;
-      RestrictRealtime = true;
-      SystemCallArchitectures = "native";
-      PrivateDevices = true;
-      LockPersonality = true;
-      RestrictNamespaces = true;
-      ReadWritePaths = [
-        "/var/lib/deluge"
-        "/media/downloads"
-      ];
-    }
-    // mkIf useVpn {
-      NetworkNamespacePath = "/var/run/netns/${vpnNs}";
-    };
+    systemd.services.deluged = mkMerge [
+      {
+        preStart = lib.mkAfter ''
+          cp ${blocklistConfig} ${config.services.deluge.dataDir}/.config/deluge/blocklist.conf
+        '';
+        serviceConfig = {
+          ProtectHome = true;
+          PrivateTmp = true;
+          NoNewPrivileges = true;
+          CapabilityBoundingSet = [ "" ];
+          ProtectSystem = "strict";
+          ProtectKernelTunables = true;
+          ProtectKernelModules = true;
+          ProtectControlGroups = true;
+          RestrictRealtime = true;
+          SystemCallArchitectures = "native";
+          PrivateDevices = true;
+          LockPersonality = true;
+          RestrictNamespaces = true;
+          ReadWritePaths = [
+            "/var/lib/deluge"
+            "/media/downloads"
+          ];
+        };
+      }
+      (mkIf useVpn {
+        after = [ "create-netns-${vpnNs}.service" ];
+        requires = [ "create-netns-${vpnNs}.service" ];
+        serviceConfig.NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+      })
+    ];
 
     systemd.sockets.proxy-deluge = mkIf useVpn {
       description = "Socket for proxy to Deluge daemon in VPN namespace";
