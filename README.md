@@ -249,7 +249,7 @@ NordVPN uses NordLynx (WireGuard-based) and doesn't distribute `.conf` files dir
    ```
 3. Pick a server and generate:
    ```bash
-   curl -s "https://api.nordvpn.com/v1/servers/recommendations?&filters\[servers_technologies\]\[identifier\]=wireguard_udp&limit=5" | jq -r '.[].hostname'
+    curl -s 'https://api.nordvpn.com/v1/servers/recommendations?filters[servers_technologies][identifier]=wireguard_udp&limit=5' | jq -r '.[].hostname'
    wg-nord --server is80.nordvpn.com --token YOUR_TOKEN > nordvpn-is80.conf
    ```
 4. Copy to the server:
