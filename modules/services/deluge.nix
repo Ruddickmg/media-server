@@ -169,8 +169,8 @@ in
         "deluged.service"
         "proxy-deluge.socket"
       ];
-      unitConfig.JoinsNamespaceOf = "deluged.service";
       serviceConfig = {
+        NetworkNamespacePath = "/var/run/netns/${vpnNs}";
         User = "deluge";
         Group = "deluge";
         LimitNOFILE = mkForce 65536;
