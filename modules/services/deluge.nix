@@ -5,7 +5,12 @@
   ...
 }:
 let
-  inherit (lib) mkIf mkMerge mkOption types;
+  inherit (lib)
+    mkIf
+    mkMerge
+    mkOption
+    types
+    ;
   cfg = config.media-server.deluge;
   vpnNs = config.media-server.vpn.namespace;
   useVpn = cfg.vpnConfinement && config.media-server.vpn.enable;
