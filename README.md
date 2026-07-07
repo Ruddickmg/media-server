@@ -247,24 +247,15 @@ Proton VPN provides standard WireGuard `.conf` files directly from their web das
 3. Select a **P2P** server (double-arrow icon)
 4. Enable **NAT-PMP (port forwarding)** under VPN options
 5. Download the `.conf` file
-6. Copy to the server:
-   ```bash
-   scp protonvpn.conf media-server:/etc/nixos/secrets/vpn.conf
-   ssh media-server sudo chmod 600 /etc/nixos/secrets/vpn.conf
-   ```
-
-The `.conf` file contains a `PrivateKey` — **treat it as a secret and never commit it to the repository.**
-
-#### Enabling
-
-Extract the private key to a separate file:
-
+6. Copy the private key to the server to a file in `/etc/nixos/secrets/vpn-key`
+7. set permissions for key:
 ```bash
-ssh media-server "awk '/^PrivateKey/ {print \$3}' /etc/nixos/secrets/vpn.conf > /etc/nixos/secrets/vpn-key"
 ssh media-server sudo chmod 600 /etc/nixos/secrets/vpn-key
 ```
 
-Open `hosts/media-server/default.nix` and copy the non-secret fields from the `.conf` into the `vpn` block:
+#### Enabling
+
+Open `hosts/media-server/default.nix` and copy the non-secret fields from the wireguard configuration into the `vpn` block:
 
 ```nix
 media-server = {
@@ -278,8 +269,6 @@ media-server = {
   deluge.vpnConfinement = true;
 };
 ```
-
-Then `sudo nixos-rebuild switch` on the server.
 
 #### Port forwarding
 
