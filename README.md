@@ -105,12 +105,13 @@ The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encr
 
 | URL | Service |
 |-----|---------|
+| `https://media-server.tailbac0df.ts.net` | Seerr |
+| `https://media-server.tailbac0df.ts.net/seerr` | Seerr |
 | `https://media-server.tailbac0df.ts.net/prowlarr` | Prowlarr |
 | `https://media-server.tailbac0df.ts.net/sonarr` | Sonarr |
 | `https://media-server.tailbac0df.ts.net/radarr` | Radarr |
 | `https://media-server.tailbac0df.ts.net/lidarr` | Lidarr |
 | `https://media-server.tailbac0df.ts.net/bazarr` | Bazarr |
-| `https://media-server.tailbac0df.ts.net/seerr` | Seerr |
 
 The hostname is the machine's MagicDNS name (check `tailscale status` for yours).
 
@@ -203,13 +204,14 @@ When VPN confinement is active, a proxy service (`proxy-deluge`) forwards the De
 | Service | Port | Access |
 |---------|------|--------|
 | Plex | 32400 | `http://<lan-ip>:32400/web` or Plex app |
+| Seerr | 5055 | `https://media-server.tailbac0df.ts.net/seerr` |
+| Seerr | 5055 | `https://media-server.tailbac0df.ts.net` |
 | Deluge (daemon) | 58846 | `media-server:58846` (thin client RPC) |
 | Prowlarr | 9696 | `https://media-server.tailbac0df.ts.net/prowlarr` |
 | Sonarr | 8989 | `https://media-server.tailbac0df.ts.net/sonarr` |
 | Radarr | 7878 | `https://media-server.tailbac0df.ts.net/radarr` |
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
 | Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
-| Seerr | 5055 | `https://media-server.tailbac0df.ts.net/seerr` |
 
 ## Customization
 
