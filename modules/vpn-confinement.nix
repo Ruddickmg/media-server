@@ -47,6 +47,7 @@ in
     systemd.services."create-netns-${ns}" = {
       description = "Create network namespace ${ns}";
       wantedBy = [ "multi-user.target" ];
+      path = [ pkgs.iproute2 ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
