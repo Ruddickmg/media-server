@@ -174,7 +174,7 @@ in
         User = "deluge";
         Group = "deluge";
         LimitNOFILE = mkForce 65536;
-        ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --exit-idle-time=5min 127.0.0.1:58846";
+        ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:58846";
       };
     };
 
