@@ -127,8 +127,8 @@ in
         if [ ! -f /var/lib/seerr/settings.json ]; then
           cp ${settingsFile} /var/lib/seerr/settings.json
         else
-          ${pkgs.jq}/bin/jq -s '.[0] * .[1]' /var/lib/seerr/settings.json ${patchFile} > /tmp/seerr-settings.json
-          mv /tmp/seerr-settings.json /var/lib/seerr/settings.json
+          TMPFILE="$(mktemp -p /var/lib/seerr seerr-settings.XXXXXXXXXX.json)"
+          ${pkgs.jq}/bin/jq -s '.[0] * .[1]' /var/lib/seerr/settings.json ${patchFile} > "$TMPFILE" && mv "$TMPFILE" /var/lib/seerr/settings.json || rm -f "$TMPFILE"
         fi
         chmod 600 /var/lib/seerr/settings.json
         chown --reference=/var/lib/seerr /var/lib/seerr/settings.json
