@@ -54,23 +54,14 @@ let
     minimumAvailability = "announced";
   };
 
-  settingsJson = builtins.toJSON (
-    {
-      main = {
-        mediaServerType = 1;
-        applicationUrl = "https://media-server.tailbac0df.ts.net";
-      };
-      network = {
-        trustProxy = true;
-      };
-    }
-    // optionalAttrs sonarrEnabled {
-      sonarr = [ mkSonarr ];
-    }
-    // optionalAttrs radarrEnabled {
-      radarr = [ mkRadarr ];
-    }
-  );
+  settingsJson = builtins.toJSON ({
+    main = {
+      applicationUrl = "https://media-server.tailbac0df.ts.net";
+    };
+    network = {
+      trustProxy = true;
+    };
+  });
 
   patchJson = builtins.toJSON (
     {
