@@ -66,7 +66,7 @@ in
         copy_torrent_file = false;
         del_copy_torrent_file = false;
         prioritize_first_last_pieces = false;
-        random_port = true;
+        random_port = false;
         outgoing_ports = [
           49152
           65535
@@ -179,6 +179,56 @@ in
         Group = "deluge";
         LimitNOFILE = mkForce 65536;
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:58846";
+      };
+    };
+
+    systemd.services.deluge-natpmp = mkIf useVpn {
+      description = "Configure a NAT-PMP port and configure Deluge with it";
+      wantedBy = [ "multi-user.target" ];
+      after = [
+        "deluged.service"
+        "wireguard-wg-${vpnNs}.service"
+        "create-netns-${vpnNs}.service"
+      ];
+      requires = [
+        "deluged.service"
+        "wireguard-wg-${vpnNs}.service"
+        "create-netns-${vpnNs}.service"
+      ];
+      path = with pkgs; [
+        libnatpmp
+        gawk
+        deluge
+      ];
+      script = ''
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        OLD_PORT=""
+
+        while true; do
+          out="$(natpmpc -a 1 0 tcp 60 -g 10.2.0.1 2>/dev/null || true)"
+
+          port="$(awk '/Mapped public port/ {print $4; exit}' <<<"$out")"
+
+          if [[ -n "$port" && "$port" != "$OLD_PORT" ]]; then
+            echo "Got ProtonVPN forwarded port: $port – updating Deluge"
+            deluge-console \
+              "config --set random_port False ; \
+              config --set listen_ports ($port,$port)"
+            OLD_PORT="$port"
+          fi
+
+          sleep 45
+        done
+      '';
+      serviceConfig = {
+        NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+        BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
+        User = "deluge";
+        Group = "deluge";
+        Restart = "on-failure";
+        RestartSec = "5s";
       };
     };
 

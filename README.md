@@ -128,7 +128,7 @@ Indexers added in Prowlarr are automatically synced to Sonarr, Radarr, and Lidar
 
 ### Seeding and ratio management
 
-Deluge's global seeding ceiling is set intentionally high (`stop_seed_ratio = 3.0`, `seed_time_limit = 14` days) as a safety net for manually-added torrents. It should never be hit by *arr-managed torrents — those are handled per-indexer.
+Deluge's global seeding ceiling is set intentionally high (`stop_seed_ratio = 3.0`, `seed_time_limit = 30` days) as a safety net for manually-added torrents. It should never be hit by *arr-managed torrents — those are handled per-indexer.
 
 For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met, well before the global ceiling kicks in.
 
@@ -236,26 +236,21 @@ Deluge can be isolated in a dedicated network namespace with a WireGuard VPN to 
 
 A proxy service (`proxy-deluge`) forwards the daemon port (58846) from the root namespace so the thin client can still connect.
 
-The module expects a standard WireGuard `.conf` file. This file contains a PrivateKey — **treat it as a secret and never commit it to the repository.**
+#### Generating a config (ProtonVPN)
 
-#### Generating a config (NordVPN)
+ProtonVPN provides standard WireGuard configuration files directly from their web dashboard.
 
-NordVPN uses NordLynx (WireGuard-based) and doesn't distribute `.conf` files directly. Use [`wg-nord`](https://github.com/n-thumann/wg-nord) to generate one:
-
-1. Create an [access token](https://my.nordaccount.com/dashboard/nordvpn/access-tokens/)
-2. Install `wg-nord`:
+1. Log in at [account.protonvpn.com](https://account.protonvpn.com)
+2. Go to **VPN → WireGuard configuration**
+3. Select a server and download the `.conf` file
+4. **Extract the private key** to a separate file needed by the NixOS module:
    ```bash
-   cargo install wg-nord --git https://github.com/n-thumann/wg-nord/
+   awk '/^PrivateKey/ {print $3}' protonvpn.conf > vpn-key
    ```
-3. Pick a server and generate:
+5. Copy both files to the server:
    ```bash
-    curl -s 'https://api.nordvpn.com/v1/servers/recommendations?filters[servers_technologies][identifier]=wireguard_udp&limit=5' | jq -r '.[].hostname'
-   wg-nord --server is80.nordvpn.com --token YOUR_TOKEN > nordvpn-is80.conf
-   ```
-4. Copy to the server:
-   ```bash
-   scp nordvpn-is80.conf media-server:/etc/nixos/secrets/vpn.conf
-   ssh media-server sudo chmod 600 /etc/nixos/secrets/vpn.conf
+   scp protonvpn.conf vpn-key media-server:/etc/nixos/secrets/
+   ssh media-server sudo chmod 600 /etc/nixos/secrets/vpn-key
    ```
 
 #### Enabling
@@ -265,12 +260,15 @@ In `hosts/media-server/default.nix`:
 ```nix
 media-server = {
   vpn.enable = true;
-  vpn.wireguardConfig = "/etc/nixos/secrets/vpn.conf";
+  vpn.address = "10.2.0.2/32";                    # from [Interface] Address
+  vpn.peerPublicKey = "...";                       # from [Peer] PublicKey
+  vpn.endpoint = "10.2.0.1:51820";                 # from [Peer] Endpoint
+  vpn.privateKeyFile = "/etc/nixos/secrets/vpn-key";
   deluge.vpnConfinement = true;
 };
 ```
 
-Then `sudo nixos-rebuild switch`.
+The private key file and the original `.conf` file contain secrets — **never commit them to the repository.**
 
 ## Auto-Updates
 
