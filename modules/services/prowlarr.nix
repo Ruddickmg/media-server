@@ -79,10 +79,9 @@ in
         "prowlarr.service"
         "proxy-prowlarr.socket"
       ];
-      unitConfig.JoinsNamespaceOf = "prowlarr.service";
       serviceConfig = {
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --exit-idle-time=5min 127.0.0.1:9696";
-        PrivateNetwork = true;
+        NetworkNamespacePath = "/var/run/netns/${vpnNs}";
       };
     };
 
