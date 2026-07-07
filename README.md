@@ -180,15 +180,6 @@ To expose any service on LAN as well, set its `openFirewall = true`:
 networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
 ```
 
-### VPN confinement (Deluge)
-
-Deluge can be isolated in a dedicated network namespace with a WireGuard VPN to anonymize torrent traffic. This provides a built-in kill switch — if the VPN drops, Deluge loses all network connectivity.
-
-Enable it by:
-
-1. Placing a WireGuard configuration file from a VPN provider on the server (e.g., `/etc/nixos/secrets/vpn.conf`)
-2. Enabling the feature:
-
 ```nix
 {
   media-server.vpn.enable = true;
@@ -302,6 +293,15 @@ sudo chmod 600 /etc/nixos/secrets/vpn.conf
 ```bash
 sudo rm -rf /var/lib/wgnord /etc/wireguard/wgnord.conf /etc/wireguard/wgnord.key
 ```
+
+### VPN confinement (Deluge)
+
+Deluge can be isolated in a dedicated network namespace with a WireGuard VPN to anonymize torrent traffic. This provides a built-in kill switch — if the VPN drops, Deluge loses all network connectivity.
+
+Enable it by:
+
+1. Placing a WireGuard configuration file from a VPN provider on the server (e.g., `/etc/nixos/secrets/vpn.conf`)
+2. Enabling the feature:
 
 ## Auto-Updates
 
