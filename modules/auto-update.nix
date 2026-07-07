@@ -18,7 +18,7 @@
       git fetch origin
       if ! git diff --quiet HEAD origin/main; then
         git merge --ff-only origin/main
-        nixos-rebuild switch --impure --flake /etc/nixos
+        nixos-rebuild switch --flake /etc/nixos
       fi
     '';
   };

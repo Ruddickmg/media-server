@@ -38,7 +38,13 @@
     ];
 
     vpn.enable = true;
-    vpn.wireguardConfig = "/etc/nixos/secrets/vpn.conf";
+    # Copy these values from your WireGuard .conf file:
+    #   privateKeyFile -> extract with: awk '/^PrivateKey/ {print $3}' vpn.conf > vpn-key
+    vpn.privateKeyFile = "/etc/nixos/secrets/vpn-key";
+    vpn.address = "10.2.0.2/32, 2a07:b944::2:2/128";               # from [Interface] Address
+    vpn.peerPublicKey = "E7Z4Q99+CTZSOKlLwHHSOV1U8vMhqqCpVRTeGBQIu2s=";    # from [Peer] PublicKey
+    vpn.endpoint = "37.120.137.194:51820";           # from [Peer] Endpoint
+    vpn.dns = "10.2.0.1, 2a07:b944::2:1";                      # from [Interface] DNS
 
     sonarr.enable = true;
     radarr.enable = true;

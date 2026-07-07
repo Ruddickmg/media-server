@@ -90,7 +90,7 @@ Public keys are committed to the repo and baked into the system at build time.
    ];
    ```
 
-3. **Deploy** — `nixos-rebuild switch --impure` installs the key to `media-server`'s `authorized_keys`.
+3. **Deploy** — `nixos-rebuild switch` installs the key to `media-server`'s `authorized_keys`.
 
 4. **Connect**:
    ```bash
@@ -257,17 +257,28 @@ The `.conf` file contains a `PrivateKey` — **treat it as a secret and never co
 
 #### Enabling
 
-In `hosts/media-server/default.nix`:
+Extract the private key to a separate file:
+
+```bash
+ssh media-server "awk '/^PrivateKey/ {print \$3}' /etc/nixos/secrets/vpn.conf > /etc/nixos/secrets/vpn-key"
+ssh media-server sudo chmod 600 /etc/nixos/secrets/vpn-key
+```
+
+Open `hosts/media-server/default.nix` and copy the non-secret fields from the `.conf` into the `vpn` block:
 
 ```nix
 media-server = {
   vpn.enable = true;
-  vpn.wireguardConfig = "/etc/nixos/secrets/vpn.conf";
+  vpn.privateKeyFile = "/etc/nixos/secrets/vpn-key";
+  vpn.address = "10.2.0.2/32";                    # from [Interface] Address
+  vpn.peerPublicKey = "...";                      # from [Peer] PublicKey
+  vpn.endpoint = "...";                           # from [Peer] Endpoint
+  vpn.dns = "10.2.0.1";                           # from [Interface] DNS
   deluge.vpnConfinement = true;
 };
 ```
 
-Then `sudo nixos-rebuild switch --impure` on the server.
+Then `sudo nixos-rebuild switch` on the server.
 
 #### Port forwarding
 
@@ -275,4 +286,4 @@ When `deluge.vpnConfinement` is enabled, Deluge runs inside the VPN namespace an
 
 ## Auto-Updates
 
-A systemd timer runs every 15 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch --impure`. The service checks for uncommitted changes before pulling, so local modifications won't be overwritten.
+A systemd timer runs every 15 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes before pulling, so local modifications won't be overwritten.
