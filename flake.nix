@@ -12,6 +12,10 @@
       url = "github:upidapi/declarr";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    dictionarry-db = {
+      url = "github:Dictionarry-Hub/Database";
+      flake = false;
+    };
   };
 
   outputs =
@@ -21,6 +25,7 @@
       nixpkgs-unstable,
       disko,
       declarr,
+      dictionarry-db,
       ...
     }:
     let
@@ -33,7 +38,7 @@
     {
       nixosConfigurations.media-server = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit pkgs-unstable declarr; };
+        specialArgs = { inherit pkgs-unstable declarr dictionarry-db; };
         modules = [
           disko.nixosModules.disko
           declarr.nixosModules.default
