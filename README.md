@@ -112,6 +112,8 @@ The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encr
 | `https://media-server.tailbac0df.ts.net/radarr` | Radarr |
 | `https://media-server.tailbac0df.ts.net/lidarr` | Lidarr |
 | `https://media-server.tailbac0df.ts.net/bazarr` | Bazarr |
+| `https://media-server.tailbac0df.ts.net/metrics` | Netdata |
+| `https://media-server.tailbac0df.ts.net/gotify` | Gotify |
 
 The hostname is the machine's MagicDNS name (check `tailscale status` for yours).
 
@@ -153,13 +155,28 @@ On first deploy, Seerr is pre-configured with Sonarr and Radarr connections.
 
 > If you add custom quality profiles in Sonarr/Radarr later, update the profile selection in Seerr's service settings to match.
 
+### Gotify — push notifications
+
+Gotify receives alert notifications from Netdata (service failures, high CPU/RAM/disk usage) and from the NixOS auto-update (build succeeded).
+
+1. Open `https://media-server.tailbac0df.ts.net/gotify`
+2. Log in with the default credentials: `admin` / `admin`
+3. Go to **Apps** and click **Create Application**
+4. Name it `Netdata Alerts` and click **Create**
+5. Copy the generated token
+6. On the server, save the token:
+   ```bash
+   echo "<your-token>" | sudo tee /etc/nixos/secrets/gotify-token
+   ```
+7. Netdata and the auto-update script read this file at runtime — no rebuild needed.
+
 ## Security Architecture
 
 ### Access model
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
+| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr, Netdata, Gotify | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
 | **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol) | `localclient:deluge` (auth file) |
 | **Tailscale-only** | Unpackerr | internal only | N/A |
 | **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app | Plex.tv account auth |
@@ -195,6 +212,8 @@ For VPN confinement details, see [VPN confinement](#vpn-confinement).
 | Radarr | 7878 | `https://media-server.tailbac0df.ts.net/radarr` |
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
 | Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
+| Netdata | 19999 | `https://media-server.tailbac0df.ts.net/metrics` |
+| Gotify | 6789 | `https://media-server.tailbac0df.ts.net/gotify` |
 
 ## Customization
 
