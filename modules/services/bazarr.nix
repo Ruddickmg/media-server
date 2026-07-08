@@ -79,7 +79,7 @@ in
           ${pkgs.python3}/bin/python3 ${mergeScript} ${seedIni} "$CONFIG_FILE"
         fi
 
-        chown -R bazarr:bazarr "$(dirname "$CONFIG_FILE")"
+        chown -R bazarr:media "$(dirname "$CONFIG_FILE")"
         chmod 600 "$CONFIG_FILE"
       '';
       serviceConfig = {
