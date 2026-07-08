@@ -20,16 +20,21 @@ let
 
   gotifyTokenFile = cfg.declarr.gotifyTokenFile;
   gotifyTokenPresent = builtins.pathExists gotifyTokenFile;
-  mkGotifyNotification = priority: if gotifyTokenPresent then {
-    "Gotify" = {
-      implementation = "Gotify";
-      fields = {
-        server = "http://127.0.0.1:6789";
-        appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
-        inherit priority;
-      };
-    };
-  } else null;
+  mkGotifyNotification =
+    priority:
+    if gotifyTokenPresent then
+      {
+        "Gotify" = {
+          implementation = "Gotify";
+          fields = {
+            server = "http://127.0.0.1:6789";
+            appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
+            inherit priority;
+          };
+        };
+      }
+    else
+      null;
 
   sonarrCfg = mkIf cfg.sonarr.enable {
     sonarr = {
@@ -228,40 +233,42 @@ in
     };
   };
 
-  services.declarr = mkIf hasAnyArr {
-    enable = true;
+  config = mkIf hasAnyArr {
+    services.declarr = {
+      enable = true;
 
-    config = mkMerge [
-      {
-        declarr = {
-          stateDir = "/var/lib/declarr";
-          formatDbRepo = "https://github.com/Dictionarry-Hub/Database";
-        };
-      }
-      sonarrCfg
-      radarrCfg
-      lidarrCfg
-      prowlarrCfg
-    ];
-  };
-
-  systemd.services.declarr = mkIf hasAnyArr {
-    environment = {
-      DECLARR_SECRET_FILE_GOTIFY_TOKEN = cfg.declarr.gotifyTokenFile;
+      config = mkMerge [
+        {
+          declarr = {
+            stateDir = "/var/lib/declarr";
+            formatDbRepo = "https://github.com/Dictionarry-Hub/Database";
+          };
+        }
+        sonarrCfg
+        radarrCfg
+        lidarrCfg
+        prowlarrCfg
+      ];
     };
 
-    after =
-      optionals cfg.sonarr.enable [ "sonarr.service" ]
-      ++ optionals cfg.radarr.enable [ "radarr.service" ]
-      ++ optionals cfg.lidarr.enable [ "lidarr.service" ]
-      ++ optionals cfg.prowlarr.enable [ "prowlarr.service" ]
-      ++ optionals cfg.deluge.enable [ "deluged.service" ];
-    wants = [ "network.target" ];
-    unitConfig = {
-      StartLimitBurst = 10;
-    };
-    serviceConfig = {
-      RestartSec = "1s";
+    systemd.services.declarr = {
+      environment = {
+        DECLARR_SECRET_FILE_GOTIFY_TOKEN = cfg.declarr.gotifyTokenFile;
+      };
+
+      after =
+        optionals cfg.sonarr.enable [ "sonarr.service" ]
+        ++ optionals cfg.radarr.enable [ "radarr.service" ]
+        ++ optionals cfg.lidarr.enable [ "lidarr.service" ]
+        ++ optionals cfg.prowlarr.enable [ "prowlarr.service" ]
+        ++ optionals cfg.deluge.enable [ "deluged.service" ];
+      wants = [ "network.target" ];
+      unitConfig = {
+        StartLimitBurst = 10;
+      };
+      serviceConfig = {
+        RestartSec = "1s";
+      };
     };
   };
 }
