@@ -162,13 +162,13 @@ Gotify receives alert notifications from Netdata (service failures, high CPU/RAM
 1. Open `https://media-server.tailbac0df.ts.net/gotify`
 2. Log in with the default credentials: `admin` / `admin`
 3. Go to **Apps** and click **Create Application**
-4. Name it `Netdata Alerts` and click **Create**
+4. Name it `Media Server Alerts` and click **Create**
 5. Copy the generated token
 6. On the server, save the token:
    ```bash
    echo "<your-token>" | sudo tee /etc/nixos/secrets/gotify-token
    ```
-7. Netdata and the auto-update script read this file at runtime — no rebuild needed.
+7. Run `nixos-rebuild switch` to apply the token — Sonarr, Radarr, Lidarr, and Prowlarr will be configured with Gotify notification connections on their next sync. Netdata and the auto-update script read the file at runtime with no additional steps.
 
 ## Security Architecture
 

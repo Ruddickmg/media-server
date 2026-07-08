@@ -18,6 +18,19 @@ let
 
   hasAnyArr = cfg.sonarr.enable || cfg.radarr.enable || cfg.lidarr.enable || cfg.prowlarr.enable;
 
+  gotifyTokenFile = cfg.declarr.gotifyTokenFile;
+  gotifyTokenPresent = builtins.pathExists gotifyTokenFile;
+  mkGotifyNotification = priority: if gotifyTokenPresent then {
+    "Gotify" = {
+      implementation = "Gotify";
+      fields = {
+        server = "http://127.0.0.1:6789";
+        appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
+        inherit priority;
+      };
+    };
+  } else null;
+
   sonarrCfg = mkIf cfg.sonarr.enable {
     sonarr = {
       declarr = {
@@ -46,14 +59,7 @@ let
         };
       };
 
-      notification."Gotify" = {
-        implementation = "Gotify";
-        fields = {
-          server = "http://127.0.0.1:6789";
-          appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
-          priority = 5;
-        };
-      };
+      notification = mkGotifyNotification 5;
 
       rootFolder = [ "/media/tv" ];
       qualityProfile = { };
@@ -88,14 +94,7 @@ let
         };
       };
 
-      notification."Gotify" = {
-        implementation = "Gotify";
-        fields = {
-          server = "http://127.0.0.1:6789";
-          appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
-          priority = 5;
-        };
-      };
+      notification = mkGotifyNotification 5;
 
       rootFolder = [ "/media/movies" ];
       qualityProfile = { };
@@ -130,14 +129,7 @@ let
         };
       };
 
-      notification."Gotify" = {
-        implementation = "Gotify";
-        fields = {
-          server = "http://127.0.0.1:6789";
-          appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
-          priority = 5;
-        };
-      };
+      notification = mkGotifyNotification 5;
 
       rootFolder.main = {
         path = "/media/music";
@@ -218,14 +210,7 @@ let
             };
           };
         };
-      notification."Gotify" = {
-        implementation = "Gotify";
-        fields = {
-          server = "http://127.0.0.1:6789";
-          appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
-          priority = 3;
-        };
-      };
+      notification = mkGotifyNotification 3;
 
       indexerProxy = null;
     };
