@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 let
   cfg = config.media-server.netdata;
 
@@ -10,15 +15,42 @@ let
   '';
 
   monitoredServices = [
-    { name = "sonarr"; label = "Sonarr"; }
-    { name = "radarr"; label = "Radarr"; }
-    { name = "lidarr"; label = "Lidarr"; }
-    { name = "prowlarr"; label = "Prowlarr"; }
-    { name = "bazarr"; label = "Bazarr"; }
-    { name = "deluged"; label = "Deluge"; }
-    { name = "plex"; label = "Plex"; }
-    { name = "unpackerr"; label = "Unpackerr"; }
-    { name = "nixos-auto-update"; label = "NixOS Auto-Update"; }
+    {
+      name = "sonarr";
+      label = "Sonarr";
+    }
+    {
+      name = "radarr";
+      label = "Radarr";
+    }
+    {
+      name = "lidarr";
+      label = "Lidarr";
+    }
+    {
+      name = "prowlarr";
+      label = "Prowlarr";
+    }
+    {
+      name = "bazarr";
+      label = "Bazarr";
+    }
+    {
+      name = "deluged";
+      label = "Deluge";
+    }
+    {
+      name = "plex";
+      label = "Plex";
+    }
+    {
+      name = "unpackerr";
+      label = "Unpackerr";
+    }
+    {
+      name = "nixos-auto-update";
+      label = "NixOS Auto-Update";
+    }
   ];
 
   alarmFor = svc: ''
@@ -31,7 +63,9 @@ let
        info: ${svc.label} service is in failed state
   '';
 
-  servicesAlarm = pkgs.writeText "services.conf" (builtins.concatStringsSep "\n" (map alarmFor monitoredServices));
+  servicesAlarm = pkgs.writeText "services.conf" (
+    builtins.concatStringsSep "\n" (map alarmFor monitoredServices)
+  );
 in
 {
   options.media-server.netdata = {
