@@ -301,4 +301,3 @@ A systemd timer runs every 15 minutes: `git fetch origin` + `git merge --ff-only
 ### TODO
 
 - radarr is not updating the calendar when movies are automatically added via seerr
-- fix issue with not being able to import in sonar because of missing quality level dropdown
