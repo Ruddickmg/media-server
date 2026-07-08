@@ -36,6 +36,69 @@ let
     else
       null;
 
+  standardQualityProfiles = {
+    "Any" = {
+      upgradesAllowed = true;
+      language = "any";
+      qualities = [
+        {
+          id = -1;
+          name = "Any";
+          qualities = [
+            { name = "Bluray-2160p"; }
+            { name = "WEBDL-2160p"; }
+            { name = "Bluray-1080p"; }
+            { name = "WEBDL-1080p"; }
+            { name = "Bluray-720p"; }
+            { name = "WEBDL-720p"; }
+            { name = "Bluray-480p"; }
+            { name = "WEBDL-480p"; }
+            { name = "DVD"; }
+            { name = "SDTV"; }
+          ];
+        }
+      ];
+      custom_formats = [ ];
+    };
+    "HD-1080p" = {
+      upgradesAllowed = true;
+      upgrade_until = {
+        id = -1;
+        name = "1080p";
+      };
+      language = "any";
+      qualities = [
+        {
+          id = -1;
+          name = "1080p";
+          qualities = [
+            { name = "Bluray-1080p"; }
+            { name = "WEBDL-1080p"; }
+          ];
+        }
+        {
+          id = -2;
+          name = "720p";
+          qualities = [
+            { name = "Bluray-720p"; }
+            { name = "WEBDL-720p"; }
+          ];
+        }
+        {
+          id = -3;
+          name = "SD";
+          qualities = [
+            { name = "Bluray-480p"; }
+            { name = "WEBDL-480p"; }
+            { name = "DVD"; }
+            { name = "SDTV"; }
+          ];
+        }
+      ];
+      custom_formats = [ ];
+    };
+  };
+
   sonarrCfg = mkIf cfg.sonarr.enable {
     sonarr = {
       declarr = {
@@ -67,7 +130,13 @@ let
       notification = mkGotifyNotification 5;
 
       rootFolder = [ "/media/tv" ];
-      qualityProfile = { };
+
+      qualityProfile = standardQualityProfiles // {
+        "1080p Balanced" = { };
+        "1080p Quality" = { };
+        "2160p Quality" = { };
+        "720p Quality" = { };
+      };
     };
   };
 
@@ -102,7 +171,12 @@ let
       notification = mkGotifyNotification 5;
 
       rootFolder = [ "/media/movies" ];
-      qualityProfile = { };
+
+      qualityProfile = standardQualityProfiles // {
+        "1080p Quality" = { };
+        "2160p Quality" = { };
+        "720p Quality" = { };
+      };
     };
   };
 
