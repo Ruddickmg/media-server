@@ -63,6 +63,8 @@
     plex.enable = true;
     seerr.enable = true;
     unpackerr.enable = true;
+    declarr.gotifyTokenFile = "/etc/nixos/secrets/gotify-token";
+
     netdata.enable = true;
     netdata.gotifyTokenFile = "/etc/nixos/secrets/gotify-token";
   };

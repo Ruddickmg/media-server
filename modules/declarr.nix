@@ -8,8 +8,10 @@ let
   inherit (lib)
     mkIf
     mkMerge
+    mkOption
     optionalAttrs
     optionals
+    types
     ;
   apiKeys = config.media-server.apiKeys;
   cfg = config.media-server;
@@ -41,6 +43,15 @@ let
           # Tailscale/LAN firewall is the access control, not this password
           # Change via Settings -> Download Client in the *arr web UI at runtime
           password = "deluge";
+        };
+      };
+
+      notification."Gotify" = {
+        implementation = "Gotify";
+        fields = {
+          server = "http://127.0.0.1:6789";
+          appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
+          priority = 5;
         };
       };
 
@@ -77,6 +88,15 @@ let
         };
       };
 
+      notification."Gotify" = {
+        implementation = "Gotify";
+        fields = {
+          server = "http://127.0.0.1:6789";
+          appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
+          priority = 5;
+        };
+      };
+
       rootFolder = [ "/media/movies" ];
       qualityProfile = { };
     };
@@ -107,6 +127,15 @@ let
           # Tailscale/LAN firewall is the access control, not this password
           # Change via Settings -> Download Client in the *arr web UI at runtime
           password = "deluge";
+        };
+      };
+
+      notification."Gotify" = {
+        implementation = "Gotify";
+        fields = {
+          server = "http://127.0.0.1:6789";
+          appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
+          priority = 5;
         };
       };
 
@@ -189,11 +218,31 @@ let
             };
           };
         };
+      notification."Gotify" = {
+        implementation = "Gotify";
+        fields = {
+          server = "http://127.0.0.1:6789";
+          appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
+          priority = 3;
+        };
+      };
+
       indexerProxy = null;
     };
   };
 in
 {
+  # Notifications use Gotify via declarr's native DECLARR_SECRET_FILE_* env var resolution.
+  # The token is set as a systemd env var pointing to the secret file; declarr reads
+  # the file contents at runtime — no build-time exposure.
+  options.media-server.declarr = {
+    gotifyTokenFile = mkOption {
+      type = types.str;
+      default = "/etc/nixos/secrets/gotify-token";
+      description = "Path to file containing Gotify app token for *arr notifications";
+    };
+  };
+
   services.declarr = mkIf hasAnyArr {
     enable = true;
 
@@ -212,6 +261,10 @@ in
   };
 
   systemd.services.declarr = mkIf hasAnyArr {
+    environment = {
+      DECLARR_SECRET_FILE_GOTIFY_TOKEN = cfg.declarr.gotifyTokenFile;
+    };
+
     after =
       optionals cfg.sonarr.enable [ "sonarr.service" ]
       ++ optionals cfg.radarr.enable [ "radarr.service" ]
