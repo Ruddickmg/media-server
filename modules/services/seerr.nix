@@ -33,8 +33,16 @@ let
     activeAnimeDirectory = "/media/tv";
     id = 0;
     is4k = false;
-    enableScan = true;
+    isDefault = true;
+    externalUrl = "https://media-server.tailbac0df.ts.net/sonarr";
+    syncEnabled = true;
     enableAutomaticSearch = true;
+    preventSearch = false;
+    tagRequests = true;
+    tags = [ ];
+    overrideRule = [ ];
+    seriesType = "standard";
+    animeSeriesType = "standard";
   };
 
   mkRadarr = {
@@ -49,9 +57,27 @@ let
     activeDirectory = "/media/movies";
     id = 0;
     is4k = false;
-    enableScan = true;
+    isDefault = true;
+    externalUrl = "https://media-server.tailbac0df.ts.net/radarr";
+    syncEnabled = true;
     enableAutomaticSearch = true;
+    preventSearch = false;
+    tagRequests = true;
+    tags = [ ];
+    overrideRule = [ ];
     minimumAvailability = "announced";
+  };
+
+  mkJobs = {
+    "radarr-scan" = {
+      schedule = "0 */5 * * * *";
+    };
+    "sonarr-scan" = {
+      schedule = "0 */5 * * * *";
+    };
+    "availability-sync" = {
+      schedule = "0 */5 * * * *";
+    };
   };
 
   settingsJson = builtins.toJSON (
@@ -63,6 +89,7 @@ let
       network = {
         trustProxy = true;
       };
+      jobs = mkJobs;
     }
     // optionalAttrs sonarrEnabled {
       sonarr = [ mkSonarr ];
@@ -81,6 +108,7 @@ let
       network = {
         trustProxy = true;
       };
+      jobs = mkJobs;
     }
     // optionalAttrs sonarrEnabled {
       sonarr = [ mkSonarr ];
