@@ -187,6 +187,43 @@ in
       };
     };
 
+    # Run deluge-web inside the VPN namespace so it can talk to deluged
+    # directly, then proxy it back to the root namespace for the *arr apps.
+    systemd.services.delugeweb = mkIf useVpn {
+      after = [ "create-netns-${vpnNs}.service" ];
+      requires = [ "create-netns-${vpnNs}.service" ];
+      serviceConfig = {
+        NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+        BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
+      };
+    };
+
+    systemd.sockets.proxy-deluge-web = mkIf useVpn {
+      description = "Socket for proxy to Deluge Web UI in VPN namespace";
+      listenStreams = [ "8112" ];
+      wantedBy = [ "sockets.target" ];
+    };
+
+    systemd.services.proxy-deluge-web = mkIf useVpn {
+      description = "Proxy Deluge Web UI from VPN namespace to root namespace";
+      requires = [
+        "delugeweb.service"
+        "proxy-deluge-web.socket"
+      ];
+      after = [
+        "delugeweb.service"
+        "proxy-deluge-web.socket"
+      ];
+      serviceConfig = {
+        NetworkNamespacePath = "/var/run/netns/${vpnNs}";
+        BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
+        User = "deluge";
+        Group = "deluge";
+        LimitNOFILE = mkForce 65536;
+        ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:8112";
+      };
+    };
+
     # Keep ProtonVPN's NAT-PMP forwarded port in sync with Deluge's listen port.
     # Proton assigns a random public port for both UDP and TCP; the mapping
     # expires after 60 s, so we refresh every 45 s.  When the port changes we

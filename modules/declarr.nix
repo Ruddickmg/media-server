@@ -27,6 +27,9 @@ let
         host = {
           apiKey = apiKeys.sonarr;
         };
+        mediamanagement = {
+          enableCompletedDownloadHandling = true;
+        };
       };
 
       downloadClient.Deluge = {
@@ -57,6 +60,9 @@ let
         host = {
           apiKey = apiKeys.radarr;
         };
+        mediamanagement = {
+          enableCompletedDownloadHandling = true;
+        };
       };
 
       downloadClient.Deluge = {
@@ -86,6 +92,9 @@ let
       config = {
         host = {
           apiKey = apiKeys.lidarr;
+        };
+        mediamanagement = {
+          enableCompletedDownloadHandling = true;
         };
       };
 
