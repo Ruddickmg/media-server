@@ -9,15 +9,29 @@ let
     DEFAULT_RECIPIENT_GOTIFY="*"
   '';
 
-  servicesAlarm = pkgs.writeText "services.conf" ''
-    alarm: service_failed
+  monitoredServices = [
+    { name = "sonarr"; label = "Sonarr"; }
+    { name = "radarr"; label = "Radarr"; }
+    { name = "lidarr"; label = "Lidarr"; }
+    { name = "prowlarr"; label = "Prowlarr"; }
+    { name = "bazarr"; label = "Bazarr"; }
+    { name = "deluged"; label = "Deluge"; }
+    { name = "plex"; label = "Plex"; }
+    { name = "unpackerr"; label = "Unpackerr"; }
+    { name = "nixos-auto-update"; label = "NixOS Auto-Update"; }
+  ];
+
+  alarmFor = svc: ''
+    alarm: ${svc.name}_failed
        on: systemd.service_state
-       lookup: max -1m of failed units
+       lookup: max -1m of ${svc.name}.service
        every: 30s
-       units: services
+       units: state
        warn: $this > 0
-       info: One or more systemd services are in failed state
+       info: ${svc.label} service is in failed state
   '';
+
+  servicesAlarm = pkgs.writeText "services.conf" (builtins.concatStringsSep "\n" (map alarmFor monitoredServices));
 in
 {
   options.media-server.netdata = {
