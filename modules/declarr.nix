@@ -67,6 +67,7 @@ let
       notification = mkGotifyNotification 5;
 
       rootFolder = [ "/media/tv" ];
+      qualityProfile = { };
     };
   };
 
@@ -101,6 +102,7 @@ let
       notification = mkGotifyNotification 5;
 
       rootFolder = [ "/media/movies" ];
+      qualityProfile = { };
     };
   };
 
