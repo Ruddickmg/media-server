@@ -17,6 +17,7 @@
     ../../modules/services/bazarr.nix
     ../../modules/services/plex.nix
     ../../modules/services/seerr.nix
+    ../../modules/services/netdata.nix
     ../../modules/declarr.nix
   ];
 
@@ -62,6 +63,16 @@
     plex.enable = true;
     seerr.enable = true;
     unpackerr.enable = true;
+    netdata.enable = true;
+    netdata.gotifyTokenFile = "/etc/nixos/secrets/gotify-token";
+  };
+
+  services.gotify = {
+    enable = true;
+    environment = {
+      GOTIFY_SERVER_PORT = 6789;
+      GOTIFY_SERVER_LISTENADDR = "127.0.0.1";
+    };
   };
 
   services.resolved.enable = true;
