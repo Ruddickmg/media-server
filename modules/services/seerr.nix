@@ -34,7 +34,7 @@ let
     id = 0;
     is4k = false;
     enableScan = true;
-    enableAutomaticSearch = false;
+    enableAutomaticSearch = true;
   };
 
   mkRadarr = {
@@ -50,7 +50,7 @@ let
     id = 0;
     is4k = false;
     enableScan = true;
-    enableAutomaticSearch = false;
+    enableAutomaticSearch = true;
     minimumAvailability = "announced";
   };
 

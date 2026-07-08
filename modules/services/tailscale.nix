@@ -59,9 +59,9 @@
       handle /static/* { reverse_proxy http://127.0.0.1:6767 }
 
       # Netdata monitoring dashboard
-      handle /metrics* { reverse_proxy http://127.0.0.1:19999 }
+      handle_path /metrics* { reverse_proxy http://127.0.0.1:19999 }
       # Gotify push notification web UI
-      handle /gotify*  { reverse_proxy http://127.0.0.1:6789 }
+      handle_path /gotify*  { reverse_proxy http://127.0.0.1:6789 }
 
       # Catch-all — everything else (including root /) goes to Seerr
       # This makes refresh/deep-link work for Seerr SPA routes like /requests, /login
