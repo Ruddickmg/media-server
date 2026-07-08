@@ -54,6 +54,18 @@ let
     minimumAvailability = "announced";
   };
 
+  mkJobs = {
+    "radarr-scan" = {
+      schedule = "0 */5 * * * *";
+    };
+    "sonarr-scan" = {
+      schedule = "0 */5 * * * *";
+    };
+    "availability-sync" = {
+      schedule = "0 */5 * * * *";
+    };
+  };
+
   settingsJson = builtins.toJSON (
     {
       main = {
@@ -63,6 +75,7 @@ let
       network = {
         trustProxy = true;
       };
+      jobs = mkJobs;
     }
     // optionalAttrs sonarrEnabled {
       sonarr = [ mkSonarr ];
@@ -81,6 +94,7 @@ let
       network = {
         trustProxy = true;
       };
+      jobs = mkJobs;
     }
     // optionalAttrs sonarrEnabled {
       sonarr = [ mkSonarr ];
