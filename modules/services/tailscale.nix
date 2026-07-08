@@ -58,11 +58,6 @@
       # Bazarr root-relative static assets (Vue.js app)
       handle /static/* { reverse_proxy http://127.0.0.1:6767 }
 
-      # Netdata monitoring dashboard
-      handle_path /metrics* { reverse_proxy http://127.0.0.1:19999 }
-      # Gotify push notification web UI
-      handle_path /gotify*  { reverse_proxy http://127.0.0.1:6789 }
-
       # Catch-all — everything else (including root /) goes to Seerr
       # This makes refresh/deep-link work for Seerr SPA routes like /requests, /login
       handle { reverse_proxy http://127.0.0.1:5055 }
@@ -97,6 +92,10 @@
       # Clear any existing serve config, then serve root to local Caddy
       tailscale serve reset
       tailscale serve --bg http://127.0.0.1:8080
+      # Gotify and Netdata don't support subpath proxying (root-relative URLs in UI).
+      # Serve them on dedicated Tailscale HTTPS ports to avoid blank-page issues.
+      tailscale serve --bg --https 6789  http://127.0.0.1:6789
+      tailscale serve --bg --https 19999 http://127.0.0.1:19999
     '';
   };
 
