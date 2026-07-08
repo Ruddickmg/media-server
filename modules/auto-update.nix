@@ -7,6 +7,7 @@
     path = [
       pkgs.gitMinimal
       pkgs.nixos-rebuild
+      pkgs.curl
     ];
     serviceConfig = {
       Type = "oneshot";
@@ -19,6 +20,10 @@
       if ! git diff --quiet HEAD origin/main; then
         git merge --ff-only origin/main
         nixos-rebuild switch --flake /etc/nixos
+        curl -sf -X POST "http://127.0.0.1:6789/message?token=$(cat /etc/nixos/secrets/gotify-token 2>/dev/null || echo "")" \
+          -F "title=NixOS Build Succeeded" \
+          -F "message=System configuration updated successfully" \
+          -F "priority=3" >/dev/null 2>&1 || true
       fi
     '';
   };
