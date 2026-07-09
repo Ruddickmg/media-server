@@ -1,5 +1,43 @@
 {
   "nodes": {
+    "declarr": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1782679785,
+        "narHash": "sha256-MXMvI1npjXcA1PoyoQb7FT4r8ksa4zfKB8pepkcigno=",
+        "owner": "upidapi",
+        "repo": "declarr",
+        "rev": "00beeacb187da0d4ff05d74d68223777b90e9391",
+        "type": "github"
+      },
+      "original": {
+        "owner": "upidapi",
+        "repo": "declarr",
+        "type": "github"
+      }
+    },
+    "dictionarry-db": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1776897975,
+        "narHash": "sha256-v0Mq7V/YPUwWlJGxV+cpJ1L+d+U+QB0tBh+3yP1etBc=",
+        "owner": "Dictionarry-Hub",
+        "repo": "Database",
+        "rev": "5ba1f9f163fc9b2aacefe14636f07106802a52d4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Dictionarry-Hub",
+        "ref": "stable",
+        "repo": "Database",
+        "type": "github"
+      }
+    },
     "disko": {
       "inputs": {
         "nixpkgs": [
@@ -22,11 +60,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1782847225,
-        "narHash": "sha256-JC9PjqKYG9ve5U8aDOLQipp3+KLANBHUvGdLZlxzdKI=",
+        "lastModified": 1783389287,
+        "narHash": "sha256-0xIy4dVLqq47rA+mRy0hXDfjhQd4E5PoIns/RmB7nR4=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "95ca1e203c0750115fd4a6f17d5a245dfe6b1edd",
+        "rev": "0ad6f47ea4fe188f4bc8f0380f93ae8523337c6c",
         "type": "github"
       },
       "original": {
@@ -38,11 +76,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1782723713,
-        "narHash": "sha256-oPXCU/SSUokcGaJREHibG1CBX3+s/W7orDWQOZDsEeQ=",
+        "lastModified": 1783224372,
+        "narHash": "sha256-8i/87eeoqiGE4yOTjwSA3Eh/ziJRQEmd/unYU+K27sk=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "b5aa0fbd538984f6e3d201be0005b4463d8b09f8",
+        "rev": "d407951447dcd00442e97087bf374aad70c04cea",
         "type": "github"
       },
       "original": {
@@ -54,9 +92,26 @@
     },
     "root": {
       "inputs": {
+        "declarr": "declarr",
+        "dictionarry-db": "dictionarry-db",
         "disko": "disko",
         "nixpkgs": "nixpkgs",
         "nixpkgs-unstable": "nixpkgs-unstable"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
       }
     }
   },
