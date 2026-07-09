@@ -96,7 +96,9 @@ in
         fi
 
         # Try to authenticate with the configured credentials
-        AUTH_RESPONSE=$(curl -sf -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
+        # Use -s without -f so curl returns the response body even on HTTP 400/401;
+        # errexit would otherwise abort the script before the token check below.
+        AUTH_RESPONSE=$(curl -s -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
           -H "Content-Type: application/json" \
           -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" 2>/dev/null)
 
@@ -108,7 +110,7 @@ in
 
           if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
             echo "Creating Beszel admin account..."
-            curl -sf -X POST "$HUB_URL/api/collections/_superusers/records" \
+            curl -s -X POST "$HUB_URL/api/collections/_superusers/records" \
               -H "Content-Type: application/json" \
               -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\",\"passwordConfirm\":\"$ADMIN_PASS\"}" >/dev/null 2>&1
 
@@ -124,7 +126,7 @@ in
           fi
 
           # Retry authentication after creation
-          AUTH_RESPONSE=$(curl -sf -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
+          AUTH_RESPONSE=$(curl -s -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
             -H "Content-Type: application/json" \
             -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" 2>/dev/null)
         fi
