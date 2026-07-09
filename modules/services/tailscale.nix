@@ -48,6 +48,9 @@
       handle /lidarr*   { reverse_proxy http://127.0.0.1:8686 }
       handle /bazarr*   { reverse_proxy http://127.0.0.1:6767 }
 
+      # Profilarr — strip /profilarr prefix so it thinks it runs at root
+      handle_path /profilarr* { reverse_proxy http://127.0.0.1:6868 }
+
       # Seerr — strip /seerr prefix so it thinks it runs at root
       handle_path /seerr* { reverse_proxy http://127.0.0.1:5055 }
 
