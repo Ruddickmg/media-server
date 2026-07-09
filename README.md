@@ -334,4 +334,4 @@ When `deluge.vpnConfinement` is enabled, Deluge runs inside the VPN namespace an
 
 ## Auto-Updates
 
-A systemd timer runs every 15 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes before pulling, so local modifications won't be overwritten.
+A systemd timer runs every 5 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes before pulling, so local modifications won't be overwritten.
