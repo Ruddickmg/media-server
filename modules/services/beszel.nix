@@ -228,6 +228,7 @@ in
     # dependencies that would re-create the cycle with beszel-init.
     systemd.services.beszel-agent = {
       unitConfig = {
+        ConditionPathExists = "/var/lib/beszel-agent/env";
         OnFailure = "notify-gotify@%n.service";
       };
     };
