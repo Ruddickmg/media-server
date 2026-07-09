@@ -224,9 +224,16 @@ in
       '';
     };
 
+    # Keep failure notifications for the agent without adding ordering
+    # dependencies that would re-create the cycle with beszel-init.
+    systemd.services.beszel-agent = {
+      unitConfig = {
+        OnFailure = "notify-gotify@%n.service";
+      };
+    };
+
     # Separate restart service runs after init finishes, avoiding the deadlock
-    # that would occur if init itself tried to restart the agent (which has
-    # After=/Requires= on beszel-init).
+    # that would occur if init itself tried to restart the agent.
     systemd.services.beszel-agent-restart = {
       description = "Restart Beszel agent after initialization";
       after = [ "beszel-init.service" ];
@@ -246,13 +253,5 @@ in
       '';
     };
 
-    # Ensure the agent starts after the init script
-    systemd.services.beszel-agent = {
-      after = [ "beszel-init.service" ];
-      requires = [ "beszel-init.service" ];
-      unitConfig = {
-        OnFailure = "notify-gotify@%n.service";
-      };
-    };
   };
 }
