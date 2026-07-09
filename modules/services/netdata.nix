@@ -79,13 +79,18 @@ in
       default = null;
       description = "Path to file containing Gotify app token";
     };
+    withNetdataUi = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Build Netdata with the Cloud UI dashboard enabled. Disable in CI to avoid long build times.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
     services.netdata = {
       enable = true;
       # Enable the web dashboard (disabled by default in nixpkgs 26.05)
-      package = pkgs.netdata.override { withCloudUi = true; };
+      package = pkgs.netdata.override { withCloudUi = cfg.withNetdataUi; };
       config = {
         web = {
           "bind to" = "127.0.0.1";

@@ -32,7 +32,7 @@ jobs:
             git add -f hosts/media-server/hardware-configuration.nix
       - run:
           name: Build
-          command: nix build --show-trace .#nixosConfigurations.media-server.config.system.build.toplevel
+          command: nix build --show-trace .#nixosConfigurations.media-server-ci.config.system.build.toplevel
 
 workflows:
   version: 2
