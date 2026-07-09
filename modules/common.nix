@@ -67,7 +67,7 @@ in
         [ -z "$TOKEN" ] && exit 0
         ${pkgs.curl}/bin/curl -sf -X POST "http://127.0.0.1:6789/message?token=$TOKEN" \
           -F "title=Service Failed: %i" \
-          -F "message=Systemd service %i has failed on $(hostname)" \
+          -F "message=Systemd service %i has failed" \
           -F "priority=5" >/dev/null 2>&1 || true
       '';
     };

@@ -37,7 +37,7 @@
         else
           curl -sf -X POST "http://127.0.0.1:6789/message?token=$TOKEN" \
             -F "title=NixOS Build FAILED" \
-            -F "message=nixos-rebuild switch failed on $(hostname)" \
+            -F "message=nixos-rebuild switch failed" \
             -F "priority=5" >/dev/null 2>&1 || true
         fi
       fi
