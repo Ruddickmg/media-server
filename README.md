@@ -202,10 +202,7 @@ Profilarr manages quality profiles and custom formats for Radarr and Sonarr via 
 2. Complete the onboarding wizard (set username/password)
 3. Go to **Databases** and link the **Dictionarry** repository (already pre-configured)
 4. Import the profiles you want (e.g., `1080p Quality`, `2160p Quality`)
-5. Go to **Instances** and add your local Radarr and Sonarr:
-   - **Radarr**: `http://localhost:7878`, API key from `media-server.apiKeys.radarr` (or check Radarr → Settings → General)
-   - **Sonarr**: `http://localhost:8989`, API key from `media-server.apiKeys.sonarr` (or check Sonarr → Settings → General)
-6. Go to **Sync** and push profiles to both instances
+5. Go to **Sync** and push profiles to both instances
 
 > **Note:** Declarr no longer manages quality profiles or custom formats. It only handles base configuration (API keys, download clients, root folders, notifications). All profile management is done through Profilarr.
 
