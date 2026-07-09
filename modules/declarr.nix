@@ -46,6 +46,9 @@ let
         };
       };
 
+      qualityProfile = { };
+      customFormat = { };
+
       downloadClient.Deluge = {
         implementation = "Deluge";
         fields = {
@@ -80,6 +83,9 @@ let
           copyUsingHardlinks = true;
         };
       };
+
+      qualityProfile = { };
+      customFormat = { };
 
       downloadClient.Deluge = {
         implementation = "Deluge";

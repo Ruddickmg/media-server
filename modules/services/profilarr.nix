@@ -50,62 +50,73 @@ in
         pkgs.jq
       ];
       script = ''
-        set -euo pipefail
+        set -uo pipefail
 
         # Wait for Profilarr to be ready
         for i in $(seq 1 30); do
-          if curl -sf --connect-timeout 1 http://127.0.0.1:6868 >/dev/null 2>&1; then
+          if curl -s -o /dev/null --connect-timeout 1 http://127.0.0.1:6868 >/dev/null 2>&1; then
             break
           fi
           sleep 1
         done
 
         # Ensure Profilarr is actually reachable
-        curl -sf --connect-timeout 1 http://127.0.0.1:6868 >/dev/null 2>&1 || {
+        if ! curl -s -o /dev/null --connect-timeout 1 http://127.0.0.1:6868 >/dev/null 2>&1; then
           echo "Profilarr did not become ready in time" >&2
           exit 1
-        }
+        fi
 
-        # Fetch existing instances
-        INSTANCES=$(curl -sf http://127.0.0.1:6868/api/v1/arr)
+        # Fetch existing instances; if the API fails, log and exit cleanly
+        INSTANCES=$(curl -s -w "\n%{http_code}" http://127.0.0.1:6868/api/v1/arr)
+        HTTP_CODE=$(echo "$INSTANCES" | tail -n1)
+        BODY=$(echo "$INSTANCES" | sed '$d')
+        if [ "$HTTP_CODE" != "200" ]; then
+          echo "WARNING: GET /api/v1/arr returned HTTP $HTTP_CODE" >&2
+          echo "$BODY" >&2
+          exit 0
+        fi
 
         ${lib.optionalString radarrEnabled ''
-          RADARR_ID=$(echo "$INSTANCES" | jq -r '.[] | select(.type == "radarr") | .id' | head -n1)
+          RADARR_ID=$(echo "$BODY" | jq -r '.[] | select(.type == "radarr") | .id' | head -n1)
           if [ -n "$RADARR_ID" ]; then
-            curl -sf -X POST \
+            echo "Updating existing Radarr instance (id=$RADARR_ID)" >&2
+            curl -s -o /dev/null -X POST \
               -d "name=Radarr" \
               -d "url=http://127.0.0.1:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6868/arr/''${RADARR_ID}/settings?/update"
+              "http://127.0.0.1:6868/arr/''${RADARR_ID}/settings?/update" || echo "WARNING: Radarr update failed" >&2
           else
-            curl -sf -X POST \
+            echo "Creating new Radarr instance" >&2
+            curl -s -o /dev/null -X POST \
               -d "name=Radarr" \
               -d "type=radarr" \
               -d "url=http://127.0.0.1:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6868/arr/new"
+              "http://127.0.0.1:6868/arr/new" || echo "WARNING: Radarr creation failed" >&2
           fi
         ''}
 
         ${lib.optionalString sonarrEnabled ''
-          SONARR_ID=$(echo "$INSTANCES" | jq -r '.[] | select(.type == "sonarr") | .id' | head -n1)
+          SONARR_ID=$(echo "$BODY" | jq -r '.[] | select(.type == "sonarr") | .id' | head -n1)
           if [ -n "$SONARR_ID" ]; then
-            curl -sf -X POST \
+            echo "Updating existing Sonarr instance (id=$SONARR_ID)" >&2
+            curl -s -o /dev/null -X POST \
               -d "name=Sonarr" \
               -d "url=http://127.0.0.1:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6868/arr/''${SONARR_ID}/settings?/update"
+              "http://127.0.0.1:6868/arr/''${SONARR_ID}/settings?/update" || echo "WARNING: Sonarr update failed" >&2
           else
-            curl -sf -X POST \
+            echo "Creating new Sonarr instance" >&2
+            curl -s -o /dev/null -X POST \
               -d "name=Sonarr" \
               -d "type=sonarr" \
               -d "url=http://127.0.0.1:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6868/arr/new"
+              "http://127.0.0.1:6868/arr/new" || echo "WARNING: Sonarr creation failed" >&2
           fi
         ''}
       '';
