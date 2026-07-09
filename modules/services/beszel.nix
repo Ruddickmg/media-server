@@ -179,7 +179,10 @@ in
           chmod 640 "$AGENT_ENV"
 
           echo "Restarting agent..."
-          systemctl restart beszel-agent.service || true
+          # Use --no-block to avoid deadlock: beszel-agent has After=/Requires=
+          # on beszel-init, so a blocking restart would wait for init to finish
+          # while init is waiting for the restart to complete.
+          systemctl --no-block restart beszel-agent.service || true
         else
           echo "Agent key already up to date"
         fi
