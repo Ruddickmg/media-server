@@ -66,7 +66,6 @@
     seerr.enable = true;
     unpackerr.enable = true;
     profilarr.enable = true;
-    declarr.gotifyTokenFile = "/etc/nixos/secrets/gotify-token";
 
     beszel.enable = true;
   };

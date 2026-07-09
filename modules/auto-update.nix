@@ -7,7 +7,10 @@
 {
   systemd.services.nixos-auto-update = {
     description = "Pull latest NixOS config from Git and rebuild";
-    after = [ "network-online.target" ];
+    after = [
+      "network-online.target"
+      "gotify-provision.service"
+    ];
     wants = [ "network-online.target" ];
     path = [
       pkgs.gitMinimal
@@ -18,6 +21,7 @@
       Type = "oneshot";
       WorkingDirectory = "/etc/nixos";
       User = "root";
+      SupplementaryGroups = [ "gotify-readers" ];
     };
     script = ''
       set -euo pipefail
