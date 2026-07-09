@@ -79,15 +79,11 @@ in
 
         HUB_URL="http://127.0.0.1:8090"
         AGENT_ENV="/var/lib/beszel-agent/env"
-        STATE_FILE="/var/lib/beszel-hub/init-state.json"
 
         ADMIN_EMAIL="${cfg.adminEmail}"
         ADMIN_PASS="${cfg.adminPassword}"
 
-        # Ensure state directory exists
-        mkdir -p /var/lib/beszel-hub
-
-        # Step 1: Wait for Beszel hub to be ready
+        # Wait for Beszel hub to be ready
         for i in $(seq 1 60); do
           if curl -sf --connect-timeout 1 "$HUB_URL/api/health" >/dev/null 2>&1; then
             echo "Beszel hub is ready"
@@ -101,33 +97,39 @@ in
           exit 1
         fi
 
-        # Step 2: Create admin account if none exists
-        # PocketBase allows creating the first admin without authentication
-        # when the database is empty. We check by listing superusers.
-
-        ADMIN_EXISTS=$(curl -sf "$HUB_URL/api/collections/_superusers/records?perPage=1" 2>/dev/null | jq -r '.totalItems // 0')
-
-        if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
-          echo "Creating Beszel admin account..."
-          
-          curl -sf -X POST "$HUB_URL/api/collections/_superusers/records" \
-            -H "Content-Type: application/json" \
-            -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\",\"passwordConfirm\":\"$ADMIN_PASS\"}" >/dev/null 2>&1
-            
-          if [ $? -eq 0 ]; then
-            echo "Admin account created successfully"
-          else
-            echo "WARNING: Failed to create admin account. It may already exist or the hub requires a different setup method." >&2
-          fi
-        else
-          echo "Admin account already exists"
-        fi
-
-        # Step 3: Authenticate as admin
-        echo "Authenticating with Beszel hub..."
+        # Try to authenticate with the configured credentials
         AUTH_RESPONSE=$(curl -sf -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
           -H "Content-Type: application/json" \
           -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" 2>/dev/null)
+
+        if [ -z "$AUTH_RESPONSE" ] || [ "$(echo "$AUTH_RESPONSE" | jq -r '.token // empty')" = "" ]; then
+          # Auth failed — try to create the first admin account (only works when DB is empty)
+          echo "Authentication failed, checking if admin needs to be created..."
+
+          ADMIN_EXISTS=$(curl -sf "$HUB_URL/api/collections/_superusers/records?perPage=1" 2>/dev/null | jq -r '.totalItems // 0')
+
+          if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
+            echo "Creating Beszel admin account..."
+            curl -sf -X POST "$HUB_URL/api/collections/_superusers/records" \
+              -H "Content-Type: application/json" \
+              -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\",\"passwordConfirm\":\"$ADMIN_PASS\"}" >/dev/null 2>&1
+
+            if [ $? -eq 0 ]; then
+              echo "Admin account created successfully"
+            else
+              echo "WARNING: Failed to create admin account" >&2
+            fi
+          else
+            echo "WARNING: Admin account exists but configured credentials do not match." >&2
+            echo "To change credentials, delete the PocketBase data directory (e.g. /var/lib/beszel-hub/beszel_data) and restart beszel-hub.service." >&2
+            exit 0
+          fi
+
+          # Retry authentication after creation
+          AUTH_RESPONSE=$(curl -sf -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
+            -H "Content-Type: application/json" \
+            -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" 2>/dev/null)
+        fi
 
         if [ -z "$AUTH_RESPONSE" ]; then
           echo "ERROR: Failed to authenticate with Beszel hub." >&2
@@ -142,9 +144,9 @@ in
           exit 1
         fi
 
-        echo "Authenticated as admin"
+        echo "Authenticated as admin (ID: $ADMIN_ID)"
 
-        # Step 4: Get the hub's SSH public key and write to agent env file
+        # Get the hub's SSH public key and write to agent env file
         echo "Getting hub SSH public key..."
         KEY_RESPONSE=$(curl -sf "$HUB_URL/api/beszel/getkey" \
           -H "Authorization: $ADMIN_TOKEN" 2>/dev/null)
@@ -177,41 +179,46 @@ in
           
           chown root:beszel-agent "$AGENT_ENV"
           chmod 640 "$AGENT_ENV"
-          
+
           echo "Restarting agent..."
           systemctl restart beszel-agent.service || true
         else
           echo "Agent key already up to date"
         fi
 
-        # Step 5: Create system record if none exists
-        echo "Checking for existing system record..."
-        SYSTEMS=$(curl -sf "$HUB_URL/api/collections/systems/records?perPage=1" \
+        # Update or create the system record for this host
+        echo "Checking system record..."
+        SYSTEMS=$(curl -sf "$HUB_URL/api/collections/systems/records?filter=name%3D%27media-server%27" \
           -H "Authorization: $ADMIN_TOKEN" 2>/dev/null)
 
         SYSTEM_COUNT=$(echo "$SYSTEMS" | jq -r '.totalItems // 0')
 
         if [ "$SYSTEM_COUNT" = "0" ] || [ -z "$SYSTEM_COUNT" ]; then
           echo "Creating system record for media-server..."
-          
           curl -sf -X POST "$HUB_URL/api/collections/systems/records" \
             -H "Authorization: $ADMIN_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"name\":\"media-server\",\"host\":\"127.0.0.1\",\"port\":45876,\"users\":\"$ADMIN_ID\",\"info\":{},\"status\":\"up\"}" >/dev/null 2>&1
-            
+
           if [ $? -eq 0 ]; then
             echo "System record created successfully"
           else
-            echo "WARNING: Failed to create system record. You may need to add it manually via the UI." >&2
+            echo "WARNING: Failed to create system record." >&2
           fi
         else
-          echo "System record already exists"
+          SYSTEM_ID=$(echo "$SYSTEMS" | jq -r '.items[0].id')
+          echo "Updating system record (ID: $SYSTEM_ID)..."
+          curl -sf -X PATCH "$HUB_URL/api/collections/systems/records/$SYSTEM_ID" \
+            -H "Authorization: $ADMIN_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"host\":\"127.0.0.1\",\"port\":45876,\"users\":\"$ADMIN_ID\"}" >/dev/null 2>&1
+
+          if [ $? -eq 0 ]; then
+            echo "System record updated successfully"
+          else
+            echo "WARNING: Failed to update system record." >&2
+          fi
         fi
-
-
-        # Save init state
-        echo '{"initialized": true, "timestamp": "'$(date -Iseconds)'"}' > "$STATE_FILE"
-        chown beszel-hub:beszel-hub "$STATE_FILE"
 
         echo "Beszel initialization complete"
       '';

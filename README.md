@@ -158,12 +158,7 @@ On first deploy, Seerr is pre-configured with Sonarr and Radarr connections.
 
 ### Beszel — monitoring hub
 
-Beszel is a lightweight server monitoring hub with historical data, Docker stats, and alerts. It replaces Netdata.
-
-**All setup is automated.** On first boot, the `beszel-init.service`:
-1. Creates a Beszel admin account
-2. Exchanges the hub's SSH public key with the agent
-3. Creates a system record for the local media server
+Beszel is a lightweight server monitoring hub with historical data, Docker stats, and alerts.
 
 You can access the dashboard at `https://media-server.tailbac0df.ts.net:28090`.
 
@@ -177,7 +172,7 @@ You can access the dashboard at `https://media-server.tailbac0df.ts.net:28090`.
 > media-server.beszel.adminPassword = "your-password";
 > ```
 >
-> The automation runs once and stores state in `/var/lib/beszel-hub/init-state.json`. If you need to reset Beszel, delete this file and the PocketBase data directory, then restart the service.
+> **Changing credentials:** The init script tries to authenticate with the configured credentials on every boot. If the admin account already exists with a different password, the script logs a warning and skips setup. To change credentials, delete the PocketBase data directory (e.g., `/var/lib/beszel-hub/beszel_data`) and restart `beszel-hub.service`.
 
 ### Gotify — push notifications
 
