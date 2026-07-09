@@ -55,11 +55,9 @@ in
       description = "Initialize Beszel hub and agent";
       after = [
         "beszel-hub.service"
-        "beszel-agent.service"
       ];
       wants = [
         "beszel-hub.service"
-        "beszel-agent.service"
       ];
       wantedBy = [ "multi-user.target" ];
       unitConfig = {
