@@ -81,7 +81,6 @@
       };
     };
   };
-  };
 
   services.resolved.enable = true;
 
