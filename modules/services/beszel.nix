@@ -180,8 +180,6 @@ in
           chown root:beszel-agent "$AGENT_ENV"
           chmod 640 "$AGENT_ENV"
 
-          echo "Agent key changed, flagging for restart..."
-          touch /var/lib/beszel-agent/.restart-needed
         else
           echo "Agent key already up to date"
         fi
@@ -233,8 +231,8 @@ in
       };
     };
 
-    # Separate restart service runs after init finishes, avoiding the deadlock
-    # that would occur if init itself tried to restart the agent.
+    # Starts the agent after init writes the env file (agent is skipped on first
+    # boot by ConditionPathExists). Harmless restart on subsequent boots.
     systemd.services.beszel-agent-restart = {
       description = "Restart Beszel agent after initialization";
       after = [ "beszel-init.service" ];
@@ -244,13 +242,7 @@ in
         Type = "oneshot";
       };
       script = ''
-        if [ -f /var/lib/beszel-agent/.restart-needed ]; then
-          echo "Restarting beszel-agent due to key change..."
-          systemctl restart beszel-agent.service
-          rm -f /var/lib/beszel-agent/.restart-needed
-        else
-          echo "No beszel-agent restart needed"
-        fi
+        systemctl restart beszel-agent.service
       '';
     };
 
