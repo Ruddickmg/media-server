@@ -84,6 +84,8 @@ in
   config = lib.mkIf cfg.enable {
     services.netdata = {
       enable = true;
+      # Enable the web dashboard (disabled by default in nixpkgs 26.05)
+      package = pkgs.netdata.override { withCloudUi = true; };
       config = {
         web = {
           "bind to" = "127.0.0.1";

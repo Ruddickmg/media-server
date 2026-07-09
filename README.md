@@ -168,7 +168,9 @@ Gotify receives alert notifications from Netdata (service failures, high CPU/RAM
    ```bash
    echo "<your-token>" | sudo tee /etc/nixos/secrets/gotify-token
    ```
-7. Run `nixos-rebuild switch` to apply the token — Sonarr, Radarr, Lidarr, and Prowlarr will be configured with Gotify notification connections on their next sync. Netdata and the auto-update script read the file at runtime with no additional steps.
+7. The token is read at runtime — no rebuild is required.
+   - **Netdata and the auto-update script** read the file live and will start sending alerts immediately.
+   - **Sonarr, Radarr, Lidarr, and Prowlarr** will pick up the Gotify notification connection on their next declarr sync (or restart the `declarr` service to force it: `systemctl restart declarr`).
 
 ## Security Architecture
 
