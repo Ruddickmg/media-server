@@ -91,11 +91,18 @@ let
   # freeleech entries to each so the upstream scores are preserved.
   mkProfile =
     base:
+    let
+      firstGroup = builtins.head base.qualities;
+    in
     base
     // {
       custom_formats = (base.custom_formats or [ ]) ++ freeleechScores;
       custom_formats_radarr = (base.custom_formats_radarr or [ ]) ++ freeleechScores;
       custom_formats_sonarr = (base.custom_formats_sonarr or [ ]) ++ freeleechScores;
+      cutoff = {
+        id = firstGroup.id;
+        name = firstGroup.name;
+      };
     };
 
   # Standard profiles that do not exist in the Dictionarry Database.
@@ -103,6 +110,10 @@ let
     "Any" = {
       upgradesAllowed = true;
       language = "any";
+      cutoff = {
+        id = -1;
+        name = "Any";
+      };
       qualities = [
         {
           id = -1;
@@ -130,6 +141,10 @@ let
         name = "1080p";
       };
       language = "any";
+      cutoff = {
+        id = -1;
+        name = "1080p";
+      };
       qualities = [
         {
           id = -1;
