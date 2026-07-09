@@ -19,18 +19,16 @@ let
 
   hasAnyArr = cfg.sonarr.enable || cfg.radarr.enable || cfg.lidarr.enable || cfg.prowlarr.enable;
 
-  mkGotifyNotification =
-    priority:
-    {
-      "Gotify" = {
-        implementation = "Gotify";
-        fields = {
-          server = "http://127.0.0.1:6789";
-          appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
-          inherit priority;
-        };
+  mkGotifyNotification = priority: {
+    "Gotify" = {
+      implementation = "Gotify";
+      fields = {
+        server = "http://127.0.0.1:6789";
+        appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
+        inherit priority;
       };
     };
+  };
 
   # Parse a YAML file from the Dictionarry Database flake input into a Nix
   # attribute set.  Uses yq at evaluation time (IFD).  The path MUST be a
