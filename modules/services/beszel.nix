@@ -77,7 +77,6 @@ in
 
         HUB_URL="http://127.0.0.1:8090"
         AGENT_ENV="/var/lib/beszel-agent/env"
-
         ADMIN_EMAIL="${cfg.adminEmail}"
         ADMIN_PASS="${cfg.adminPassword}"
 
@@ -95,70 +94,58 @@ in
           exit 1
         fi
 
-        # Try to authenticate with the configured credentials
-        # Use -s without -f so curl returns the response body even on HTTP 400/401;
-        # errexit would otherwise abort the script before the token check below.
-        AUTH_RESPONSE=$(curl -s -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
+        # Check if this is a fresh install (no users exist yet)
+        FIRST_RUN=$(curl -s "$HUB_URL/api/beszel/first-run" 2>/dev/null | jq -r '.firstRun // false')
+
+        if [ "$FIRST_RUN" = "true" ]; then
+          echo "First run detected — creating initial user..."
+          CREATE_RESPONSE=$(curl -s -X POST "$HUB_URL/api/beszel/create-user" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" 2>/dev/null)
+
+          CREATE_MSG=$(echo "$CREATE_RESPONSE" | jq -r '.msg // empty')
+
+          if [ "$CREATE_MSG" = "User created" ]; then
+            echo "Initial user created successfully"
+          else
+            CREATE_ERR=$(echo "$CREATE_RESPONSE" | jq -r '.err // "unknown error"')
+            echo "WARNING: Failed to create initial user: $CREATE_ERR" >&2
+            echo "Verify the hub data is clean (/var/lib/beszel-hub/beszel_data) and restart beszel-hub.service." >&2
+            exit 0
+          fi
+        else
+          echo "User already exists — attempting authentication..."
+        fi
+
+        # Authenticate as a Beszel user (users collection, not _superusers)
+        AUTH_RESPONSE=$(curl -s -X POST "$HUB_URL/api/collections/users/auth-with-password" \
           -H "Content-Type: application/json" \
           -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" 2>/dev/null)
 
-        if [ -z "$AUTH_RESPONSE" ] || [ "$(echo "$AUTH_RESPONSE" | jq -r '.token // empty')" = "" ]; then
-          # Auth failed — try to create the first admin account (only works when DB is empty)
-          echo "Authentication failed, checking if admin needs to be created..."
+        USER_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // empty')
+        USER_ID=$(echo "$AUTH_RESPONSE" | jq -r '.record.id // empty')
 
-          echo "Attempting to create Beszel admin account..."
-          CREATE_RESPONSE=$(curl -s -X POST "$HUB_URL/api/collections/_superusers/records" \
-            -H "Content-Type: application/json" \
-            -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\",\"passwordConfirm\":\"$ADMIN_PASS\"}" 2>/dev/null)
-
-          CREATE_ID=$(echo "$CREATE_RESPONSE" | jq -r '.id // empty')
-
-          if [ -n "$CREATE_ID" ]; then
-            echo "Admin account created successfully"
-          else
-            echo "WARNING: Failed to create admin account — it may already exist with different credentials." >&2
-            echo "To change credentials, delete /var/lib/beszel-hub/beszel_data and restart beszel-hub.service." >&2
-            exit 0
-          fi
-
-          # Retry authentication after creation
-          AUTH_RESPONSE=$(curl -s -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
-            -H "Content-Type: application/json" \
-            -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" 2>/dev/null)
-        fi
-
-        if [ -z "$AUTH_RESPONSE" ]; then
-          echo "ERROR: Failed to authenticate with Beszel hub." >&2
+        if [ -z "$USER_TOKEN" ]; then
+          echo "ERROR: Failed to authenticate as user $ADMIN_EMAIL" >&2
+          echo "Verify credentials or reset by deleting /var/lib/beszel-hub/beszel_data and restarting beszel-hub.service." >&2
           exit 1
         fi
 
-        ADMIN_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token')
-        ADMIN_ID=$(echo "$AUTH_RESPONSE" | jq -r '.record.id')
+        echo "Authenticated as user (ID: $USER_ID)"
 
-        if [ -z "$ADMIN_TOKEN" ] || [ "$ADMIN_TOKEN" = "null" ]; then
-          echo "ERROR: Failed to get admin token" >&2
-          exit 1
-        fi
-
-        echo "Authenticated as admin (ID: $ADMIN_ID)"
-
-        # Get the hub's SSH public key and write to agent env file
+        # Get the hub's SSH public key
         echo "Getting hub SSH public key..."
-        KEY_RESPONSE=$(curl -sf "$HUB_URL/api/beszel/getkey" \
-          -H "Authorization: $ADMIN_TOKEN" 2>/dev/null)
+        KEY_RESPONSE=$(curl -s "$HUB_URL/api/beszel/getkey" \
+          -H "Authorization: $USER_TOKEN" 2>/dev/null)
 
-        if [ -z "$KEY_RESPONSE" ]; then
+        HUB_KEY=$(echo "$KEY_RESPONSE" | jq -r '.key // empty')
+
+        if [ -z "$HUB_KEY" ]; then
           echo "ERROR: Failed to get hub SSH key" >&2
           exit 1
         fi
 
-        HUB_KEY=$(echo "$KEY_RESPONSE" | jq -r '.key')
-
-        if [ -z "$HUB_KEY" ] || [ "$HUB_KEY" = "null" ]; then
-          echo "ERROR: Hub returned invalid key" >&2
-          exit 1
-        fi
-
+        # Write env file if key changed
         CURRENT_KEY=""
         if [ -s "$AGENT_ENV" ]; then
           CURRENT_KEY=$(grep "^KEY=" "$AGENT_ENV" | cut -d'=' -f2-)
@@ -172,46 +159,35 @@ in
             'PORT=45876' \
             "KEY=$HUB_KEY" \
             > "$AGENT_ENV"
-          
+
           chown root:beszel-agent "$AGENT_ENV"
           chmod 640 "$AGENT_ENV"
-
         else
           echo "Agent key already up to date"
         fi
 
         # Update or create the system record for this host
         echo "Checking system record..."
-        SYSTEMS=$(curl -sf "$HUB_URL/api/collections/systems/records?filter=name%3D%27media-server%27" \
-          -H "Authorization: $ADMIN_TOKEN" 2>/dev/null)
+        SYSTEMS=$(curl -s "$HUB_URL/api/collections/systems/records?filter=name%3D%27media-server%27" \
+          -H "Authorization: $USER_TOKEN" 2>/dev/null)
 
         SYSTEM_COUNT=$(echo "$SYSTEMS" | jq -r '.totalItems // 0')
 
-        if [ "$SYSTEM_COUNT" = "0" ] || [ -z "$SYSTEM_COUNT" ]; then
+        if [ "$SYSTEM_COUNT" = "0" ]; then
           echo "Creating system record for media-server..."
-          curl -sf -X POST "$HUB_URL/api/collections/systems/records" \
-            -H "Authorization: $ADMIN_TOKEN" \
+          curl -s -X POST "$HUB_URL/api/collections/systems/records" \
+            -H "Authorization: $USER_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"name\":\"media-server\",\"host\":\"127.0.0.1\",\"port\":45876,\"users\":\"$ADMIN_ID\",\"info\":{},\"status\":\"up\"}" >/dev/null 2>&1
-
-          if [ $? -eq 0 ]; then
-            echo "System record created successfully"
-          else
-            echo "WARNING: Failed to create system record." >&2
-          fi
+            -d "{\"name\":\"media-server\",\"host\":\"127.0.0.1\",\"port\":45876,\"users\":\"$USER_ID\",\"info\":{},\"status\":\"up\"}" >/dev/null 2>&1
+          echo "System record created"
         else
           SYSTEM_ID=$(echo "$SYSTEMS" | jq -r '.items[0].id')
           echo "Updating system record (ID: $SYSTEM_ID)..."
-          curl -sf -X PATCH "$HUB_URL/api/collections/systems/records/$SYSTEM_ID" \
-            -H "Authorization: $ADMIN_TOKEN" \
+          curl -s -X PATCH "$HUB_URL/api/collections/systems/records/$SYSTEM_ID" \
+            -H "Authorization: $USER_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"host\":\"127.0.0.1\",\"port\":45876,\"users\":\"$ADMIN_ID\"}" >/dev/null 2>&1
-
-          if [ $? -eq 0 ]; then
-            echo "System record updated successfully"
-          else
-            echo "WARNING: Failed to update system record." >&2
-          fi
+            -d "{\"host\":\"127.0.0.1\",\"port\":45876,\"users\":\"$USER_ID\"}" >/dev/null 2>&1
+          echo "System record updated"
         fi
 
         echo "Beszel initialization complete"
