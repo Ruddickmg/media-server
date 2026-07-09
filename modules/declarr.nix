@@ -40,9 +40,8 @@ let
   # Parse a YAML file from the Dictionarry Database flake input into a Nix
   # attribute set.  Uses yq at evaluation time (IFD).  The path MUST be a
   # path-type value (not a string) so Nix copies it into the store and the
-  # sandboxed builder can read it.  We reference ${path} directly in the
-  # build script to ensure the dependency is tracked.  The path is quoted to
-  # handle spaces in filenames (e.g. "1080p Quality.yml").
+  # sandboxed builder can read it.  lib.escapeShellArg is used so paths
+  # containing spaces (e.g. "1080p Quality.yml") are handled correctly.
   parseYaml =
     path:
     let
@@ -50,7 +49,7 @@ let
         pkgs.runCommand "yaml-to-json"
           { buildInputs = [ pkgs.yq ]; }
           ''
-            yq -oj < "${path}" > $out
+            yq -oj < ${lib.escapeShellArg path} > $out
           '';
     in
     builtins.fromJSON (builtins.readFile json);
