@@ -62,6 +62,20 @@
       # This makes refresh/deep-link work for Seerr SPA routes like /requests, /login
       handle { reverse_proxy http://127.0.0.1:5055 }
     '';
+
+    # Gotify and Netdata are served on dedicated Tailscale HTTPS ports.
+    # They must run at root path, so we reverse-proxy them through Caddy
+    # (which adds X-Forwarded-Proto, Host, and WebSocket headers) to
+    # prevent blank-page issues caused by mixed-content when tailscale
+    # serve proxies HTTPS→HTTP directly.
+    virtualHosts.":16789".extraConfig = ''
+      bind 127.0.0.1
+      reverse_proxy http://127.0.0.1:6789
+    '';
+    virtualHosts.":29999".extraConfig = ''
+      bind 127.0.0.1
+      reverse_proxy http://127.0.0.1:19999
+    '';
   };
 
   systemd.services.tailscale-serve-paths = {
@@ -89,13 +103,22 @@
         sleep 1
       done
 
+      # Wait for Caddy to be listening (don't require upstreams to be healthy yet)
+      for i in $(seq 1 30); do
+        if ${pkgs.curl}/bin/curl -s --connect-timeout 1 http://127.0.0.1:8080 >/dev/null 2>&1; then
+          break
+        fi
+        sleep 1
+      done
+
       # Clear any existing serve config, then serve root to local Caddy
       tailscale serve reset
       tailscale serve --bg http://127.0.0.1:8080
       # Gotify and Netdata don't support subpath proxying (root-relative URLs in UI).
-      # Serve them on dedicated Tailscale HTTPS ports to avoid blank-page issues.
-      tailscale serve --bg --https 6789  http://127.0.0.1:6789
-      tailscale serve --bg --https 19999 http://127.0.0.1:19999
+      # Serve them on dedicated Tailscale HTTPS ports, proxied through Caddy so
+      # X-Forwarded-Proto and other reverse-proxy headers are set correctly.
+      tailscale serve --bg --https 6789  http://127.0.0.1:16789
+      tailscale serve --bg --https 19999 http://127.0.0.1:29999
     '';
   };
 
