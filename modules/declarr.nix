@@ -2,7 +2,6 @@
   lib,
   pkgs,
   config,
-  dictionarry-db,
   ...
 }:
 let
@@ -27,191 +26,6 @@ let
         appToken = "DECLARR_SECRET_FILE_GOTIFY_TOKEN";
         inherit priority;
       };
-    };
-  };
-
-  # Parse a YAML file from the Dictionarry Database flake input into a Nix
-  # attribute set.  Uses yq at evaluation time (IFD).  The path MUST be a
-  # path-type value (not a string) so Nix copies it into the store and the
-  # sandboxed builder can read it.  The path is passed as an explicit env var
-  # so Nix tracks it as a derivation input; the builder references it via $path.
-  parseYaml =
-    path:
-    let
-      json =
-        pkgs.runCommand "yaml-to-json"
-          {
-            buildInputs = [ (pkgs.python3.withPackages (ps: [ ps.pyyaml ])) ];
-            inherit path;
-          }
-          ''
-            python3 -c "import yaml, json, sys; data = yaml.safe_load(open('$path')); json.dump(data, sys.stdout)" > $out
-          '';
-    in
-    builtins.fromJSON (builtins.readFile json);
-
-  # Dictionarry Database profiles, parsed at evaluation time from the pinned
-  # flake input.  These always reflect the upstream Database state.
-  # NOTE: Use path concatenation (path + string) so the result stays a path
-  # type and Nix tracks it as a derivation dependency.
-  profile1080pQuality = parseYaml (dictionarry-db + "/profiles/1080p Quality.yml");
-  profile2160pQuality = parseYaml (dictionarry-db + "/profiles/2160p Quality.yml");
-  profile720pQuality = parseYaml (dictionarry-db + "/profiles/720p Quality.yml");
-  profile1080pBalanced = parseYaml (dictionarry-db + "/profiles/1080p Balanced.yml");
-
-  # Freeleech scores added to every profile so that freeleech releases are
-  # preferred within the same quality tier.  Quality is always the primary
-  # sort key, so freeleech never overrides a higher-quality non-freeleech
-  # release.
-  freeleechScores = [
-    {
-      name = "Freeleech";
-      score = 500;
-    }
-    {
-      name = "Freeleech75";
-      score = 300;
-    }
-    {
-      name = "Freeleech50";
-      score = 200;
-    }
-  ];
-
-  # Merge freeleech scores into the three custom-format lists that a profile
-  # may carry.  Dictionarry profiles already have custom_formats,
-  # custom_formats_radarr, and custom_formats_sonarr arrays; we append the
-  # freeleech entries to each so the upstream scores are preserved.
-  mkProfile =
-    base:
-    let
-      firstGroup = builtins.head base.qualities;
-    in
-    base
-    // {
-      custom_formats = (base.custom_formats or [ ]) ++ freeleechScores;
-      custom_formats_radarr = (base.custom_formats_radarr or [ ]) ++ freeleechScores;
-      custom_formats_sonarr = (base.custom_formats_sonarr or [ ]) ++ freeleechScores;
-      cutoff = {
-        id = firstGroup.id;
-        name = firstGroup.name;
-      };
-    };
-
-  # Standard profiles that do not exist in the Dictionarry Database.
-  standardQualityProfiles = {
-    "Any" = {
-      upgradesAllowed = true;
-      language = "any";
-      cutoff = {
-        id = -1;
-        name = "Any";
-      };
-      qualities = [
-        {
-          id = -1;
-          name = "Any";
-          qualities = [
-            { name = "Bluray-2160p"; }
-            { name = "WEBDL-2160p"; }
-            { name = "Bluray-1080p"; }
-            { name = "WEBDL-1080p"; }
-            { name = "Bluray-720p"; }
-            { name = "WEBDL-720p"; }
-            { name = "Bluray-480p"; }
-            { name = "WEBDL-480p"; }
-            { name = "DVD"; }
-            { name = "SDTV"; }
-          ];
-        }
-      ];
-      custom_formats = freeleechScores;
-    };
-    "HD-1080p" = {
-      upgradesAllowed = true;
-      upgrade_until = {
-        id = -1;
-        name = "1080p";
-      };
-      language = "any";
-      cutoff = {
-        id = -1;
-        name = "1080p";
-      };
-      qualities = [
-        {
-          id = -1;
-          name = "1080p";
-          qualities = [
-            { name = "Bluray-1080p"; }
-            { name = "WEBDL-1080p"; }
-          ];
-        }
-        {
-          id = -2;
-          name = "720p";
-          qualities = [
-            { name = "Bluray-720p"; }
-            { name = "WEBDL-720p"; }
-          ];
-        }
-        {
-          id = -3;
-          name = "SD";
-          qualities = [
-            { name = "Bluray-480p"; }
-            { name = "WEBDL-480p"; }
-            { name = "DVD"; }
-            { name = "SDTV"; }
-          ];
-        }
-      ];
-      custom_formats = freeleechScores;
-    };
-  };
-
-  # Freeleech custom-format definitions (not present in the Dictionarry
-  # Database).  These are detected via indexer flags returned by
-  # Prowlarr/Jackett, not by regex on the release title.
-  freeleechCustomFormats = {
-    "Freeleech" = {
-      description = "Matches releases with 100% Freeleech";
-      tags = [ "Freeleech" ];
-      conditions = [
-        {
-          type = "indexer_flag";
-          flag = "freeleech";
-          name = "Freeleech";
-          negate = false;
-          required = true;
-        }
-      ];
-    };
-    "Freeleech75" = {
-      description = "Matches releases with 75% Freeleech";
-      tags = [ "Freeleech" ];
-      conditions = [
-        {
-          type = "indexer_flag";
-          flag = "freeleech75";
-          name = "Freeleech75";
-          negate = false;
-          required = true;
-        }
-      ];
-    };
-    "Freeleech50" = {
-      description = "Matches releases with 50% Freeleech";
-      tags = [ "Freeleech" ];
-      conditions = [
-        {
-          type = "indexer_flag";
-          flag = "halfleech";
-          name = "Freeleech50";
-          negate = false;
-          required = true;
-        }
-      ];
     };
   };
 
@@ -247,15 +61,6 @@ let
       notification = mkGotifyNotification 5;
 
       rootFolder = [ "/media/tv" ];
-
-      qualityProfile = standardQualityProfiles // {
-        "1080p Balanced" = mkProfile profile1080pBalanced;
-        "1080p Quality" = mkProfile profile1080pQuality;
-        "2160p Quality" = mkProfile profile2160pQuality;
-        "720p Quality" = mkProfile profile720pQuality;
-      };
-
-      customFormat = freeleechCustomFormats;
     };
   };
 
@@ -291,14 +96,6 @@ let
       notification = mkGotifyNotification 5;
 
       rootFolder = [ "/media/movies" ];
-
-      qualityProfile = standardQualityProfiles // {
-        "1080p Quality" = mkProfile profile1080pQuality;
-        "2160p Quality" = mkProfile profile2160pQuality;
-        "720p Quality" = mkProfile profile720pQuality;
-      };
-
-      customFormat = freeleechCustomFormats;
     };
   };
 
@@ -438,7 +235,6 @@ in
         {
           declarr = {
             stateDir = "/var/lib/declarr";
-            formatDbRepo = "https://github.com/Dictionarry-Hub/Database";
           };
         }
         sonarrCfg

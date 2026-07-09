@@ -18,6 +18,8 @@
     ../../modules/services/plex.nix
     ../../modules/services/seerr.nix
     ../../modules/services/netdata.nix
+    ../../modules/services/podman.nix
+    ../../modules/services/profilarr.nix
     ../../modules/declarr.nix
   ];
 
@@ -63,6 +65,7 @@
     plex.enable = true;
     seerr.enable = true;
     unpackerr.enable = true;
+    profilarr.enable = true;
     declarr.gotifyTokenFile = "/etc/nixos/secrets/gotify-token";
 
     netdata.enable = true;

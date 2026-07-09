@@ -112,6 +112,7 @@ The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encr
 | `https://media-server.tailbac0df.ts.net/radarr` | Radarr |
 | `https://media-server.tailbac0df.ts.net/lidarr` | Lidarr |
 | `https://media-server.tailbac0df.ts.net/bazarr` | Bazarr |
+| `https://media-server.tailbac0df.ts.net/profilarr` | Profilarr |
 | `https://media-server.tailbac0df.ts.net:19999` | Netdata |
 | `https://media-server.tailbac0df.ts.net:6789`  | Gotify |
 
@@ -153,7 +154,7 @@ On first deploy, Seerr is pre-configured with Sonarr and Radarr connections.
 2. Sign in with your **Plex account** (Seerr uses Plex for authentication)
 3. Configure user permissions and notification settings as desired
 
-> If you add custom quality profiles in Sonarr/Radarr later, update the profile selection in Seerr's service settings to match.
+> Profilarr manages quality profiles and custom formats for Sonarr and Radarr. After configuring profiles in Profilarr, update the profile selection in Seerr's service settings to match.
 
 ### Gotify — push notifications
 
@@ -169,8 +170,23 @@ Gotify receives alert notifications from Netdata (service failures, high CPU/RAM
    echo "<your-token>" | sudo tee /etc/nixos/secrets/gotify-token
    ```
 7. The token is read at runtime — no rebuild is required.
-   - **Netdata and the auto-update script** read the file live and will start sending alerts immediately.
-   - **Sonarr, Radarr, Lidarr, and Prowlarr** will pick up the Gotify notification connection on their next declarr sync (or restart the `declarr` service to force it: `systemctl restart declarr`).
+    - **Netdata and the auto-update script** read the file live and will start sending alerts immediately.
+    - **Sonarr, Radarr, Lidarr, and Prowlarr** will pick up the Gotify notification connection on their next declarr sync (or restart the `declarr` service to force it: `systemctl restart declarr`).
+
+### Profilarr — quality profiles and custom formats
+
+Profilarr manages quality profiles and custom formats for Radarr and Sonarr via a web UI. It connects to curated databases (Dictionarry, TRaSH Guides) and syncs configurations directly to your *arr instances.
+
+1. Open `https://media-server.tailbac0df.ts.net/profilarr`
+2. Complete the onboarding wizard (set username/password)
+3. Go to **Databases** and link the **Dictionarry** repository (already pre-configured)
+4. Import the profiles you want (e.g., `1080p Quality`, `2160p Quality`)
+5. Go to **Instances** and add your local Radarr and Sonarr:
+   - **Radarr**: `http://localhost:7878`, API key from `media-server.apiKeys.radarr` (or check Radarr → Settings → General)
+   - **Sonarr**: `http://localhost:8989`, API key from `media-server.apiKeys.sonarr` (or check Sonarr → Settings → General)
+6. Go to **Sync** and push profiles to both instances
+
+> **Note:** Declarr no longer manages quality profiles or custom formats. It only handles base configuration (API keys, download clients, root folders, notifications). All profile management is done through Profilarr.
 
 ## Security Architecture
 
@@ -178,7 +194,7 @@ Gotify receives alert notifications from Netdata (service failures, high CPU/RAM
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr (path-based) | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
+| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr, Profilarr (path-based) | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
 | **Tailscale HTTPS** | Netdata, Gotify (port-based) | `https://media-server.tailbac0df.ts.net:<port>` (direct via Tailscale Serve) | Tailscale identity |
 | **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol) | `localclient:deluge` (auth file) |
 | **Tailscale-only** | Unpackerr | internal only | N/A |
@@ -215,6 +231,7 @@ For VPN confinement details, see [VPN confinement](#vpn-confinement).
 | Radarr | 7878 | `https://media-server.tailbac0df.ts.net/radarr` |
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
 | Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
+| Profilarr | 6868 | `https://media-server.tailbac0df.ts.net/profilarr` |
 | Netdata | 19999 | `https://media-server.tailbac0df.ts.net:19999` |
 | Gotify | 6789 | `https://media-server.tailbac0df.ts.net:6789` |
 
