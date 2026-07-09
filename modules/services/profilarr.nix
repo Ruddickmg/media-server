@@ -33,16 +33,21 @@ in
 
     systemd.services.profilarr-init = {
       description = "Initialize Profilarr with Radarr and Sonarr instances";
-      after = [ "podman-profilarr.service" ]
-        ++ lib.optional radarrEnabled "radarr.service"
-        ++ lib.optional sonarrEnabled "sonarr.service";
+      after = [
+        "podman-profilarr.service"
+      ]
+      ++ lib.optional radarrEnabled "radarr.service"
+      ++ lib.optional sonarrEnabled "sonarr.service";
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
         Restart = "no";
       };
-      path = [ pkgs.curl pkgs.jq ];
+      path = [
+        pkgs.curl
+        pkgs.jq
+      ];
       script = ''
         set -euo pipefail
 
