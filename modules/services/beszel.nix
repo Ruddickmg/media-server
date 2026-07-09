@@ -106,7 +106,7 @@ in
           # Auth failed — try to create the first admin account (only works when DB is empty)
           echo "Authentication failed, checking if admin needs to be created..."
 
-          ADMIN_EXISTS=$(curl -sf "$HUB_URL/api/collections/_superusers/records?perPage=1" 2>/dev/null | jq -r '.totalItems // 0')
+          ADMIN_EXISTS=$(curl -s "$HUB_URL/api/collections/_superusers/records?perPage=1" 2>/dev/null | jq -r '.totalItems // 0')
 
           if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
             echo "Creating Beszel admin account..."
