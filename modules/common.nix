@@ -17,6 +17,12 @@ in
       description = "Path to file containing Gotify app token for system notifications";
     };
 
+    gotifyAppName = lib.mkOption {
+      type = lib.types.str;
+      default = "Media Server";
+      description = "Name of the Gotify app to create or use for system notifications";
+    };
+
     apiKeys = {
       sonarr = lib.mkOption {
         type = lib.types.str;
@@ -107,17 +113,17 @@ in
 
         # Check if the app already exists using Basic Auth (admin:admin)
         APP_DATA=$(curl -sf -u "admin:admin" "$GOTIFY_URL/application" 2>/dev/null | \
-          jq -r '.[] | select(.name == "Media Server Alerts")')
+          jq -r '.[] | select(.name == "${config.media-server.gotifyAppName}")')
 
         if [ -n "$APP_DATA" ]; then
           echo "App exists, extracting token..."
           TOKEN=$(echo "$APP_DATA" | jq -r '.token')
         else
-          echo "Creating Gotify app 'Media Server Alerts'..."
+          echo "Creating Gotify app '${config.media-server.gotifyAppName}'..."
           TOKEN=$(curl -sf -X POST -u "admin:admin" \
             -H "Content-Type: application/json" \
             "$GOTIFY_URL/application" \
-            -d '{"name":"Media Server Alerts","description":"NixOS media server notifications"}' 2>/dev/null | \
+            -d '{"name":"${config.media-server.gotifyAppName}","description":"NixOS media server notifications"}' 2>/dev/null | \
             jq -r '.token')
         fi
 
