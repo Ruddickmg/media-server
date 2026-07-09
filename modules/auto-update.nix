@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 {
   systemd.services.nixos-auto-update = {
     description = "Pull latest NixOS config from Git and rebuild";
