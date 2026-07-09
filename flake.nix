@@ -13,7 +13,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     dictionarry-db = {
-      url = "github:Dictionarry-Hub/Database";
+      url = "github:Dictionarry-Hub/Database/stable";
       flake = false;
     };
   };
