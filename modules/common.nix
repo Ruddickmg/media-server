@@ -61,13 +61,14 @@ in
       serviceConfig = {
         Type = "oneshot";
         SupplementaryGroups = [ "gotify-readers" ];
+        Environment = [ "INSTANCE=%i" ];
       };
       script = ''
         TOKEN=$(cat ${config.media-server.gotifyTokenFile} 2>/dev/null || echo "")
         [ -z "$TOKEN" ] && exit 0
         ${pkgs.curl}/bin/curl -sf -X POST "http://127.0.0.1:6789/message?token=$TOKEN" \
-          -F "title=Service Failed: %i" \
-          -F "message=Systemd service %i has failed on $(hostname)" \
+          -F "title=Service Failed: $INSTANCE" \
+          -F "message=Systemd service $INSTANCE has failed" \
           -F "priority=5" >/dev/null 2>&1 || true
       '';
     };
