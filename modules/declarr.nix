@@ -264,6 +264,7 @@ in
       wants = [ "network.target" ];
       unitConfig = {
         StartLimitBurst = 10;
+        OnFailure = "notify-gotify@%n.service";
       };
       serviceConfig = {
         RestartSec = "1s";

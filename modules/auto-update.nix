@@ -1,4 +1,4 @@
-{ lib, pkgs, ... }:
+{ lib, pkgs, config, ... }:
 {
   systemd.services.nixos-auto-update = {
     description = "Pull latest NixOS config from Git and rebuild";
@@ -16,14 +16,21 @@
     };
     script = ''
       set -euo pipefail
+      TOKEN=$(cat ${config.media-server.gotifyTokenFile} 2>/dev/null || echo "")
       git fetch origin
       if ! git diff --quiet HEAD origin/main; then
         git merge --ff-only origin/main
-        nixos-rebuild switch --flake /etc/nixos
-        curl -sf -X POST "http://127.0.0.1:6789/message?token=$(cat /etc/nixos/secrets/gotify-token 2>/dev/null || echo "")" \
-          -F "title=NixOS Build Succeeded" \
-          -F "message=System configuration updated successfully" \
-          -F "priority=3" >/dev/null 2>&1 || true
+        if nixos-rebuild switch --flake /etc/nixos; then
+          curl -sf -X POST "http://127.0.0.1:6789/message?token=$TOKEN" \
+            -F "title=NixOS Build Succeeded" \
+            -F "message=System configuration updated successfully" \
+            -F "priority=3" >/dev/null 2>&1 || true
+        else
+          curl -sf -X POST "http://127.0.0.1:6789/message?token=$TOKEN" \
+            -F "title=NixOS Build FAILED" \
+            -F "message=nixos-rebuild switch failed on $(hostname)" \
+            -F "priority=5" >/dev/null 2>&1 || true
+        fi
       fi
     '';
   };

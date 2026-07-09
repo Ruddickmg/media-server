@@ -40,6 +40,9 @@ in
       ++ lib.optional radarrEnabled "radarr.service"
       ++ lib.optional sonarrEnabled "sonarr.service";
       wantedBy = [ "multi-user.target" ];
+      unitConfig = {
+        OnFailure = "notify-gotify@%n.service";
+      };
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;

@@ -10,7 +10,7 @@ let
   healthAlarmNotify = pkgs.writeText "health_alarm_notify.conf" ''
     SEND_GOTIFY="YES"
     GOTIFY_SERVER_URL="http://127.0.0.1:6789"
-    GOTIFY_APP_TOKEN=$(cat ${cfg.gotifyTokenFile} 2>/dev/null || echo "")
+    GOTIFY_APP_TOKEN=$(cat /var/lib/netdata/secrets/gotify-token 2>/dev/null || echo "")
     DEFAULT_RECIPIENT_GOTIFY="*"
   '';
 
@@ -50,6 +50,10 @@ let
     {
       name = "nixos-auto-update";
       label = "NixOS Auto-Update";
+    }
+    {
+      name = "podman-profilarr";
+      label = "Profilarr";
     }
   ];
 
@@ -111,5 +115,12 @@ in
       "health_alarm_notify.conf" = healthAlarmNotify;
       "health.d/services.conf" = servicesAlarm;
     };
+
+    systemd.services.netdata.preStart = lib.optionalString (cfg.gotifyTokenFile != null) ''
+      mkdir -p /var/lib/netdata/secrets
+      cp -f ${cfg.gotifyTokenFile} /var/lib/netdata/secrets/gotify-token 2>/dev/null || true
+      chown -R netdata:netdata /var/lib/netdata/secrets
+      chmod 400 /var/lib/netdata/secrets/gotify-token
+    '';
   };
 }
