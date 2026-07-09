@@ -48,11 +48,11 @@ let
       json =
         pkgs.runCommand "yaml-to-json"
           {
-            buildInputs = [ pkgs.yq ];
+            buildInputs = [ (pkgs.python3.withPackages (ps: [ ps.pyyaml ])) ];
             inherit path;
           }
           ''
-            yq -oj < "$path" > $out
+            python3 -c "import yaml, json, sys; data = yaml.safe_load(open('$path')); json.dump(data, sys.stdout)" > $out
           '';
     in
     builtins.fromJSON (builtins.readFile json);
