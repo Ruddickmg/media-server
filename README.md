@@ -113,7 +113,7 @@ The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encr
 | `https://media-server.tailbac0df.ts.net/lidarr` | Lidarr |
 | `https://media-server.tailbac0df.ts.net/bazarr` | Bazarr |
 | `https://media-server.tailbac0df.ts.net/profilarr` | Profilarr |
-| `https://media-server.tailbac0df.ts.net:19999` | Netdata |
+| `https://media-server.tailbac0df.ts.net/metrics` | Beszel (monitoring) |
 | `https://media-server.tailbac0df.ts.net:6789`  | Gotify |
 
 The hostname is the machine's MagicDNS name (check `tailscale status` for yours).
@@ -158,7 +158,7 @@ On first deploy, Seerr is pre-configured with Sonarr and Radarr connections.
 
 ### Gotify — push notifications
 
-Gotify receives alert notifications from Netdata (service failures, high CPU/RAM/disk usage) and from the NixOS auto-update (build succeeded).
+Gotify receives alert notifications from systemd service failures (via `OnFailure` hooks), the NixOS auto-update script (build succeeded/failed), and Beszel (monitoring thresholds).
 
 1. Open `https://media-server.tailbac0df.ts.net:6789`
 2. Log in with the default credentials: `admin` / `admin`
@@ -170,8 +170,9 @@ Gotify receives alert notifications from Netdata (service failures, high CPU/RAM
    echo "<your-token>" | sudo tee /etc/nixos/secrets/gotify-token
    ```
 7. The token is read at runtime — no rebuild is required.
-    - **Netdata and the auto-update script** read the file live and will start sending alerts immediately.
+    - **Auto-update and systemd service failures** will start sending alerts immediately.
     - **Sonarr, Radarr, Lidarr, and Prowlarr** will pick up the Gotify notification connection on their next declarr sync (or restart the `declarr` service to force it: `systemctl restart declarr`).
+    - **Beszel** notifications are configured in the Beszel web UI (Settings → Notifications). Add the Gotify URL using the Shoutrrr format: `gotify://127.0.0.1:6789/<your-token>?priority=1`.
 
 ### Profilarr — quality profiles and custom formats
 
@@ -194,8 +195,8 @@ Profilarr manages quality profiles and custom formats for Radarr and Sonarr via 
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr, Profilarr (path-based) | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
-| **Tailscale HTTPS** | Netdata, Gotify (port-based) | `https://media-server.tailbac0df.ts.net:<port>` (direct via Tailscale Serve) | Tailscale identity |
+| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr, Profilarr, Beszel (path-based) | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
+| **Tailscale HTTPS** | Gotify (port-based) | `https://media-server.tailbac0df.ts.net:<port>` (direct via Tailscale Serve) | Tailscale identity |
 | **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol) | `localclient:deluge` (auth file) |
 | **Tailscale-only** | Unpackerr | internal only | N/A |
 | **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app | Plex.tv account auth |
@@ -232,7 +233,7 @@ For VPN confinement details, see [VPN confinement](#vpn-confinement).
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
 | Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
 | Profilarr | 6868 | `https://media-server.tailbac0df.ts.net/profilarr` |
-| Netdata | 19999 | `https://media-server.tailbac0df.ts.net:19999` |
+| Beszel | 8090 | `https://media-server.tailbac0df.ts.net/metrics` |
 | Gotify | 6789 | `https://media-server.tailbac0df.ts.net:6789` |
 
 ## Customization
