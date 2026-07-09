@@ -12,7 +12,7 @@ in
 {
   options.media-server = {
     gotifyTokenFile = lib.mkOption {
-      type = lib.types.path;
+      type = lib.types.str;
       default = "/etc/nixos/secrets/gotify-token";
       description = "Path to file containing Gotify app token for system notifications";
     };
