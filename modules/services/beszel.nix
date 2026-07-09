@@ -178,11 +178,8 @@ in
           chown root:beszel-agent "$AGENT_ENV"
           chmod 640 "$AGENT_ENV"
 
-          echo "Restarting agent..."
-          # Use --no-block to avoid deadlock: beszel-agent has After=/Requires=
-          # on beszel-init, so a blocking restart would wait for init to finish
-          # while init is waiting for the restart to complete.
-          systemctl --no-block restart beszel-agent.service || true
+          echo "Agent key changed, flagging for restart..."
+          touch /var/lib/beszel-agent/.restart-needed
         else
           echo "Agent key already up to date"
         fi
@@ -222,6 +219,28 @@ in
         fi
 
         echo "Beszel initialization complete"
+      '';
+    };
+
+    # Separate restart service runs after init finishes, avoiding the deadlock
+    # that would occur if init itself tried to restart the agent (which has
+    # After=/Requires= on beszel-init).
+    systemd.services.beszel-agent-restart = {
+      description = "Restart Beszel agent after initialization";
+      after = [ "beszel-init.service" ];
+      wants = [ "beszel-init.service" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+      };
+      script = ''
+        if [ -f /var/lib/beszel-agent/.restart-needed ]; then
+          echo "Restarting beszel-agent due to key change..."
+          systemctl restart beszel-agent.service
+          rm -f /var/lib/beszel-agent/.restart-needed
+        else
+          echo "No beszel-agent restart needed"
+        fi
       '';
     };
 
