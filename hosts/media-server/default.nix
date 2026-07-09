@@ -74,6 +74,8 @@
     environment = {
       GOTIFY_SERVER_PORT = 6789;
       GOTIFY_SERVER_LISTENADDR = "127.0.0.1";
+      # Allow any origin (internal Tailscale domain) for CORS API requests
+      GOTIFY_SERVER_CORS_ALLOWORIGINS = ".*";
     };
   };
 
