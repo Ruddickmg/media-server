@@ -46,5 +46,17 @@
           ./hosts/media-server/default.nix
         ];
       };
+
+      nixosConfigurations.media-server-ci = nixpkgs.lib.nixosSystem {
+        inherit system;
+        specialArgs = { inherit pkgs-unstable declarr dictionarry-db; };
+        modules = [
+          disko.nixosModules.disko
+          declarr.nixosModules.default
+          ./hosts/media-server/disko.nix
+          ./hosts/media-server/default.nix
+          { media-server.netdata.withNetdataUi = false; }
+        ];
+      };
     };
 }
