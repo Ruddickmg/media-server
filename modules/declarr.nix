@@ -260,13 +260,16 @@ in
         ++ optionals cfg.radarr.enable [ "radarr.service" ]
         ++ optionals cfg.lidarr.enable [ "lidarr.service" ]
         ++ optionals cfg.prowlarr.enable [ "prowlarr.service" ]
-        ++ optionals cfg.deluge.enable [ "deluged.service" ];
+        ++ optionals cfg.deluge.enable [ "deluged.service" ]
+        ++ [ "gotify-provision.service" ];
       wants = [ "network.target" ];
       unitConfig = {
         StartLimitBurst = 10;
+        OnFailure = "notify-gotify@%n.service";
       };
       serviceConfig = {
         RestartSec = "1s";
+        SupplementaryGroups = [ "gotify-readers" ];
       };
     };
   };

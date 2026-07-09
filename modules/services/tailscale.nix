@@ -66,18 +66,21 @@
       handle { reverse_proxy http://127.0.0.1:5055 }
     '';
 
-    # Gotify and Netdata are served on dedicated Tailscale HTTPS ports.
-    # They must run at root path, so we reverse-proxy them through Caddy
-    # (which adds X-Forwarded-Proto, Host, and WebSocket headers) to
-    # prevent blank-page issues caused by mixed-content when tailscale
-    # serve proxies HTTPS→HTTP directly.
+    # Gotify is served on a dedicated Tailscale HTTPS port because it
+    # must run at root path. We reverse-proxy it through Caddy (which
+    # adds X-Forwarded-Proto, Host, and WebSocket headers) to prevent
+    # blank-page issues caused by mixed-content when tailscale serve
+    # proxies HTTPS→HTTP directly.
     virtualHosts.":16789".extraConfig = ''
       bind 127.0.0.1
       reverse_proxy http://127.0.0.1:6789
     '';
-    virtualHosts.":29999".extraConfig = ''
+
+    # Beszel is served on a dedicated Tailscale HTTPS port because it
+    # must run at root path (PocketBase uses root-relative URLs).
+    virtualHosts.":28090".extraConfig = ''
       bind 127.0.0.1
-      reverse_proxy http://127.0.0.1:19999
+      reverse_proxy http://127.0.0.1:8090
     '';
   };
 
@@ -117,11 +120,11 @@
       # Clear any existing serve config, then serve root to local Caddy
       tailscale serve reset
       tailscale serve --bg http://127.0.0.1:8080
-      # Gotify and Netdata don't support subpath proxying (root-relative URLs in UI).
+      # Gotify and Beszel don't support subpath proxying (root-relative URLs in UI).
       # Serve them on dedicated Tailscale HTTPS ports, proxied through Caddy so
       # X-Forwarded-Proto and other reverse-proxy headers are set correctly.
       tailscale serve --bg --https 6789  http://127.0.0.1:16789
-      tailscale serve --bg --https 19999 http://127.0.0.1:29999
+      tailscale serve --bg --https 28090 http://127.0.0.1:28090
     '';
   };
 

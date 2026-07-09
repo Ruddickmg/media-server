@@ -50,7 +50,7 @@
           declarr.nixosModules.default
           ./hosts/media-server/disko.nix
           ./hosts/media-server/default.nix
-          { media-server.netdata.withNetdataUi = false; }
+
         ];
       };
     };
