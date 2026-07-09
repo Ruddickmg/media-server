@@ -17,7 +17,7 @@
     ../../modules/services/bazarr.nix
     ../../modules/services/plex.nix
     ../../modules/services/seerr.nix
-    ../../modules/services/netdata.nix
+    ../../modules/services/beszel.nix
     ../../modules/services/podman.nix
     ../../modules/services/profilarr.nix
     ../../modules/declarr.nix
@@ -68,8 +68,7 @@
     profilarr.enable = true;
     declarr.gotifyTokenFile = "/etc/nixos/secrets/gotify-token";
 
-    netdata.enable = true;
-    netdata.gotifyTokenFile = "/etc/nixos/secrets/gotify-token";
+    beszel.enable = true;
   };
 
   services.gotify = {

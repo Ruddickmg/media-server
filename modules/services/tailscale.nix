@@ -51,6 +51,9 @@
       # Profilarr — strip /profilarr prefix so it thinks it runs at root
       handle_path /profilarr* { reverse_proxy http://127.0.0.1:6868 }
 
+      # Beszel — strip /metrics prefix so it thinks it runs at root
+      handle_path /metrics* { reverse_proxy http://127.0.0.1:8090 }
+
       # Seerr — strip /seerr prefix so it thinks it runs at root
       handle_path /seerr* { reverse_proxy http://127.0.0.1:5055 }
 
@@ -66,18 +69,14 @@
       handle { reverse_proxy http://127.0.0.1:5055 }
     '';
 
-    # Gotify and Netdata are served on dedicated Tailscale HTTPS ports.
-    # They must run at root path, so we reverse-proxy them through Caddy
-    # (which adds X-Forwarded-Proto, Host, and WebSocket headers) to
-    # prevent blank-page issues caused by mixed-content when tailscale
-    # serve proxies HTTPS→HTTP directly.
+    # Gotify is served on a dedicated Tailscale HTTPS port because it
+    # must run at root path. We reverse-proxy it through Caddy (which
+    # adds X-Forwarded-Proto, Host, and WebSocket headers) to prevent
+    # blank-page issues caused by mixed-content when tailscale serve
+    # proxies HTTPS→HTTP directly.
     virtualHosts.":16789".extraConfig = ''
       bind 127.0.0.1
       reverse_proxy http://127.0.0.1:6789
-    '';
-    virtualHosts.":29999".extraConfig = ''
-      bind 127.0.0.1
-      reverse_proxy http://127.0.0.1:19999
     '';
   };
 
@@ -117,11 +116,10 @@
       # Clear any existing serve config, then serve root to local Caddy
       tailscale serve reset
       tailscale serve --bg http://127.0.0.1:8080
-      # Gotify and Netdata don't support subpath proxying (root-relative URLs in UI).
-      # Serve them on dedicated Tailscale HTTPS ports, proxied through Caddy so
+      # Gotify doesn't support subpath proxying (root-relative URLs in UI).
+      # Serve it on a dedicated Tailscale HTTPS port, proxied through Caddy so
       # X-Forwarded-Proto and other reverse-proxy headers are set correctly.
       tailscale serve --bg --https 6789  http://127.0.0.1:16789
-      tailscale serve --bg --https 19999 http://127.0.0.1:29999
     '';
   };
 
