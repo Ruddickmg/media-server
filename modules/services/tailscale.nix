@@ -103,9 +103,9 @@
         sleep 1
       done
 
-      # Wait for Caddy to be ready
+      # Wait for Caddy to be listening (don't require upstreams to be healthy yet)
       for i in $(seq 1 30); do
-        if curl -sf http://127.0.0.1:8080 >/dev/null 2>&1; then
+        if ${pkgs.curl}/bin/curl -s --connect-timeout 1 http://127.0.0.1:8080 >/dev/null 2>&1; then
           break
         fi
         sleep 1
