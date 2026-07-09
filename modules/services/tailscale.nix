@@ -51,9 +51,6 @@
       # Profilarr — strip /profilarr prefix so it thinks it runs at root
       handle_path /profilarr* { reverse_proxy http://127.0.0.1:6868 }
 
-      # Beszel — strip /metrics prefix so it thinks it runs at root
-      handle_path /metrics* { reverse_proxy http://127.0.0.1:8090 }
-
       # Seerr — strip /seerr prefix so it thinks it runs at root
       handle_path /seerr* { reverse_proxy http://127.0.0.1:5055 }
 
@@ -77,6 +74,13 @@
     virtualHosts.":16789".extraConfig = ''
       bind 127.0.0.1
       reverse_proxy http://127.0.0.1:6789
+    '';
+
+    # Beszel is served on a dedicated Tailscale HTTPS port because it
+    # must run at root path (PocketBase uses root-relative URLs).
+    virtualHosts.":28090".extraConfig = ''
+      bind 127.0.0.1
+      reverse_proxy http://127.0.0.1:8090
     '';
   };
 
@@ -116,10 +120,11 @@
       # Clear any existing serve config, then serve root to local Caddy
       tailscale serve reset
       tailscale serve --bg http://127.0.0.1:8080
-      # Gotify doesn't support subpath proxying (root-relative URLs in UI).
-      # Serve it on a dedicated Tailscale HTTPS port, proxied through Caddy so
+      # Gotify and Beszel don't support subpath proxying (root-relative URLs in UI).
+      # Serve them on dedicated Tailscale HTTPS ports, proxied through Caddy so
       # X-Forwarded-Proto and other reverse-proxy headers are set correctly.
       tailscale serve --bg --https 6789  http://127.0.0.1:16789
+      tailscale serve --bg --https 28090 http://127.0.0.1:28090
     '';
   };
 

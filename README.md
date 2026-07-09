@@ -113,7 +113,7 @@ The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encr
 | `https://media-server.tailbac0df.ts.net/lidarr` | Lidarr |
 | `https://media-server.tailbac0df.ts.net/bazarr` | Bazarr |
 | `https://media-server.tailbac0df.ts.net/profilarr` | Profilarr |
-| `https://media-server.tailbac0df.ts.net/metrics` | Beszel (monitoring) |
+| `https://media-server.tailbac0df.ts.net:28090` | Beszel (monitoring) |
 | `https://media-server.tailbac0df.ts.net:6789`  | Gotify |
 
 The hostname is the machine's MagicDNS name (check `tailscale status` for yours).
@@ -165,7 +165,7 @@ Beszel is a lightweight server monitoring hub with historical data, Docker stats
 2. Exchanges the hub's SSH public key with the agent
 3. Creates a system record for the local media server
 
-You can access the dashboard at `https://media-server.tailbac0df.ts.net/metrics`.
+You can access the dashboard at `https://media-server.tailbac0df.ts.net:28090`.
 
 **Admin credentials** (configurable, simple defaults):
 - Email: `ruddickmg@gmail.com` (default — change via `media-server.beszel.adminEmail`)
@@ -220,8 +220,8 @@ Profilarr manages quality profiles and custom formats for Radarr and Sonarr via 
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr, Profilarr, Beszel (path-based) | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
-| **Tailscale HTTPS** | Gotify (port-based) | `https://media-server.tailbac0df.ts.net:<port>` (direct via Tailscale Serve) | Tailscale identity |
+| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr, Profilarr (path-based) | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
+| **Tailscale HTTPS** | Beszel, Gotify (port-based) | `https://media-server.tailbac0df.ts.net:<port>` (direct via Tailscale Serve) | Tailscale identity |
 | **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol) | `localclient:deluge` (auth file) |
 | **Tailscale-only** | Unpackerr | internal only | N/A |
 | **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app | Plex.tv account auth |
@@ -258,7 +258,7 @@ For VPN confinement details, see [VPN confinement](#vpn-confinement).
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
 | Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
 | Profilarr | 6868 | `https://media-server.tailbac0df.ts.net/profilarr` |
-| Beszel | 8090 | `https://media-server.tailbac0df.ts.net/metrics` |
+| Beszel | 8090 | `https://media-server.tailbac0df.ts.net:28090` |
 | Gotify | 6789 | `https://media-server.tailbac0df.ts.net:6789` |
 
 ## Customization
