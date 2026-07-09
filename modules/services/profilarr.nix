@@ -33,6 +33,7 @@ in
 
     systemd.services.profilarr-init = {
       description = "Initialize Profilarr with Radarr and Sonarr instances";
+      wants = [ "podman-profilarr.service" ];
       after = [
         "podman-profilarr.service"
       ]
