@@ -106,22 +106,18 @@ in
           # Auth failed — try to create the first admin account (only works when DB is empty)
           echo "Authentication failed, checking if admin needs to be created..."
 
-          ADMIN_EXISTS=$(curl -s "$HUB_URL/api/collections/_superusers/records?perPage=1" 2>/dev/null | jq -r '.totalItems // 0')
+          echo "Attempting to create Beszel admin account..."
+          CREATE_RESPONSE=$(curl -s -X POST "$HUB_URL/api/collections/_superusers/records" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\",\"passwordConfirm\":\"$ADMIN_PASS\"}" 2>/dev/null)
 
-          if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
-            echo "Creating Beszel admin account..."
-            curl -s -X POST "$HUB_URL/api/collections/_superusers/records" \
-              -H "Content-Type: application/json" \
-              -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\",\"passwordConfirm\":\"$ADMIN_PASS\"}" >/dev/null 2>&1
+          CREATE_ID=$(echo "$CREATE_RESPONSE" | jq -r '.id // empty')
 
-            if [ $? -eq 0 ]; then
-              echo "Admin account created successfully"
-            else
-              echo "WARNING: Failed to create admin account" >&2
-            fi
+          if [ -n "$CREATE_ID" ]; then
+            echo "Admin account created successfully"
           else
-            echo "WARNING: Admin account exists but configured credentials do not match." >&2
-            echo "To change credentials, delete the PocketBase data directory (e.g. /var/lib/beszel-hub/beszel_data) and restart beszel-hub.service." >&2
+            echo "WARNING: Failed to create admin account — it may already exist with different credentials." >&2
+            echo "To change credentials, delete /var/lib/beszel-hub/beszel_data and restart beszel-hub.service." >&2
             exit 0
           fi
 
