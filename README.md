@@ -156,23 +156,40 @@ On first deploy, Seerr is pre-configured with Sonarr and Radarr connections.
 
 > Profilarr manages quality profiles and custom formats for Sonarr and Radarr. After configuring profiles in Profilarr, update the profile selection in Seerr's service settings to match.
 
+### Beszel — monitoring hub
+
+Beszel is a lightweight server monitoring hub with historical data, Docker stats, and alerts. It replaces Netdata.
+
+**All setup is automated.** On first boot, the `beszel-init.service`:
+1. Creates a Beszel admin account with deterministic credentials (derived from hostname)
+2. Exchanges the hub's SSH public key with the agent
+3. Creates a system record for the local media server
+4. If Gotify is enabled, creates a Gotify app and configures Beszel notifications automatically
+
+You can access the dashboard at `https://media-server.tailbac0df.ts.net/metrics`.
+
+**Admin credentials** (auto-generated, deterministic):
+- Email: `admin@beszel.local`
+- Password: derived from hostname hash (first 32 chars of SHA256 of `<hostname>-beszel-admin`)
+- To view the password: `journalctl -u beszel-init.service | grep "Admin password"` (or check the systemd unit output on first run)
+
+> **Note:** The automation runs once and stores state in `/var/lib/beszel-hub/init-state.json`. If you need to reset Beszel, delete this file and the PocketBase data directory, then restart the service.
+
 ### Gotify — push notifications
 
 Gotify receives alert notifications from systemd service failures (via `OnFailure` hooks), the NixOS auto-update script (build succeeded/failed), and Beszel (monitoring thresholds).
 
+**Gotify is fully automated for Beszel.** If you need manual access:
+
 1. Open `https://media-server.tailbac0df.ts.net:6789`
 2. Log in with the default credentials: `admin` / `admin`
-3. Go to **Apps** and click **Create Application**
-4. Name it `Media Server Alerts` and click **Create**
-5. Copy the generated token
-6. On the server, save the token:
-   ```bash
-   echo "<your-token>" | sudo tee /etc/nixos/secrets/gotify-token
-   ```
-7. The token is read at runtime — no rebuild is required.
+3. Go to **Apps** to see the auto-created `Beszel Alerts` app
+
+For other services that need the Gotify token (e.g., manual setup of other apps):
+1. Copy the token from `/etc/nixos/secrets/gotify-token` (auto-created by `beszel-init.service`)
+2. The token is read at runtime — no rebuild is required.
     - **Auto-update and systemd service failures** will start sending alerts immediately.
     - **Sonarr, Radarr, Lidarr, and Prowlarr** will pick up the Gotify notification connection on their next declarr sync (or restart the `declarr` service to force it: `systemctl restart declarr`).
-    - **Beszel** notifications are configured in the Beszel web UI (Settings → Notifications). Add the Gotify URL using the Shoutrrr format: `gotify://127.0.0.1:6789/<your-token>?priority=1`.
 
 ### Profilarr — quality profiles and custom formats
 
