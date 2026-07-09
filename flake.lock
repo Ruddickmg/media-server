@@ -24,15 +24,16 @@
     "dictionarry-db": {
       "flake": false,
       "locked": {
-        "lastModified": 1783551099,
-        "narHash": "sha256-OoBNnZoGBEPXhziBKgSzF/ONNoi9bAdphal1wJvYGL4=",
+        "lastModified": 1776897975,
+        "narHash": "sha256-v0Mq7V/YPUwWlJGxV+cpJ1L+d+U+QB0tBh+3yP1etBc=",
         "owner": "Dictionarry-Hub",
         "repo": "Database",
-        "rev": "a4a77721e525361549df1c4e00b6270b14d01ca3",
+        "rev": "5ba1f9f163fc9b2aacefe14636f07106802a52d4",
         "type": "github"
       },
       "original": {
         "owner": "Dictionarry-Hub",
+        "ref": "stable",
         "repo": "Database",
         "type": "github"
       }
