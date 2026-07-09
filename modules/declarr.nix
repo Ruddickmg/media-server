@@ -38,39 +38,45 @@ let
       null;
 
   # Parse a YAML file from the Dictionarry Database flake input into a Nix
-  # attribute set.  Uses yq at evaluation time (IFD) — this is fine for
-  # nixos-rebuild and nix build, but may be restricted in some CI
-  # environments.
+  # attribute set.  Uses yq at evaluation time (IFD).  The path MUST be a
+  # path-type value (not a string) so Nix copies it into the store and the
+  # sandboxed builder can read it.  We reference ${path} directly in the
+  # build script to ensure the dependency is tracked.
   parseYaml =
     path:
     let
-      json =
-        pkgs.runCommand "yaml-to-json"
-          {
-            buildInputs = [ pkgs.yq ];
-            inherit path;
-          }
-          ''
-            yq -oj < "$path" > $out
-          '';
+      json = pkgs.runCommand "yaml-to-json" { buildInputs = [ pkgs.yq ]; } ''
+        yq -oj < ${path} > $out
+      '';
     in
     builtins.fromJSON (builtins.readFile json);
 
   # Dictionarry Database profiles, parsed at evaluation time from the pinned
   # flake input.  These always reflect the upstream Database state.
-  profile1080pQuality = parseYaml "${dictionarry-db}/profiles/1080p Quality.yml";
-  profile2160pQuality = parseYaml "${dictionarry-db}/profiles/2160p Quality.yml";
-  profile720pQuality = parseYaml "${dictionarry-db}/profiles/720p Quality.yml";
-  profile1080pBalanced = parseYaml "${dictionarry-db}/profiles/1080p Balanced.yml";
+  # NOTE: Use path concatenation (path + string) so the result stays a path
+  # type and Nix tracks it as a derivation dependency.
+  profile1080pQuality = parseYaml (dictionarry-db + "/profiles/1080p Quality.yml");
+  profile2160pQuality = parseYaml (dictionarry-db + "/profiles/2160p Quality.yml");
+  profile720pQuality = parseYaml (dictionarry-db + "/profiles/720p Quality.yml");
+  profile1080pBalanced = parseYaml (dictionarry-db + "/profiles/1080p Balanced.yml");
 
   # Freeleech scores added to every profile so that freeleech releases are
   # preferred within the same quality tier.  Quality is always the primary
   # sort key, so freeleech never overrides a higher-quality non-freeleech
   # release.
   freeleechScores = [
-    { name = "Freeleech"; score = 500; }
-    { name = "Freeleech75"; score = 300; }
-    { name = "Freeleech50"; score = 200; }
+    {
+      name = "Freeleech";
+      score = 500;
+    }
+    {
+      name = "Freeleech75";
+      score = 300;
+    }
+    {
+      name = "Freeleech50";
+      score = 200;
+    }
   ];
 
   # Merge freeleech scores into the three custom-format lists that a profile
