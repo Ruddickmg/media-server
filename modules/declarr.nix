@@ -235,6 +235,7 @@ let
         };
         mediamanagement = {
           enableCompletedDownloadHandling = true;
+          copyUsingHardlinks = true;
         };
       };
 
@@ -278,6 +279,7 @@ let
         };
         mediamanagement = {
           enableCompletedDownloadHandling = true;
+          copyUsingHardlinks = true;
         };
       };
 
@@ -320,6 +322,7 @@ let
         };
         mediamanagement = {
           enableCompletedDownloadHandling = true;
+          copyUsingHardlinks = true;
         };
       };
 
