@@ -24,7 +24,6 @@
       SupplementaryGroups = [ "gotify-readers" ];
       NoNewPrivileges = true;
       PrivateTmp = true;
-      ProtectHome = true;
       RemoveIPC = true;
       KeyringMode = "private";
     };
