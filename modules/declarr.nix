@@ -46,9 +46,9 @@ let
         };
         naming = {
           renameEpisodes = true;
-          standardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title} - {Quality Full}";
-          dailyEpisodeFormat = "{Series Title} - {Air-Date} - {Episode Title} - {Quality Full}";
-          animeEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title} - {Quality Full}";
+          standardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title}";
+          dailyEpisodeFormat = "{Series Title} - {Air-Date} - {Episode Title}";
+          animeEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title}";
           seriesFolderFormat = "{Series Title}";
           seasonFolderFormat = "Season {season:00}";
         };
@@ -92,7 +92,7 @@ let
         };
         naming = {
           renameMovies = true;
-          standardMovieFormat = "{Movie CleanTitle} ({Release Year}) - {Quality Full}";
+          standardMovieFormat = "{Movie CleanTitle} ({Release Year})";
           movieFolderFormat = "{Movie CleanTitle} ({Release Year})";
         };
       };
