@@ -45,7 +45,6 @@ in
       ProtectSystem = "strict";
       KeyringMode = "private";
       RestrictSUIDSGID = true;
-      ProtectHostname = true;
       ProtectProc = "invisible";
       ReadWritePaths = [
         "/var/lib/containers"
