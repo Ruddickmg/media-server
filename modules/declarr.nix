@@ -44,6 +44,14 @@ let
           enableCompletedDownloadHandling = true;
           copyUsingHardlinks = true;
         };
+        naming = {
+          renameEpisodes = true;
+          standardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title}";
+          dailyEpisodeFormat = "{Series Title} - {Air-Date} - {Episode Title}";
+          animeEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title}";
+          seriesFolderFormat = "{Series Title}";
+          seasonFolderFormat = "Season {season:00}";
+        };
       };
 
       qualityProfile = { };
@@ -82,6 +90,11 @@ let
           enableCompletedDownloadHandling = true;
           copyUsingHardlinks = true;
         };
+        naming = {
+          renameMovies = true;
+          standardMovieFormat = "{Movie CleanTitle} ({Release Year})";
+          movieFolderFormat = "{Movie CleanTitle} ({Release Year})";
+        };
       };
 
       qualityProfile = { };
@@ -119,6 +132,12 @@ let
         mediamanagement = {
           enableCompletedDownloadHandling = true;
           copyUsingHardlinks = true;
+        };
+        naming = {
+          renameTracks = true;
+          standardTrackFormat = "{Artist Name} - {Album Title} - {track:00} - {Track Title}";
+          albumFolderFormat = "{Artist Name} - {Album Title} ({Release Year})";
+          artistFolderFormat = "{Artist Name}";
         };
       };
 

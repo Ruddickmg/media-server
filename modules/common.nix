@@ -135,7 +135,7 @@ in
 
         # Atomic write: temp file then mv
         mkdir -p "$(dirname "$TOKEN_FILE")"
-        echo "$TOKEN" > "$TOKEN_FILE.tmp"
+        printf '%s' "$TOKEN" > "$TOKEN_FILE.tmp"
         chown root:gotify-readers "$TOKEN_FILE.tmp"
         chmod 640 "$TOKEN_FILE.tmp"
         mv -f "$TOKEN_FILE.tmp" "$TOKEN_FILE"
