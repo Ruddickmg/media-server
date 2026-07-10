@@ -27,6 +27,7 @@ in
         AUTH = "off";
         ORIGIN = "https://media-server.tailbac0df.ts.net:6868";
         PORT = "6865";
+        DENO_DIR = "/tmp/deno";
       };
       volumes = [ "/var/lib/profilarr:/config" ];
       ports = [ "127.0.0.1:6865:6865" ];
