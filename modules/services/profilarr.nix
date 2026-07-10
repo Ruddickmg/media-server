@@ -38,11 +38,8 @@ in
     };
 
     systemd.services.podman-profilarr.serviceConfig = {
-      NoNewPrivileges = true;
       PrivateTmp = true;
-      ProtectSystem = "strict";
       KeyringMode = "private";
-      RestrictSUIDSGID = true;
       ProtectProc = "invisible";
       ReadWritePaths = [
         "/var/lib/containers"
