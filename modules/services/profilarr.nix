@@ -47,8 +47,10 @@ in
       RestrictSUIDSGID = true;
       ProtectHostname = true;
       ProtectProc = "invisible";
-      ProcSubset = "pid";
-      ReadWritePaths = [ "/var/lib/containers" ];
+      ReadWritePaths = [
+        "/var/lib/containers"
+        "/var/lib/profilarr"
+      ];
     };
 
     systemd.services.profilarr-init = {
