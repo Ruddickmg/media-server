@@ -80,6 +80,28 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        CapabilityBoundingSet = [ "" ];
+        ProtectHome = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        PrivateDevices = true;
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ReadWritePaths = [
+          "/var/lib/beszel-agent"
+          "/var/lib/beszel-hub"
+        ];
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
       };
       path = [
         pkgs.openssh
@@ -184,9 +206,25 @@ in
 
     # Override upstream ExecStartPre: beszel 0.18.7 doesn't have the history-sync
     # subcommand, causing a non-fatal error in the logs.
-    systemd.services.beszel-hub.serviceConfig.ExecStartPre = lib.mkForce [
-      "${config.services.beszel.hub.package}/bin/beszel-hub migrate up"
-    ];
+    # Also add hardening to supplement upstream defaults.
+    systemd.services.beszel-hub.serviceConfig = {
+      ExecStartPre = lib.mkForce [
+        "${config.services.beszel.hub.package}/bin/beszel-hub migrate up"
+      ];
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      ProtectSystem = "strict";
+      CapabilityBoundingSet = [ "" ];
+      RestrictNamespaces = true;
+      ProtectClock = true;
+      PrivateMounts = true;
+      RemoveIPC = true;
+      KeyringMode = "private";
+      RestrictSUIDSGID = true;
+      ProtectHostname = true;
+      ProtectProc = "invisible";
+      ProcSubset = "pid";
+    };
 
     # Skip agent start until init writes the env file (first boot).
     # OnFailure notifications are independent of ordering to avoid cycles.
@@ -194,6 +232,24 @@ in
       unitConfig = {
         ConditionPathExists = "/var/lib/beszel-agent/env";
         OnFailure = "notify-gotify@%n.service";
+      };
+      serviceConfig = {
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        CapabilityBoundingSet = [ "" ];
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        ReadWritePaths = [
+          "/var/lib/beszel-agent"
+          "/run/podman"
+        ];
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
       };
     };
   };

@@ -103,6 +103,16 @@
       Restart = "on-failure";
       RestartSec = "3s";
       TimeoutStartSec = "60s";
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      ProtectSystem = "strict";
+      CapabilityBoundingSet = [ "" ];
+      ProtectHome = true;
+      KeyringMode = "private";
+      RestrictSUIDSGID = true;
+      ProtectHostname = true;
+      ProtectProc = "invisible";
+      ProcSubset = "pid";
     };
     script = ''
       # Wait for tailscale to be authenticated

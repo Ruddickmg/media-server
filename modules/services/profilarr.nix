@@ -30,6 +30,23 @@ in
       };
       volumes = [ "/var/lib/profilarr:/config" ];
       ports = [ "127.0.0.1:6865:6865" ];
+      extraOptions = [
+        "--cap-drop=ALL"
+        "--security-opt=no-new-privileges:true"
+        "--read-only"
+        "--tmpfs=/tmp:noexec,nosuid,size=64M"
+      ];
+    };
+
+    systemd.services.podman-profilarr.serviceConfig = {
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      ProtectSystem = "strict";
+      KeyringMode = "private";
+      RestrictSUIDSGID = true;
+      ProtectHostname = true;
+      ProtectProc = "invisible";
+      ProcSubset = "pid";
     };
 
     systemd.services.profilarr-init = {
@@ -48,6 +65,24 @@ in
         Type = "oneshot";
         RemainAfterExit = true;
         Restart = "no";
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        CapabilityBoundingSet = [ "" ];
+        ProtectHome = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        PrivateDevices = true;
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
       };
       path = [
         pkgs.curl
