@@ -34,6 +34,8 @@ in
       extraOptions = [
         "--cap-drop=ALL"
         "--cap-add=CHOWN"
+        "--cap-add=SETUID"
+        "--cap-add=SETGID"
         "--security-opt=no-new-privileges:true"
         "--read-only"
         "--tmpfs=/tmp:noexec,nosuid,size=64M"
