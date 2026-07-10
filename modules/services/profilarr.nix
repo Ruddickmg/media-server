@@ -33,7 +33,7 @@ in
       ports = [ "127.0.0.1:6865:6865" ];
       extraOptions = [
         "--read-only"
-        "--tmpfs=/tmp:noexec,nosuid,size=64M"
+        "--tmpfs=/tmp:nosuid,size=64M"
       ];
     };
 
