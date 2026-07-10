@@ -148,7 +148,7 @@ in
         for i in $(seq 1 30); do
           AUTH_RESPONSE=$(curl -sf "$HUB_API/api/collections/users/auth-with-password" \
             -H "Content-Type: application/json" \
-            -d "$(printf '{"identity":"%s","password":"%s"}' "$ADMIN_EMAIL" "$ADMIN_PASSWORD")" 2>/dev/null) && break
+            -d "$(jq -nc --arg identity "$ADMIN_EMAIL" --arg password "$ADMIN_PASSWORD" '{identity:$identity,password:$password}')" 2>/dev/null) && break
           sleep 1
         done
 
