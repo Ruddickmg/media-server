@@ -172,7 +172,7 @@ in
           CREATE_RESPONSE=$(curl -sf -X POST "$HUB_API/api/collections/systems/records" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $ADMIN_TOKEN" \
-            -d "$(printf '{"name":"media-server","host":"127.0.0.1","port":45876,"users":["%s"]}' "$ADMIN_ID")" 2>/dev/null)
+            -d "$(jq -nc --arg name "media-server" --arg host "127.0.0.1" --arg user "$ADMIN_ID" --argjson port 45876 '{name:$name,host:$host,port:$port,users:[$user]}')" 2>/dev/null)
           if [ $? -eq 0 ]; then
             echo "System registered successfully"
           else
