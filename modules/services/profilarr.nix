@@ -83,7 +83,6 @@ in
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
-        ProcSubset = "pid";
       };
       path = [
         pkgs.curl
