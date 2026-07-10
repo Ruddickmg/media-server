@@ -39,18 +39,18 @@ in
       ];
       wantedBy = [ "multi-user.target" ];
 
-      environment = {
-        UN_SONARR_0_URL = "http://localhost:8989";
-        UN_SONARR_0_API_KEY = apiKeys.sonarr;
-        UN_RADARR_0_URL = "http://localhost:7878";
-        UN_RADARR_0_API_KEY = apiKeys.radarr;
-        UN_LIDARR_0_URL = "http://localhost:8686";
-        UN_LIDARR_0_API_KEY = apiKeys.lidarr;
-        UN_FOLDER_0_ENABLE = "true";
-        UN_FOLDER_0_PATH = "/media/downloads/completed";
-        UN_FOLDER_0_INTERVAL = "1s";
-        UN_EXTRACTOR_DELETE_AFTER = "true";
-      };
+      environmentFile = toString (pkgs.writeText "unpackerr-env" ''
+        UN_SONARR_0_URL=http://localhost:8989
+        UN_SONARR_0_API_KEY=${apiKeys.sonarr}
+        UN_RADARR_0_URL=http://localhost:7878
+        UN_RADARR_0_API_KEY=${apiKeys.radarr}
+        UN_LIDARR_0_URL=http://localhost:8686
+        UN_LIDARR_0_API_KEY=${apiKeys.lidarr}
+        UN_FOLDER_0_ENABLE=true
+        UN_FOLDER_0_PATH=/media/downloads/completed
+        UN_FOLDER_0_INTERVAL=1s
+        UN_EXTRACTOR_DELETE_AFTER=true
+      '');
 
       serviceConfig = {
         Type = "simple";
@@ -73,6 +73,17 @@ in
         PrivateDevices = true;
         LockPersonality = true;
         RestrictNamespaces = true;
+        ProtectSystem = "strict";
+        MemoryDenyWriteExecute = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        ReadWritePaths = [ "/var/lib/unpackerr" "/media" ];
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
       };
     };
 

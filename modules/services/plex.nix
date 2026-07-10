@@ -39,6 +39,13 @@ in
       RestrictRealtime = true;
       SystemCallArchitectures = "native";
       LockPersonality = true;
+      ProtectClock = true;
+      PrivateMounts = true;
+      RemoveIPC = true;
+      KeyringMode = "private";
+      RestrictSUIDSGID = true;
+      ProtectHostname = true;
+      ProtectProc = "invisible";
     };
   };
 }

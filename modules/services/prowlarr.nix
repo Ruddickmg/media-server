@@ -58,6 +58,16 @@ in
       PrivateDevices = true;
       LockPersonality = true;
       RestrictNamespaces = true;
+      ProtectSystem = "strict";
+      ProtectClock = true;
+      PrivateMounts = true;
+      RemoveIPC = true;
+      ReadWritePaths = [ "/var/lib/prowlarr" "/media" ];
+      KeyringMode = "private";
+      RestrictSUIDSGID = true;
+      ProtectHostname = true;
+      ProtectProc = "invisible";
+      ProcSubset = "pid";
     }
     // mkIf useVpn {
       NetworkNamespacePath = "/var/run/netns/${vpnNs}";

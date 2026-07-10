@@ -143,11 +143,35 @@ in
     };
 
     systemd.services.seerr = {
-      environment = {
-        SEERR_API_KEY = apiKeys.seerr;
-        HOST = "127.0.0.1";
+      environment.HOST = "127.0.0.1";
+      environmentFile = toString (pkgs.writeText "seerr-env" ''
+        SEERR_API_KEY=${apiKeys.seerr}
+      '');
+      serviceConfig = {
+        ExecStart = mkOverride 40 (lib.getExe pkgs-unstable.seerr);
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        CapabilityBoundingSet = [ "" ];
+        PrivateDevices = true;
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        ProtectHome = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        ReadWritePaths = [ "/var/lib/seerr" "/media" ];
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
       };
-      serviceConfig.ExecStart = mkOverride 40 (lib.getExe pkgs-unstable.seerr);
       preStart = ''
         if [ ! -f /var/lib/seerr/settings.json ]; then
           cp ${settingsFile} /var/lib/seerr/settings.json
