@@ -59,17 +59,21 @@ in
       "d /var/lib/beszel-hub 0750 beszel-hub beszel-hub -"
     ];
 
-    # Reads the hub's SSH key from disk and writes it to the agent env file.
-    # No API calls — avoids auth tokens, DB state corruption, and ordering cycles.
+    # Reads the hub's SSH key from disk and writes it to the agent env file,
+    # then registers the local agent as a system in the hub via API.
     # The hub generates its SSH key at /var/lib/beszel-hub/beszel_data/id_ed25519
     # on first startup (via GetSSHKey in beszel/internal/hub/hub.go).
     # The agent is skipped on first boot by ConditionPathExists; this service
     # writes the key and restarts the agent so it picks it up.
     systemd.services.beszel-init = {
-      description = "Configure Beszel agent with hub SSH key";
+      description = "Configure Beszel agent and register system with hub";
       after = [ "beszel-hub.service" ];
       wants = [ "beszel-hub.service" ];
       wantedBy = [ "multi-user.target" ];
+      environment = {
+        ADMIN_EMAIL = cfg.adminEmail;
+        ADMIN_PASSWORD = cfg.adminPassword;
+      };
       unitConfig = {
         OnFailure = "notify-gotify@%n.service";
       };
@@ -80,10 +84,13 @@ in
       path = [
         pkgs.openssh
         pkgs.coreutils
+        pkgs.curl
+        pkgs.jq
       ];
       script = ''
         SSH_KEY="/var/lib/beszel-hub/beszel_data/id_ed25519"
         AGENT_ENV="/var/lib/beszel-agent/env"
+        HUB_API="http://127.0.0.1:8090"
 
         # Wait for hub to generate SSH key
         for i in $(seq 1 60); do
@@ -128,8 +135,58 @@ in
         else
           echo "Agent key already up to date"
         fi
+
+        # Wait for hub API to be ready
+        for i in $(seq 1 30); do
+          if curl -sf "$HUB_API/api/" >/dev/null 2>&1; then
+            break
+          fi
+          sleep 1
+        done
+
+        # Authenticate as admin user (retry — migration may still be creating the user)
+        for i in $(seq 1 30); do
+          AUTH_RESPONSE=$(curl -sf "$HUB_API/api/collections/users/auth-with-password" \
+            -H "Content-Type: application/json" \
+            -d "$(printf '{"identity":"%s","password":"%s"}' "$ADMIN_EMAIL" "$ADMIN_PASSWORD")" 2>/dev/null) && break
+          sleep 1
+        done
+
+        ADMIN_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // empty')
+        ADMIN_ID=$(echo "$AUTH_RESPONSE" | jq -r '.record.id // empty')
+
+        if [ -z "$ADMIN_TOKEN" ]; then
+          echo "WARNING: Could not authenticate with hub — system not registered. Add it manually in the dashboard." >&2
+          exit 0
+        fi
+
+        # Check if system already exists
+        EXISTING=$(curl -sf "$HUB_API/api/collections/systems/records" \
+          --get --data-urlencode 'filter=name="media-server"' \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null | jq -r '.items[0].id // empty')
+
+        if [ -n "$EXISTING" ]; then
+          echo "System 'media-server' already registered (id: $EXISTING)"
+        else
+          echo "Registering 'media-server' system with hub..."
+          CREATE_RESPONSE=$(curl -sf -X POST "$HUB_API/api/collections/systems/records" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -d "$(printf '{"name":"media-server","host":"127.0.0.1","port":45876,"users":["%s"]}' "$ADMIN_ID")" 2>/dev/null)
+          if [ $? -eq 0 ]; then
+            echo "System registered successfully"
+          else
+            echo "WARNING: Failed to create system in hub — add it manually in the dashboard." >&2
+          fi
+        fi
       '';
     };
+
+    # Override upstream ExecStartPre: beszel 0.18.7 doesn't have the history-sync
+    # subcommand, causing a non-fatal error in the logs.
+    systemd.services.beszel-hub.serviceConfig.ExecStartPre = lib.mkForce [
+      "${config.services.beszel.hub.package}/bin/beszel-hub migrate up"
+    ];
 
     # Skip agent start until init writes the env file (first boot).
     # OnFailure notifications are independent of ordering to avoid cycles.
