@@ -69,21 +69,6 @@ in
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
-        CapabilityBoundingSet = [ "" ];
-        ProtectHome = true;
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
-        RestrictRealtime = true;
-        SystemCallArchitectures = "native";
-        PrivateDevices = true;
-        LockPersonality = true;
-        RestrictNamespaces = true;
-        KeyringMode = "private";
-        RestrictSUIDSGID = true;
-        ProtectHostname = true;
-        ProtectProc = "invisible";
-        ProcSubset = "pid";
       };
       path = [
         pkgs.curl
