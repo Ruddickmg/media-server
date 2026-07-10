@@ -88,7 +88,7 @@
     '';
   };
 
-  systemd.services.tailscale-serve-paths = {
+    systemd.services.tailscale-serve-paths = {
     description = "Configure Tailscale Serve path-based routing for *arr apps";
     after = [
       "tailscaled.service"
@@ -113,6 +113,16 @@
       ProtectHostname = true;
       ProtectProc = "invisible";
       ProcSubset = "pid";
+      ProtectKernelTunables = true;
+      ProtectControlGroups = true;
+      RestrictRealtime = true;
+      SystemCallArchitectures = "native";
+      LockPersonality = true;
+      RestrictNamespaces = true;
+      ProtectClock = true;
+      PrivateMounts = true;
+      PrivateDevices = true;
+      RemoveIPC = true;
     };
     script = ''
       # Wait for tailscale to be authenticated

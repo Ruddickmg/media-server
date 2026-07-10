@@ -17,7 +17,7 @@ in
   config = lib.mkIf cfg.enable {
     # Ensure the config directory exists before the container starts.
     systemd.tmpfiles.rules = [
-      "d /var/lib/profilarr 0755 5686 5686 -"
+      "d /var/lib/profilarr 0750 5686 5686 -"
     ];
 
     virtualisation.oci-containers.containers.profilarr = {

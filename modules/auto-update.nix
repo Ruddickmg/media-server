@@ -26,6 +26,23 @@
       PrivateTmp = true;
       RemoveIPC = true;
       KeyringMode = "private";
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      ProtectControlGroups = true;
+      RestrictRealtime = true;
+      SystemCallArchitectures = "native";
+      LockPersonality = true;
+      RestrictNamespaces = true;
+      ProtectClock = true;
+      PrivateMounts = true;
+      PrivateDevices = true;
+      RestrictSUIDSGID = true;
+      ProtectHostname = true;
+      ProtectProc = "invisible";
+      ProcSubset = "pid";
+      ReadWritePaths = [
+        "/etc/nixos"
+      ];
     };
     script = ''
       set -euo pipefail

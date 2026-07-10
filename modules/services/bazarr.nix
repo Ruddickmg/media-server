@@ -110,6 +110,7 @@ in
         ProtectHostname = true;
         ProtectProc = "invisible";
         ProcSubset = "pid";
+        MemoryDenyWriteExecute = true;
       };
     };
   };

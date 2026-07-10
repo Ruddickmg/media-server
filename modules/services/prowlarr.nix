@@ -106,6 +106,17 @@ in
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
+        ProcSubset = "pid";
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        PrivateDevices = true;
       };
     };
 

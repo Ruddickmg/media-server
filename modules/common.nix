@@ -62,6 +62,27 @@ in
         Type = "oneshot";
         SupplementaryGroups = [ "gotify-readers" ];
         Environment = [ "INSTANCE=%i" ];
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        CapabilityBoundingSet = [ "" ];
+        PrivateDevices = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
       };
       script = ''
         TOKEN=$(cat ${config.media-server.gotifyTokenFile} 2>/dev/null || echo "")
@@ -87,6 +108,30 @@ in
         RemainAfterExit = true;
         Restart = "on-failure";
         RestartSec = "10s";
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        CapabilityBoundingSet = [ "" ];
+        PrivateDevices = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        ReadWritePaths = [
+          "/etc/nixos/secrets"
+        ];
       };
       path = [
         pkgs.curl
@@ -118,7 +163,7 @@ in
 
         if [ -n "$APP_DATA" ]; then
           echo "App exists, extracting token..."
-          TOKEN=$(echo "$APP_DATA" | jq -r '.token')
+          TOKEN=$(jq -r '.token' <<<"$APP_DATA")
         else
           echo "Creating Gotify app '${config.media-server.gotifyAppName}'..."
           TOKEN=$(curl -sf -X POST -u "admin:admin" \
