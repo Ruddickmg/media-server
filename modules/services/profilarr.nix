@@ -48,6 +48,7 @@ in
       ProtectHostname = true;
       ProtectProc = "invisible";
       ProcSubset = "pid";
+      ReadWritePaths = [ "/var/lib/containers" ];
     };
 
     systemd.services.profilarr-init = {
