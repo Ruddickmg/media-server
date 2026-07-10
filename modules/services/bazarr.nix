@@ -99,7 +99,10 @@ in
         ProtectClock = true;
         PrivateMounts = true;
         RemoveIPC = true;
-        ReadWritePaths = [ "/var/lib/bazarr" "/media" ];
+        ReadWritePaths = [
+          "/var/lib/bazarr"
+          "/media"
+        ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;
         ProtectHostname = true;

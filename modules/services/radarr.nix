@@ -56,7 +56,10 @@ in
       ProtectClock = true;
       PrivateMounts = true;
       RemoveIPC = true;
-      ReadWritePaths = [ "/var/lib/radarr" "/media" ];
+      ReadWritePaths = [
+        "/var/lib/radarr"
+        "/media"
+      ];
       KeyringMode = "private";
       RestrictSUIDSGID = true;
       ProtectHostname = true;

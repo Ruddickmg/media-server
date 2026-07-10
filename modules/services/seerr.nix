@@ -146,9 +146,13 @@ in
       environment.HOST = "127.0.0.1";
       serviceConfig = {
         ExecStart = mkOverride 40 (lib.getExe pkgs-unstable.seerr);
-        EnvironmentFile = [ (toString (pkgs.writeText "seerr-env" ''
-          SEERR_API_KEY=${apiKeys.seerr}
-        '')) ];
+        EnvironmentFile = [
+          (toString (
+            pkgs.writeText "seerr-env" ''
+              SEERR_API_KEY=${apiKeys.seerr}
+            ''
+          ))
+        ];
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
@@ -165,7 +169,10 @@ in
         ProtectClock = true;
         PrivateMounts = true;
         RemoveIPC = true;
-        ReadWritePaths = [ "/var/lib/seerr" "/media" ];
+        ReadWritePaths = [
+          "/var/lib/seerr"
+          "/media"
+        ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;
         ProtectHostname = true;

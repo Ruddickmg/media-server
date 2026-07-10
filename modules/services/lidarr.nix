@@ -56,7 +56,10 @@ in
       ProtectClock = true;
       PrivateMounts = true;
       RemoveIPC = true;
-      ReadWritePaths = [ "/var/lib/lidarr" "/media" ];
+      ReadWritePaths = [
+        "/var/lib/lidarr"
+        "/media"
+      ];
       KeyringMode = "private";
       RestrictSUIDSGID = true;
       ProtectHostname = true;

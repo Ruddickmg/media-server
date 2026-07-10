@@ -62,7 +62,10 @@ in
       ProtectClock = true;
       PrivateMounts = true;
       RemoveIPC = true;
-      ReadWritePaths = [ "/var/lib/prowlarr" "/media" ];
+      ReadWritePaths = [
+        "/var/lib/prowlarr"
+        "/media"
+      ];
       KeyringMode = "private";
       RestrictSUIDSGID = true;
       ProtectHostname = true;

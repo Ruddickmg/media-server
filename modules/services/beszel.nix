@@ -93,7 +93,10 @@ in
         PrivateDevices = true;
         LockPersonality = true;
         RestrictNamespaces = true;
-        ReadWritePaths = [ "/var/lib/beszel-agent" "/var/lib/beszel-hub" ];
+        ReadWritePaths = [
+          "/var/lib/beszel-agent"
+          "/var/lib/beszel-hub"
+        ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;
         ProtectHostname = true;
@@ -239,7 +242,10 @@ in
         ProtectClock = true;
         PrivateMounts = true;
         RemoveIPC = true;
-        ReadWritePaths = [ "/var/lib/beszel-agent" "/run/podman" ];
+        ReadWritePaths = [
+          "/var/lib/beszel-agent"
+          "/run/podman"
+        ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;
         ProtectHostname = true;
