@@ -84,7 +84,7 @@
     # must run at root path (Vue/React apps use root-relative URLs).
     virtualHosts.":16868".extraConfig = ''
       bind 127.0.0.1
-      reverse_proxy http://127.0.0.1:6868
+      reverse_proxy http://127.0.0.1:6865
     '';
   };
 
