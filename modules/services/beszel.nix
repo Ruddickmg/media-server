@@ -224,6 +224,7 @@ in
       ProtectHostname = true;
       ProtectProc = "invisible";
       ProcSubset = "pid";
+      ReadWritePaths = [ "/var/lib/beszel-hub" ];
     };
 
     # Skip agent start until init writes the env file (first boot).
