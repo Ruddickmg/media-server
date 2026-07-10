@@ -58,7 +58,8 @@ in
       RemoveIPC = true;
       ReadWritePaths = [
         "/var/lib/lidarr"
-        "/media"
+        "/media/downloads/completed"
+        "/media/music"
       ];
       KeyringMode = "private";
       RestrictSUIDSGID = true;

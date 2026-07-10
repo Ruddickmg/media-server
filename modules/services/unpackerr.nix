@@ -83,7 +83,7 @@ in
         RemoveIPC = true;
         ReadWritePaths = [
           "/var/lib/unpackerr"
-          "/media"
+          "/media/downloads/completed"
         ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;

@@ -58,7 +58,8 @@ in
       RemoveIPC = true;
       ReadWritePaths = [
         "/var/lib/radarr"
-        "/media"
+        "/media/downloads/completed"
+        "/media/movies"
       ];
       KeyringMode = "private";
       RestrictSUIDSGID = true;
