@@ -17,7 +17,7 @@ in
   config = lib.mkIf cfg.enable {
     # Ensure the config directory exists before the container starts.
     systemd.tmpfiles.rules = [
-      "d /var/lib/profilarr 0755 root root -"
+      "d /var/lib/profilarr 0755 5686 5686 -"
     ];
 
     virtualisation.oci-containers.containers.profilarr = {
@@ -32,6 +32,9 @@ in
       volumes = [ "/var/lib/profilarr:/config" ];
       ports = [ "127.0.0.1:6865:6865" ];
       extraOptions = [
+        "--user=5686:5686"
+        "--cap-drop=ALL"
+        "--security-opt=no-new-privileges:true"
         "--read-only"
         "--tmpfs=/tmp:nosuid,size=64M"
       ];
