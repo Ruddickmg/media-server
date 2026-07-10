@@ -55,9 +55,6 @@ in
       ProtectProc = "invisible";
       ReadWritePaths = [
         "/var/lib/plex"
-        "/media/movies"
-        "/media/tv"
-        "/media/music"
       ];
     };
   };
