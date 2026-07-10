@@ -32,7 +32,6 @@ in
       volumes = [ "/var/lib/profilarr:/config" ];
       ports = [ "127.0.0.1:6865:6865" ];
       extraOptions = [
-        "--security-opt=no-new-privileges:true"
         "--read-only"
         "--tmpfs=/tmp:noexec,nosuid,size=64M"
       ];
