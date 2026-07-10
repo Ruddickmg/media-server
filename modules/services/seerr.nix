@@ -144,11 +144,11 @@ in
 
     systemd.services.seerr = {
       environment.HOST = "127.0.0.1";
-      environmentFile = toString (pkgs.writeText "seerr-env" ''
-        SEERR_API_KEY=${apiKeys.seerr}
-      '');
       serviceConfig = {
         ExecStart = mkOverride 40 (lib.getExe pkgs-unstable.seerr);
+        EnvironmentFile = [ (toString (pkgs.writeText "seerr-env" ''
+          SEERR_API_KEY=${apiKeys.seerr}
+        '')) ];
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
