@@ -30,6 +30,14 @@ in
       enable = true;
       host = "127.0.0.1";
       port = 8090;
+      # Beszel migration auto-creates user + superuser on first start:
+      # BESZEL_HUB_USER_EMAIL fallback: USER_EMAIL -> temp admin (_@b.b)
+      # BESZEL_HUB_USER_PASSWORD fallback: USER_PASSWORD -> random password
+      # When both are set, it also creates a regular user (admin role, verified).
+      environment = {
+        BESZEL_HUB_USER_EMAIL = cfg.adminEmail;
+        BESZEL_HUB_USER_PASSWORD = cfg.adminPassword;
+      };
     };
 
     # Beszel agent — runs on the same host, hub connects via SSH
@@ -51,14 +59,16 @@ in
       "d /var/lib/beszel-hub 0750 beszel-hub beszel-hub -"
     ];
 
+    # Reads the hub's SSH key from disk and writes it to the agent env file.
+    # No API calls — avoids auth tokens, DB state corruption, and ordering cycles.
+    # The hub generates its SSH key at /var/lib/beszel-hub/beszel_data/id_ed25519
+    # on first startup (via GetSSHKey in beszel/internal/hub/hub.go).
+    # The agent is skipped on first boot by ConditionPathExists; this service
+    # writes the key and restarts the agent so it picks it up.
     systemd.services.beszel-init = {
-      description = "Initialize Beszel hub and agent";
-      after = [
-        "beszel-hub.service"
-      ];
-      wants = [
-        "beszel-hub.service"
-      ];
+      description = "Configure Beszel agent with hub SSH key";
+      after = [ "beszel-hub.service" ];
+      wants = [ "beszel-hub.service" ];
       wantedBy = [ "multi-user.target" ];
       unitConfig = {
         OnFailure = "notify-gotify@%n.service";
@@ -68,101 +78,35 @@ in
         RemainAfterExit = true;
       };
       path = [
-        pkgs.curl
-        pkgs.jq
+        pkgs.openssh
         pkgs.coreutils
       ];
       script = ''
-        set -uo pipefail
-
-        HUB_URL="http://127.0.0.1:8090"
+        SSH_KEY="/var/lib/beszel-hub/beszel_data/id_ed25519"
         AGENT_ENV="/var/lib/beszel-agent/env"
 
-        ADMIN_EMAIL="${cfg.adminEmail}"
-        ADMIN_PASS="${cfg.adminPassword}"
-
-        # Wait for Beszel hub to be ready
+        # Wait for hub to generate SSH key
         for i in $(seq 1 60); do
-          if curl -sf --connect-timeout 1 "$HUB_URL/api/health" >/dev/null 2>&1; then
-            echo "Beszel hub is ready"
+          if [ -f "$SSH_KEY" ]; then
             break
           fi
           sleep 1
         done
 
-        if ! curl -sf --connect-timeout 1 "$HUB_URL/api/health" >/dev/null 2>&1; then
-          echo "ERROR: Beszel hub did not become ready in time" >&2
+        if [ ! -f "$SSH_KEY" ]; then
+          echo "ERROR: Hub SSH key not found at $SSH_KEY after 60s" >&2
           exit 1
         fi
 
-        # Try to authenticate with the configured credentials
-        # Use -s without -f so curl returns the response body even on HTTP 400/401;
-        # errexit would otherwise abort the script before the token check below.
-        AUTH_RESPONSE=$(curl -s -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
-          -H "Content-Type: application/json" \
-          -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" 2>/dev/null)
+        # Extract public key from hub's private key
+        HUB_KEY=$(ssh-keygen -y -f "$SSH_KEY" 2>/dev/null)
 
-        if [ -z "$AUTH_RESPONSE" ] || [ "$(echo "$AUTH_RESPONSE" | jq -r '.token // empty')" = "" ]; then
-          # Auth failed — try to create the first admin account (only works when DB is empty)
-          echo "Authentication failed, checking if admin needs to be created..."
-
-          ADMIN_EXISTS=$(curl -s "$HUB_URL/api/collections/_superusers/records?perPage=1" 2>/dev/null | jq -r '.totalItems // 0')
-
-          if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
-            echo "Creating Beszel admin account..."
-            curl -s -X POST "$HUB_URL/api/collections/_superusers/records" \
-              -H "Content-Type: application/json" \
-              -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\",\"passwordConfirm\":\"$ADMIN_PASS\"}" >/dev/null 2>&1
-
-            if [ $? -eq 0 ]; then
-              echo "Admin account created successfully"
-            else
-              echo "WARNING: Failed to create admin account" >&2
-            fi
-          else
-            echo "WARNING: Admin account exists but configured credentials do not match." >&2
-            echo "To change credentials, delete the PocketBase data directory (e.g. /var/lib/beszel-hub/beszel_data) and restart beszel-hub.service." >&2
-            exit 0
-          fi
-
-          # Retry authentication after creation
-          AUTH_RESPONSE=$(curl -s -X POST "$HUB_URL/api/collections/_superusers/auth-with-password" \
-            -H "Content-Type: application/json" \
-            -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" 2>/dev/null)
-        fi
-
-        if [ -z "$AUTH_RESPONSE" ]; then
-          echo "ERROR: Failed to authenticate with Beszel hub." >&2
+        if [ -z "$HUB_KEY" ]; then
+          echo "ERROR: Failed to read hub SSH key" >&2
           exit 1
         fi
 
-        ADMIN_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token')
-        ADMIN_ID=$(echo "$AUTH_RESPONSE" | jq -r '.record.id')
-
-        if [ -z "$ADMIN_TOKEN" ] || [ "$ADMIN_TOKEN" = "null" ]; then
-          echo "ERROR: Failed to get admin token" >&2
-          exit 1
-        fi
-
-        echo "Authenticated as admin (ID: $ADMIN_ID)"
-
-        # Get the hub's SSH public key and write to agent env file
-        echo "Getting hub SSH public key..."
-        KEY_RESPONSE=$(curl -sf "$HUB_URL/api/beszel/getkey" \
-          -H "Authorization: $ADMIN_TOKEN" 2>/dev/null)
-
-        if [ -z "$KEY_RESPONSE" ]; then
-          echo "ERROR: Failed to get hub SSH key" >&2
-          exit 1
-        fi
-
-        HUB_KEY=$(echo "$KEY_RESPONSE" | jq -r '.key')
-
-        if [ -z "$HUB_KEY" ] || [ "$HUB_KEY" = "null" ]; then
-          echo "ERROR: Hub returned invalid key" >&2
-          exit 1
-        fi
-
+        # Write env file if key changed
         CURRENT_KEY=""
         if [ -s "$AGENT_ENV" ]; then
           CURRENT_KEY=$(grep "^KEY=" "$AGENT_ENV" | cut -d'=' -f2-)
@@ -176,75 +120,24 @@ in
             'PORT=45876' \
             "KEY=$HUB_KEY" \
             > "$AGENT_ENV"
-          
+
           chown root:beszel-agent "$AGENT_ENV"
           chmod 640 "$AGENT_ENV"
 
+          systemctl restart beszel-agent.service
         else
           echo "Agent key already up to date"
         fi
-
-        # Update or create the system record for this host
-        echo "Checking system record..."
-        SYSTEMS=$(curl -sf "$HUB_URL/api/collections/systems/records?filter=name%3D%27media-server%27" \
-          -H "Authorization: $ADMIN_TOKEN" 2>/dev/null)
-
-        SYSTEM_COUNT=$(echo "$SYSTEMS" | jq -r '.totalItems // 0')
-
-        if [ "$SYSTEM_COUNT" = "0" ] || [ -z "$SYSTEM_COUNT" ]; then
-          echo "Creating system record for media-server..."
-          curl -sf -X POST "$HUB_URL/api/collections/systems/records" \
-            -H "Authorization: $ADMIN_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"name\":\"media-server\",\"host\":\"127.0.0.1\",\"port\":45876,\"users\":\"$ADMIN_ID\",\"info\":{},\"status\":\"up\"}" >/dev/null 2>&1
-
-          if [ $? -eq 0 ]; then
-            echo "System record created successfully"
-          else
-            echo "WARNING: Failed to create system record." >&2
-          fi
-        else
-          SYSTEM_ID=$(echo "$SYSTEMS" | jq -r '.items[0].id')
-          echo "Updating system record (ID: $SYSTEM_ID)..."
-          curl -sf -X PATCH "$HUB_URL/api/collections/systems/records/$SYSTEM_ID" \
-            -H "Authorization: $ADMIN_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"host\":\"127.0.0.1\",\"port\":45876,\"users\":\"$ADMIN_ID\"}" >/dev/null 2>&1
-
-          if [ $? -eq 0 ]; then
-            echo "System record updated successfully"
-          else
-            echo "WARNING: Failed to update system record." >&2
-          fi
-        fi
-
-        echo "Beszel initialization complete"
       '';
     };
 
-    # Keep failure notifications for the agent without adding ordering
-    # dependencies that would re-create the cycle with beszel-init.
+    # Skip agent start until init writes the env file (first boot).
+    # OnFailure notifications are independent of ordering to avoid cycles.
     systemd.services.beszel-agent = {
       unitConfig = {
         ConditionPathExists = "/var/lib/beszel-agent/env";
         OnFailure = "notify-gotify@%n.service";
       };
     };
-
-    # Starts the agent after init writes the env file (agent is skipped on first
-    # boot by ConditionPathExists). Harmless restart on subsequent boots.
-    systemd.services.beszel-agent-restart = {
-      description = "Restart Beszel agent after initialization";
-      after = [ "beszel-init.service" ];
-      wants = [ "beszel-init.service" ];
-      wantedBy = [ "multi-user.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-      };
-      script = ''
-        systemctl restart beszel-agent.service
-      '';
-    };
-
   };
 }

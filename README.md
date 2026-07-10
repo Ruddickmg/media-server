@@ -172,7 +172,7 @@ You can access the dashboard at `https://media-server.tailbac0df.ts.net:28090`.
 > media-server.beszel.adminPassword = "your-password";
 > ```
 >
-> **Changing credentials:** The init script tries to authenticate with the configured credentials on every boot. If the admin account already exists with a different password, the script logs a warning and skips setup. To change credentials, delete the PocketBase data directory (e.g., `/var/lib/beszel-hub/beszel_data`) and restart `beszel-hub.service`.
+> **Changing credentials:** These env vars are only consumed by the Beszel hub migration on first start (clean data directory). To change credentials, delete the PocketBase data directory (`/var/lib/beszel-hub/beszel_data`) and restart `beszel-hub.service`.
 
 ### Gotify — push notifications
 
