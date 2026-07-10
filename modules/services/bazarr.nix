@@ -101,7 +101,9 @@ in
         RemoveIPC = true;
         ReadWritePaths = [
           "/var/lib/bazarr"
-          "/media"
+          "/media/downloads/completed"
+          "/media/movies"
+          "/media/tv"
         ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;

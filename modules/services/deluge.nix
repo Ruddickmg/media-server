@@ -144,6 +144,13 @@ in
           PrivateDevices = true;
           LockPersonality = true;
           RestrictNamespaces = true;
+          ProtectClock = true;
+          PrivateMounts = true;
+          RemoveIPC = true;
+          KeyringMode = "private";
+          RestrictSUIDSGID = true;
+          ProtectHostname = true;
+          ProtectProc = "invisible";
           LimitNOFILE = mkForce 65536;
           ReadWritePaths = [
             "/var/lib/deluge"
@@ -183,6 +190,16 @@ in
         User = "deluge";
         Group = "deluge";
         LimitNOFILE = mkForce 65536;
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        CapabilityBoundingSet = [ "" ];
+        ProtectHome = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:58846";
       };
     };
@@ -195,6 +212,29 @@ in
       serviceConfig = {
         NetworkNamespacePath = "/var/run/netns/${vpnNs}";
         BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = [ "" ];
+        ProtectSystem = "strict";
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        PrivateDevices = true;
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ReadWritePaths = [
+          "/var/lib/deluge"
+        ];
       };
     };
 
@@ -220,6 +260,16 @@ in
         User = "deluge";
         Group = "deluge";
         LimitNOFILE = mkForce 65536;
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        CapabilityBoundingSet = [ "" ];
+        ProtectHome = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:8112";
       };
     };
@@ -312,6 +362,13 @@ in
         PrivateDevices = true;
         LockPersonality = true;
         RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
         ReadWritePaths = [
           "/var/lib/deluge"
         ];

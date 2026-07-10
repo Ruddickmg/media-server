@@ -58,7 +58,8 @@ in
       RemoveIPC = true;
       ReadWritePaths = [
         "/var/lib/sonarr"
-        "/media"
+        "/media/downloads/completed"
+        "/media/tv"
       ];
       KeyringMode = "private";
       RestrictSUIDSGID = true;

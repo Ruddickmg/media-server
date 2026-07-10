@@ -270,6 +270,31 @@ in
       serviceConfig = {
         RestartSec = "1s";
         SupplementaryGroups = [ "gotify-readers" ];
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = [ "" ];
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        PrivateDevices = true;
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectSystem = "strict";
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        MemoryDenyWriteExecute = true;
+        ReadWritePaths = [
+          "/var/lib/declarr"
+        ];
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
       };
     };
   };

@@ -64,7 +64,6 @@ in
       RemoveIPC = true;
       ReadWritePaths = [
         "/var/lib/prowlarr"
-        "/media"
       ];
       KeyringMode = "private";
       RestrictSUIDSGID = true;
@@ -97,6 +96,16 @@ in
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --exit-idle-time=5min 127.0.0.1:9696";
         NetworkNamespacePath = "/var/run/netns/${vpnNs}";
         BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        CapabilityBoundingSet = [ "" ];
+        ProtectHome = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
       };
     };
 

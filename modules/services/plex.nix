@@ -29,6 +29,13 @@ in
       openFirewall = cfg.openFirewall;
     };
 
+    # Hardware acceleration notes:
+    # - /dev/dri (Intel QuickSync / VAAPI) is accessible because PrivateDevices
+    #   is NOT set.  Do not add PrivateDevices or CapabilityBoundingSet or it
+    #   will break GPU transcoding.
+    # - ProtectSystem is intentionally omitted — Plex writes metadata to
+    #   /var/lib/plex and reads media from /media/*.  ReadWritePaths documents
+    #   the expected paths for when/if ProtectSystem is added later.
     systemd.services.plex.serviceConfig = {
       ProtectHome = true;
       PrivateTmp = true;
@@ -46,6 +53,12 @@ in
       RestrictSUIDSGID = true;
       ProtectHostname = true;
       ProtectProc = "invisible";
+      ReadWritePaths = [
+        "/var/lib/plex"
+        "/media/movies"
+        "/media/tv"
+        "/media/music"
+      ];
     };
   };
 }
