@@ -22,14 +22,6 @@
       WorkingDirectory = "/etc/nixos";
       User = "root";
       SupplementaryGroups = [ "gotify-readers" ];
-      PrivateTmp = true;
-      KeyringMode = "private";
-      ProtectKernelTunables = true;
-      ProtectKernelModules = true;
-      RestrictRealtime = true;
-      SystemCallArchitectures = "native";
-      LockPersonality = true;
-      ProtectHostname = true;
       ReadWritePaths = [
         "/etc/nixos"
       ];
