@@ -78,6 +78,8 @@ in
         RemainAfterExit = true;
         Restart = "on-failure";
         RestartSec = "10";
+        StartLimitIntervalSec = 300;
+        StartLimitBurst = 5;
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
