@@ -34,7 +34,7 @@ Do not commit, push, or create PRs. The user handles version control manually. M
 
 ## Remote Server
 
-The target server is remote. This machine is a development workstation. Nix config changes are edited here, pushed to git, and applied on the remote via `nixos-rebuild switch`. Do not attempt to run the system commands (systemctl, journalctl, ss, etc.) to check service state — those won't reflect the remote server.
+The target server is remote. This machine is a development workstation. Nix config changes are edited here, pushed to git, and applied on the remote via `nixos-rebuild switch`. Do not attempt to run system commands (systemctl, journalctl, ss, etc.) to check service state — those won't reflect the remote server.
 
 ## NixOS configuration declaration
 
