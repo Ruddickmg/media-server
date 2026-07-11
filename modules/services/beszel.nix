@@ -229,20 +229,15 @@ in
       serviceConfig = {
         NoNewPrivileges = true;
         PrivateTmp = true;
-        ProtectSystem = "strict";
         RemoveIPC = true;
         ReadWritePaths = [
           "/var/lib/beszel-agent"
           "/run/podman"
-          "/proc"
-          "/sys"
-          "/dev"
         ];
         RestrictSUIDSGID = true;
         RestrictRealtime = true;
         SystemCallArchitectures = "native";
         LockPersonality = true;
-
       };
     };
   };
