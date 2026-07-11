@@ -110,9 +110,7 @@ in
         RestartSec = "10s";
         NoNewPrivileges = true;
         PrivateTmp = true;
-        ProtectSystem = "strict";
         ProtectHome = true;
-        CapabilityBoundingSet = [ "" ];
         PrivateDevices = true;
         ProtectKernelTunables = true;
         ProtectKernelModules = true;

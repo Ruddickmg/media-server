@@ -32,7 +32,6 @@
       RestrictRealtime = true;
       SystemCallArchitectures = "native";
       LockPersonality = true;
-      RestrictNamespaces = true;
       ProtectClock = true;
       PrivateMounts = true;
       PrivateDevices = true;
