@@ -43,7 +43,7 @@ in
         ORIGIN = "https://media-server.tailbac0df.ts.net";
       };
       volumes = [ "/var/lib/profilarr:/config" ];
-      ports = [ "127.0.0.1:6865:6865" ];
+      ports = [ "127.0.0.1:6865:6868" ];
       extraOptions = [
         "--user=5686:5686"
         "--cap-drop=ALL"
