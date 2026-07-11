@@ -142,7 +142,7 @@ in
         SystemCallArchitectures = "native";
         LockPersonality = true;
         ProtectClock = true;
-        PrivateMounts = true;
+        PrivateMounts = false;
         RemoveIPC = true;
         KeyringMode = "private";
         RestrictSUIDSGID = true;
