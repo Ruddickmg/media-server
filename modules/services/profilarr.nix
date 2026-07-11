@@ -38,7 +38,6 @@ in
       image = "ghcr.io/dictionarry-hub/profilarr:latest";
       environment = {
         AUTH = "off";
-        PORT = "6865";
         DENO_DIR = "/tmp/deno";
         ORIGIN = "https://media-server.tailbac0df.ts.net";
       };
