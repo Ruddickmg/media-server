@@ -8,6 +8,19 @@ let
   cfg = config.media-server.profilarr;
   radarrEnabled = config.media-server.radarr.enable;
   sonarrEnabled = config.media-server.sonarr.enable;
+  cleanupProfilarrNft = pkgs.writeShellScript "cleanup-profilarr-nft" ''
+    set -o pipefail
+    ${pkgs.nftables}/bin/nft -a list ruleset inet netavark 2>/dev/null | \
+      ${pkgs.gawk}/bin/awk '
+        /^chain / { chain = $2 }
+        /tcp dport 6865/ && /handle/ {
+          for (i = 1; i <= NF; i++)
+            if ($i == "handle") print chain, $(i + 1)
+        }
+      ' | while read -r c h; do
+        ${pkgs.nftables}/bin/nft delete rule inet netavark "$c" handle "$h" 2>/dev/null || true
+      done
+  '';
 in
 {
   options.media-server.profilarr = {
@@ -48,11 +61,10 @@ in
         "/var/lib/profilarr"
       ];
       # Netavark bug: leftover nftables DNAT rules for port 6865 accumulate on container
-      # restart, breaking port forwarding. Flush the chain to ensure only the new container's
-      # rules remain. See https://bugzilla.redhat.com/2322021
-      ExecStopPost = [
-        "${pkgs.nftables}/bin/nft flush chain inet netavark nv_00000000_10_88_0_0_nm16_dnat"
-      ];
+      # restart, breaking port forwarding. Remove any existing rules for port 6865 before
+      # the container starts, so netavark creates a clean set. See
+      # https://bugzilla.redhat.com/2322021
+      ExecStartPre = [ "-${cleanupProfilarrNft}" ];
     };
 
     systemd.services.profilarr-init = {
