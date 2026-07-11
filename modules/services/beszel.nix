@@ -230,27 +230,19 @@ in
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
-        CapabilityBoundingSet = [ "" ];
-        RestrictNamespaces = true;
-        ProtectClock = true;
-        PrivateMounts = true;
         RemoveIPC = true;
         ReadWritePaths = [
           "/var/lib/beszel-agent"
           "/run/podman"
+          "/proc"
+          "/sys"
+          "/dev"
         ];
-        KeyringMode = "private";
         RestrictSUIDSGID = true;
-        ProtectHostname = true;
-        ProtectProc = "invisible";
-        PrivateDevices = true;
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
         RestrictRealtime = true;
         SystemCallArchitectures = "native";
         LockPersonality = true;
-        ProcSubset = "pid";
-        MemoryDenyWriteExecute = true;
+
       };
     };
   };
