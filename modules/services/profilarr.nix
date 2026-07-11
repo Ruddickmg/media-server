@@ -123,6 +123,7 @@ in
           if [ -n "$RADARR_ID" ]; then
             echo "Updating existing Radarr instance (id=$RADARR_ID)" >&2
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
+              -H "Origin: http://127.0.0.1:6865" \
               -d "name=Radarr" \
               -d "url=http://127.0.0.1:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
@@ -132,6 +133,7 @@ in
           else
             echo "Creating new Radarr instance" >&2
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
+              -H "Origin: http://127.0.0.1:6865" \
               -d "name=Radarr" \
               -d "type=radarr" \
               -d "url=http://127.0.0.1:7878" \
@@ -147,6 +149,7 @@ in
           if [ -n "$SONARR_ID" ]; then
             echo "Updating existing Sonarr instance (id=$SONARR_ID)" >&2
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
+              -H "Origin: http://127.0.0.1:6865" \
               -d "name=Sonarr" \
               -d "url=http://127.0.0.1:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
@@ -156,6 +159,7 @@ in
           else
             echo "Creating new Sonarr instance" >&2
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
+              -H "Origin: http://127.0.0.1:6865" \
               -d "name=Sonarr" \
               -d "type=sonarr" \
               -d "url=http://127.0.0.1:8989" \
