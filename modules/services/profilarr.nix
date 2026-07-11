@@ -37,12 +37,13 @@ in
       autoStart = true;
       image = "ghcr.io/dictionarry-hub/profilarr:latest";
       environment = {
+        PORT = "6865";
         AUTH = "off";
         DENO_DIR = "/tmp/deno";
         ORIGIN = "https://media-server.tailbac0df.ts.net";
       };
       volumes = [ "/var/lib/profilarr:/config" ];
-      ports = [ "127.0.0.1:6865:6868" ];
+      ports = [ "127.0.0.1:6865:6865" ];
       extraOptions = [
         "--user=5686:5686"
         "--cap-drop=ALL"
@@ -53,12 +54,6 @@ in
     };
 
     systemd.services.podman-profilarr.serviceConfig = {
-      PrivateTmp = true;
-      KeyringMode = "private";
-      ReadWritePaths = [
-        "/var/lib/containers"
-        "/var/lib/profilarr"
-      ];
       # Netavark bug: leftover nftables DNAT rules for port 6865 accumulate on container
       # restart, breaking port forwarding. Remove any existing rules for port 6865 before
       # the container starts, so netavark creates a clean set. See
