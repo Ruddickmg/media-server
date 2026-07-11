@@ -22,9 +22,6 @@
       WorkingDirectory = "/etc/nixos";
       User = "root";
       SupplementaryGroups = [ "gotify-readers" ];
-      ReadWritePaths = [
-        "/etc/nixos"
-      ];
     };
     script = ''
       set -euo pipefail
