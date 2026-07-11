@@ -134,7 +134,6 @@ in
           ProtectHome = true;
           PrivateTmp = true;
           NoNewPrivileges = true;
-          CapabilityBoundingSet = [ "" ];
           ProtectSystem = "strict";
           ProtectKernelTunables = true;
           ProtectKernelModules = true;
@@ -143,15 +142,14 @@ in
           SystemCallArchitectures = "native";
           PrivateDevices = true;
           LockPersonality = true;
-          RestrictNamespaces = true;
           ProtectClock = true;
           PrivateMounts = true;
           RemoveIPC = true;
           KeyringMode = "private";
           RestrictSUIDSGID = true;
           ProtectHostname = true;
-          ProtectProc = "invisible";
           ProcSubset = "pid";
+          ProtectProc = "invisible";
           MemoryDenyWriteExecute = true;
           LimitNOFILE = mkForce 65536;
           ReadWritePaths = [
