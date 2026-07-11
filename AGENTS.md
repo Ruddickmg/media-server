@@ -34,4 +34,8 @@ Do not commit, push, or create PRs. The user handles version control manually. M
 
 ## Remote Server
 
-The target server (`192.168.0.124`) is remote. This machine is a development workstation. Nix config changes are edited here, pushed to git, and applied on the remote via `nixos-rebuild switch`. Do not attempt to run system commands (systemctl, journalctl, ss, etc.) to check service state — those won't reflect the remote server.
+The target server is remote. This machine is a development workstation. Nix config changes are edited here, pushed to git, and applied on the remote via `nixos-rebuild switch`. Do not attempt to run system commands (systemctl, journalctl, ss, etc.) to check service state — those won't reflect the remote server.
+
+## NixOS configuration declaration
+
+Prefer declarative NixOS options over scripts whenever possible. Use `networking.nftables.tables` instead of shelling out to `nft`, and `boot.kernel.sysctl` instead of writing sysctl config files via `writeText`/`environment.etc`. Prefer `networking.firewall` options over ad-hoc firewall scripting. Reserve scripts (`writeShellScript`, `ExecStartPre/Post`) only for bugs and mitigation that cannot be expressed declaratively (e.g. netavark cleanup workaround).
