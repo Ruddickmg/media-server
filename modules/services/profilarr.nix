@@ -79,16 +79,15 @@ in
 
         # Wait for Profilarr to be ready (cold-start downloads Deno deps, can take 60s+)
         for i in $(seq 1 60); do
-          if curl -s -o /dev/null --connect-timeout 2 http://127.0.0.1:6865 >/dev/null 2>&1; then
-            break
-          fi
+          CURL_OUTPUT=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 http://127.0.0.1:6865 2>&1)
+          CURL_EXIT=$?
+          [ "$CURL_EXIT" -eq 0 ] && break
+          echo "Profilarr check failed on attempt $i — curl exit code: $CURL_EXIT, output: $CURL_OUTPUT" >&2
           sleep 2
         done
 
-        # Ensure Profilarr is actually reachable
         if ! curl -s -o /dev/null --connect-timeout 1 http://127.0.0.1:6865 >/dev/null 2>&1; then
-          echo "Profilarr did not become ready in time" >&2
-          exit 1
+          echo "WARNING: Profilarr did not become ready in time — proceeding anyway, downstream requests may fail" >&2
         fi
 
         # Fetch existing instances; if the API fails, log and exit cleanly
