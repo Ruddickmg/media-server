@@ -45,8 +45,8 @@ in
         # route_localnet=1 allows routing to 127.0.0.0/8 from any interface. Only Podman
         # bridge and loopback interfaces may deliver to 127.0.0.0.
         chain input {
-          type filter hook input priority 0; policy accept;
-          iifname != {"lo", "podman*"} ip daddr 127.0.0.0/8 drop
+          type filter hook input priority -100; policy accept;
+          iifname != "lo" iifname != "podman*" ip daddr 127.0.0.0/8 drop
         }
 
         chain prerouting {
