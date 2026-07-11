@@ -50,7 +50,7 @@ in
         }
 
         chain prerouting {
-          type nat prerouting priority 0;
+          type nat hook prerouting priority 0;
           policy accept;
           iifname "podman*" ip daddr 10.88.0.1 tcp dport { 7878, 8989 } dnat to 127.0.0.1
         }
