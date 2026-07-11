@@ -55,7 +55,6 @@ in
     systemd.services.podman-profilarr.serviceConfig = {
       PrivateTmp = true;
       KeyringMode = "private";
-      ProtectProc = "invisible";
       ReadWritePaths = [
         "/var/lib/containers"
         "/var/lib/profilarr"
