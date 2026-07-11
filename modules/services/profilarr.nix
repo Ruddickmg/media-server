@@ -47,6 +47,12 @@ in
         "/var/lib/containers"
         "/var/lib/profilarr"
       ];
+      # Netavark bug: leftover nftables DNAT rules for port 6865 accumulate on container
+      # restart, breaking port forwarding. Flush the chain to ensure only the new container's
+      # rules remain. See https://bugzilla.redhat.com/2322021
+      ExecStopPost = [
+        "${pkgs.nftables}/bin/nft flush chain inet netavark nv_00000000_10_88_0_0_nm16_dnat"
+      ];
     };
 
     systemd.services.profilarr-init = {
