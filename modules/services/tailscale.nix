@@ -113,6 +113,16 @@
       ProtectHostname = true;
       ProtectProc = "invisible";
       ProcSubset = "pid";
+      ProtectKernelTunables = true;
+      ProtectControlGroups = true;
+      RestrictRealtime = true;
+      SystemCallArchitectures = "native";
+      LockPersonality = true;
+      RestrictNamespaces = true;
+      ProtectClock = true;
+      PrivateMounts = true;
+      PrivateDevices = true;
+      RemoveIPC = true;
     };
     script = ''
       # Wait for tailscale to be authenticated

@@ -151,6 +151,8 @@ in
           RestrictSUIDSGID = true;
           ProtectHostname = true;
           ProtectProc = "invisible";
+          ProcSubset = "pid";
+          MemoryDenyWriteExecute = true;
           LimitNOFILE = mkForce 65536;
           ReadWritePaths = [
             "/var/lib/deluge"
@@ -200,6 +202,17 @@ in
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
+        ProcSubset = "pid";
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        PrivateDevices = true;
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:58846";
       };
     };
@@ -232,6 +245,8 @@ in
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
+        ProcSubset = "pid";
+        MemoryDenyWriteExecute = true;
         ReadWritePaths = [
           "/var/lib/deluge"
         ];
@@ -270,6 +285,17 @@ in
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
+        ProcSubset = "pid";
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        PrivateDevices = true;
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:8112";
       };
     };
@@ -369,6 +395,8 @@ in
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
+        ProcSubset = "pid";
+        MemoryDenyWriteExecute = true;
         ReadWritePaths = [
           "/var/lib/deluge"
         ];

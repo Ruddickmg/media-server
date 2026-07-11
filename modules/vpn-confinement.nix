@@ -131,6 +131,27 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectHome = true;
+        PrivateDevices = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        LockPersonality = true;
+        ProtectClock = true;
+        PrivateMounts = false;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ReadWritePaths = [
+          "/etc/netns"
+          "/var/run/netns"
+        ];
       };
       script = ''
                 ip netns add ${ns} 2>/dev/null || true
@@ -142,7 +163,6 @@ in
                 mkdir -p /etc/netns/${ns}
                 cat > /etc/netns/${ns}/resolv.conf << EOF
         ${nameserverLines dnsAddrs}
-        nameserver 1.1.1.1
         options edns0 trust-ad
         EOF
       '';

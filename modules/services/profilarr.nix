@@ -17,7 +17,7 @@ in
   config = lib.mkIf cfg.enable {
     # Ensure the config directory exists before the container starts.
     systemd.tmpfiles.rules = [
-      "d /var/lib/profilarr 0755 5686 5686 -"
+      "d /var/lib/profilarr 0750 5686 5686 -"
     ];
 
     virtualisation.oci-containers.containers.profilarr = {
@@ -25,7 +25,6 @@ in
       image = "ghcr.io/dictionarry-hub/profilarr:latest";
       environment = {
         AUTH = "off";
-        ORIGIN = "https://media-server.tailbac0df.ts.net:6868";
         PORT = "6865";
         DENO_DIR = "/tmp/deno";
       };
@@ -65,7 +64,8 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        Restart = "no";
+        Restart = "on-failure";
+        RestartSec = "10";
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
@@ -77,12 +77,12 @@ in
       script = ''
         set -uo pipefail
 
-        # Wait for Profilarr to be ready
-        for i in $(seq 1 30); do
-          if curl -s -o /dev/null --connect-timeout 1 http://127.0.0.1:6865 >/dev/null 2>&1; then
+        # Wait for Profilarr to be ready (cold-start downloads Deno deps, can take 60s+)
+        for i in $(seq 1 60); do
+          if curl -s -o /dev/null --connect-timeout 2 http://127.0.0.1:6865 >/dev/null 2>&1; then
             break
           fi
-          sleep 1
+          sleep 2
         done
 
         # Ensure Profilarr is actually reachable
@@ -110,7 +110,7 @@ in
               -d "url=http://127.0.0.1:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6865/arr/''${RADARR_ID}/settings?/update" || echo "WARNING: Radarr update failed" >&2
+              "http://127.0.0.1:6865/arr/''${RADARR_ID}/settings?/update"
           else
             echo "Creating new Radarr instance" >&2
             curl -s -o /dev/null -X POST \
@@ -119,7 +119,7 @@ in
               -d "url=http://127.0.0.1:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6865/arr/new" || echo "WARNING: Radarr creation failed" >&2
+              "http://127.0.0.1:6865/arr/new"
           fi
         ''}
 
@@ -132,7 +132,7 @@ in
               -d "url=http://127.0.0.1:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6865/arr/''${SONARR_ID}/settings?/update" || echo "WARNING: Sonarr update failed" >&2
+              "http://127.0.0.1:6865/arr/''${SONARR_ID}/settings?/update"
           else
             echo "Creating new Sonarr instance" >&2
             curl -s -o /dev/null -X POST \
@@ -141,7 +141,7 @@ in
               -d "url=http://127.0.0.1:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6865/arr/new" || echo "WARNING: Sonarr creation failed" >&2
+              "http://127.0.0.1:6865/arr/new"
           fi
         ''}
       '';

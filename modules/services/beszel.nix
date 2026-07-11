@@ -209,6 +209,13 @@ in
       ProtectHostname = true;
       ProtectProc = "invisible";
       ProcSubset = "pid";
+      PrivateDevices = true;
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      RestrictRealtime = true;
+      SystemCallArchitectures = "native";
+      LockPersonality = true;
+      MemoryDenyWriteExecute = true;
       ReadWritePaths = [ "/var/lib/beszel-hub" ];
     };
 
@@ -236,6 +243,14 @@ in
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
+        PrivateDevices = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        LockPersonality = true;
+        ProcSubset = "pid";
+        MemoryDenyWriteExecute = true;
       };
     };
   };
