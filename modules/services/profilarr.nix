@@ -39,6 +39,7 @@ in
     # localhost. Requires route_localnet=1 above.
     networking.nftables.enable = lib.mkDefault true;
     networking.nftables.tables.profilarr = {
+      family = "inet";
       content = ''
         # Prevent non-Podman traffic from reaching services on the loopback now that
         # route_localnet=1 allows routing to 127.0.0.0/8 from any interface. Only Podman
