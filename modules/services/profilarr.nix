@@ -69,7 +69,7 @@ in
 
     systemd.services.profilarr-init = {
       description = "Initialize Profilarr with Radarr and Sonarr instances";
-      wants = [ "podman-profilarr.service" ];
+      bindsTo = [ "podman-profilarr.service" ];
       after = [
         "podman-profilarr.service"
       ]
@@ -122,21 +122,23 @@ in
           RADARR_ID=$(echo "$BODY" | jq -r '.[] | select(.type == "radarr") | .id' | head -n1)
           if [ -n "$RADARR_ID" ]; then
             echo "Updating existing Radarr instance (id=$RADARR_ID)" >&2
-            curl -s -o /dev/null -X POST \
+            CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
               -d "name=Radarr" \
               -d "url=http://127.0.0.1:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6865/arr/''${RADARR_ID}/settings?/update"
+              "http://127.0.0.1:6865/arr/''${RADARR_ID}/settings?/update" 2>&1)
+            echo "POST update Radarr result: $(echo "$CURL_RESULT" | tail -n1), body: $(echo "$CURL_RESULT" | sed '$d')" >&2
           else
             echo "Creating new Radarr instance" >&2
-            curl -s -o /dev/null -X POST \
+            CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
               -d "name=Radarr" \
               -d "type=radarr" \
               -d "url=http://127.0.0.1:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6865/arr/new"
+              "http://127.0.0.1:6865/arr/new" 2>&1)
+            echo "POST create Radarr result: $(echo "$CURL_RESULT" | tail -n1), body: $(echo "$CURL_RESULT" | sed '$d')" >&2
           fi
         ''}
 
@@ -144,21 +146,23 @@ in
           SONARR_ID=$(echo "$BODY" | jq -r '.[] | select(.type == "sonarr") | .id' | head -n1)
           if [ -n "$SONARR_ID" ]; then
             echo "Updating existing Sonarr instance (id=$SONARR_ID)" >&2
-            curl -s -o /dev/null -X POST \
+            CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
               -d "name=Sonarr" \
               -d "url=http://127.0.0.1:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6865/arr/''${SONARR_ID}/settings?/update"
+              "http://127.0.0.1:6865/arr/''${SONARR_ID}/settings?/update" 2>&1)
+            echo "POST update Sonarr result: $(echo "$CURL_RESULT" | tail -n1), body: $(echo "$CURL_RESULT" | sed '$d')" >&2
           else
             echo "Creating new Sonarr instance" >&2
-            curl -s -o /dev/null -X POST \
+            CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
               -d "name=Sonarr" \
               -d "type=sonarr" \
               -d "url=http://127.0.0.1:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
               -d "external_url=" \
-              "http://127.0.0.1:6865/arr/new"
+              "http://127.0.0.1:6865/arr/new" 2>&1)
+            echo "POST create Sonarr result: $(echo "$CURL_RESULT" | tail -n1), body: $(echo "$CURL_RESULT" | sed '$d')" >&2
           fi
         ''}
       '';
