@@ -28,6 +28,30 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # Allow routing traffic from the podman bridge to 127.0.0.0/8, needed for the
+    # nftables DNAT rules below. Without this, the kernel drops packets from
+    # non-loopback interfaces (e.g. podman bridge) destined for 127.0.0.1.
+    boot.kernel.sysctl."net.ipv4.conf.all.route_localnet" = 1;
+
+    # Declarative nftables DNAT table so the Profilarr container (on the podman bridge)
+    # can reach Radarr and Sonarr (bound to 127.0.0.1) via host.containers.internal
+    # (10.88.0.1). traffic from podman* interfaces to ports 7878/8989 is DNATed to
+    # localhost. Requires route_localnet=1 above.
+    networking.nftables.tables.profilarr = {
+      family = "inet";
+      content = ''
+        chain prerouting {
+          type nat hook prerouting priority 0;
+          policy accept;
+          iifname "podman*" tcp dport { 7878, 8989 } dnat to 127.0.0.1
+        }
+        chain postrouting {
+          type nat hook postrouting priority 100;
+          policy accept;
+        }
+      '';
+    };
+
     # Ensure the config directory exists before the container starts.
     systemd.tmpfiles.rules = [
       "d /var/lib/profilarr 0750 5686 5686 -"
@@ -92,7 +116,7 @@ in
         set -uo pipefail
 
         # Wait for Profilarr to be ready (cold-start downloads Deno deps, can take 60s+)
-        for i in $(seq 1 60); do
+        for ((i = 1; i <= 60; i++)); do
           CURL_OUTPUT=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 http://127.0.0.1:6865 2>&1)
           CURL_EXIT=$?
           [ "$CURL_EXIT" -eq 0 ] && break
@@ -121,7 +145,7 @@ in
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
               -H "Origin: https://media-server.tailbac0df.ts.net:6868" \
               -d "name=Radarr" \
-              -d "url=http://127.0.0.1:7878" \
+              -d "url=http://host.containers.internal:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
               -d "external_url=" \
               "http://127.0.0.1:6865/arr/''${RADARR_ID}/settings?/update" 2>&1)
@@ -132,7 +156,7 @@ in
               -H "Origin: https://media-server.tailbac0df.ts.net:6868" \
               -d "name=Radarr" \
               -d "type=radarr" \
-              -d "url=http://127.0.0.1:7878" \
+              -d "url=http://host.containers.internal:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
               -d "external_url=" \
               "http://127.0.0.1:6865/arr/new" 2>&1)
@@ -147,7 +171,7 @@ in
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
               -H "Origin: https://media-server.tailbac0df.ts.net:6868" \
               -d "name=Sonarr" \
-              -d "url=http://127.0.0.1:8989" \
+              -d "url=http://host.containers.internal:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
               -d "external_url=" \
               "http://127.0.0.1:6865/arr/''${SONARR_ID}/settings?/update" 2>&1)
@@ -158,7 +182,7 @@ in
               -H "Origin: https://media-server.tailbac0df.ts.net:6868" \
               -d "name=Sonarr" \
               -d "type=sonarr" \
-              -d "url=http://127.0.0.1:8989" \
+              -d "url=http://host.containers.internal:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
               -d "external_url=" \
               "http://127.0.0.1:6865/arr/new" 2>&1)
