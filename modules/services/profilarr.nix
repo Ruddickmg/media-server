@@ -41,17 +41,15 @@ in
     networking.nftables.tables.profilarr = {
       content = ''
         # Prevent non-Podman traffic from reaching services on the loopback now that
-        # route_localnet=1 allows routing to 127.0.0.0/8 from any interface.
-        # Only the explicitly DNATed ports (7878, 8989) from the Podman bridge subnet
-        # are permitted; all other non-loopback traffic to 127.0.0.0/8 is dropped.
+        # route_localnet=1 allows routing to 127.0.0.0/8 from any interface. Only Podman
+        # bridge and loopback interfaces may deliver to 127.0.0.0.
         chain input {
-          type filter hook input priority -100; policy accept;
-          ip saddr 10.88.0.0/16 ip daddr 127.0.0.1 tcp dport { 7878, 8989 } accept
-          iifname != "lo" ip daddr 127.0.0.0/8 drop
+          type filter hook input priority 0; policy accept;
+          iifname != {"lo", "podman*"} ip daddr 127.0.0.0/8 drop
         }
 
         chain prerouting {
-          type nat hook prerouting priority 0;
+          type nat prerouting priority 0;
           policy accept;
           iifname "podman*" ip daddr 10.88.0.1 tcp dport { 7878, 8989 } dnat to 127.0.0.1
         }
