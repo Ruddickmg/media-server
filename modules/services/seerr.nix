@@ -155,19 +155,9 @@ in
         ];
         NoNewPrivileges = true;
         PrivateTmp = true;
-        ProtectSystem = "strict";
-        CapabilityBoundingSet = [ "" ];
-        PrivateDevices = true;
         LockPersonality = true;
-        RestrictNamespaces = true;
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
         RestrictRealtime = true;
         SystemCallArchitectures = "native";
-        ProtectHome = true;
-        ProtectClock = true;
-        PrivateMounts = true;
         RemoveIPC = true;
         ReadWritePaths = [
           "/var/lib/seerr"
@@ -175,9 +165,6 @@ in
         ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;
-        ProtectHostname = true;
-        ProtectProc = "invisible";
-        ProcSubset = "pid";
       };
       preStart = ''
         if [ ! -f /var/lib/seerr/settings.json ]; then

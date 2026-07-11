@@ -135,22 +135,11 @@ in
           PrivateTmp = true;
           NoNewPrivileges = true;
           ProtectSystem = "strict";
-          ProtectKernelTunables = true;
-          ProtectKernelModules = true;
-          ProtectControlGroups = true;
-          RestrictRealtime = true;
-          SystemCallArchitectures = "native";
-          PrivateDevices = true;
           LockPersonality = true;
-          ProtectClock = true;
-          PrivateMounts = true;
-          RemoveIPC = true;
           KeyringMode = "private";
           RestrictSUIDSGID = true;
-          ProtectHostname = true;
-          ProcSubset = "pid";
-          ProtectProc = "invisible";
-          MemoryDenyWriteExecute = true;
+          RestrictRealtime = true;
+          SystemCallArchitectures = "native";
           LimitNOFILE = mkForce 65536;
           ReadWritePaths = [
             "/var/lib/deluge"
