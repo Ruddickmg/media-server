@@ -38,4 +38,4 @@ The target server is remote. This machine is a development workstation. Nix conf
 
 ## NixOS configuration declaration
 
-Prefer declarative NixOS options over scripts whenever possible. Use `networking.nftables.tables` instead of shell commands passing `nft`, `boot.kernel.sysctl` instead of `writestr`, `networking` model-inside-firewall etc. Reserve scripts (`writeShellScript`, `ExecStartPre/Post`) only for bugs and mitigation that cannot be expressed declaratively (e.g. netavark cleanup workaround).
+Prefer declarative NixOS options over scripts whenever possible. Use `networking.nftables.tables` instead of shelling out to `nft`, and `boot.kernel.sysctl` instead of writing sysctl config files via `writeText`/`environment.etc`. Prefer `networking.firewall` options over ad-hoc firewall scripting. Reserve scripts (`writeShellScript`, `ExecStartPre/Post`) only for bugs and mitigation that cannot be expressed declaratively (e.g. netavark cleanup workaround).
