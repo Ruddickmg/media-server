@@ -37,8 +37,8 @@ in
     # can reach Radarr and Sonarr (bound to 127.0.0.1) via host.containers.internal
     # (10.88.0.1). traffic from podman* interfaces to ports 7878/8989 is DNATed to
     # localhost. Requires route_localnet=1 above.
+    networking.nftables.enable = lib.mkDefault true;
     networking.nftables.tables.profilarr = {
-      family = "inet";
       content = ''
         chain prerouting {
           type nat hook prerouting priority 0;
