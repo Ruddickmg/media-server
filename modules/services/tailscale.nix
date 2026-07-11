@@ -88,7 +88,7 @@
     '';
   };
 
-    systemd.services.tailscale-serve-paths = {
+  systemd.services.tailscale-serve-paths = {
     description = "Configure Tailscale Serve path-based routing for *arr apps";
     after = [
       "tailscaled.service"

@@ -209,11 +209,9 @@ in
       ProtectHostname = true;
       ProtectProc = "invisible";
       ProcSubset = "pid";
-      ProtectHome = true;
       PrivateDevices = true;
       ProtectKernelTunables = true;
       ProtectKernelModules = true;
-      ProtectControlGroups = true;
       RestrictRealtime = true;
       SystemCallArchitectures = "native";
       LockPersonality = true;
@@ -245,11 +243,9 @@ in
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
-        ProtectHome = true;
         PrivateDevices = true;
         ProtectKernelTunables = true;
         ProtectKernelModules = true;
-        ProtectControlGroups = true;
         RestrictRealtime = true;
         SystemCallArchitectures = "native";
         LockPersonality = true;
