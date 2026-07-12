@@ -25,6 +25,7 @@
       nixpkgs-unstable,
       disko,
       declarr,
+      herdr,
       ...
     }:
     let
