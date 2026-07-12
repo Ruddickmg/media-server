@@ -209,6 +209,7 @@ in
         la = "eza -a";
         ll = "eza -la";
         cat = "bat";
+        metrics = "btop";
       };
     };
 
@@ -236,6 +237,7 @@ in
       starship
       eza
       bat
+      btop
       herdr.packages.${pkgs.system}.default
     ];
   };
