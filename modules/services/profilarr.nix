@@ -33,10 +33,12 @@ in
     # non-loopback interfaces (e.g. podman bridge) destined for 127.0.0.1.
     boot.kernel.sysctl."net.ipv4.conf.all.route_localnet" = 1;
 
-    # Declarative nftables DNAT table so the Profilarr container (on the podman bridge)
-    # can reach Radarr and Sonarr (bound to 127.0.0.1) via host.containers.internal
-    # (10.88.0.1). traffic from podman* interfaces to ports 7878/8989 is DNATed to
-    # localhost. Requires route_localnet=1 above.
+    # After DNAT, the input iifname is still the veth interface, not lo,
+    # so the firewall's default reject catch-all would drop the connection.
+    # Allow Podman subnet traffic DNATed to 127.0.0.1 through the firewall.
+    networking.firewall.extraInputRules = ''
+      ip saddr 10.88.0.0/16 tcp dport { 7878, 8989 } accept
+    '';
     networking.nftables.enable = lib.mkDefault true;
     networking.nftables.tables.profilarr = {
       family = "inet";
