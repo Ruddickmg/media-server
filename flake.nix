@@ -12,6 +12,10 @@
       url = "github:upidapi/declarr";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    herdr = {
+      url = "github:ogulcancelik/herdr/v0.7.3";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -33,7 +37,7 @@
     {
       nixosConfigurations.media-server = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit pkgs-unstable declarr; };
+        specialArgs = { inherit pkgs-unstable declarr herdr; };
         modules = [
           disko.nixosModules.disko
           declarr.nixosModules.default
@@ -44,7 +48,7 @@
 
       nixosConfigurations.media-server-ci = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit pkgs-unstable declarr; };
+        specialArgs = { inherit pkgs-unstable declarr herdr; };
         modules = [
           disko.nixosModules.disko
           declarr.nixosModules.default
