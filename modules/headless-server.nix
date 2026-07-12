@@ -72,5 +72,7 @@ in
     };
 
     users.groups.media-server = { };
+
+    system.userActivationScripts.zshrc = "touch /home/media-server/.zshrc";
   };
 }
