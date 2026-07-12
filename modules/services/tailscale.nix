@@ -8,6 +8,7 @@
   services.tailscale = {
     enable = true;
     useRoutingFeatures = "both";
+    enableSSH = true;
   };
 
   networking.nftables.enable = true;
