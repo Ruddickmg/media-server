@@ -8,7 +8,7 @@
   services.tailscale = {
     enable = true;
     useRoutingFeatures = "both";
-    enableSSH = true;
+    extraSetFlags = [ "--ssh" ];
   };
 
   networking.nftables.enable = true;
