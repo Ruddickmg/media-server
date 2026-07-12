@@ -62,6 +62,7 @@ in
 
     users.users.media-server = {
       isNormalUser = true;
+      shell = pkgs.zsh;
       group = "media-server";
       extraGroups = [
         "media"

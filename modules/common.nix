@@ -1,6 +1,7 @@
 {
   lib,
   pkgs,
+  herdr,
   config,
   ...
 }:
@@ -197,6 +198,35 @@ in
       "d /media/music 2775 root media"
     ];
 
+    programs.zsh = {
+      enable = true;
+      enableCompletion = true;
+      autosuggestions.enable = true;
+      syntaxHighlighting.enable = true;
+      shellAliases = {
+        ls = "eza";
+        l = "eza";
+        la = "eza -a";
+        ll = "eza -la";
+        cat = "bat";
+        metrics = "btop";
+      };
+    };
+
+    programs.zoxide = {
+      enable = true;
+      enableZshIntegration = true;
+    };
+
+    programs.starship = {
+      enable = true;
+      settings.add_newline = false;
+    };
+
+    programs.zsh.interactiveShellInit = ''
+      eval "$(starship init zsh)"
+    '';
+
     environment.systemPackages = with pkgs; [
       unzip
       unrar
@@ -205,6 +235,13 @@ in
       ripgrep
       jq
       vim
+      yazi
+      zoxide
+      starship
+      eza
+      bat
+      btop
+      herdr.packages.${pkgs.system}.default
     ];
   };
 }
