@@ -72,5 +72,14 @@ in
     };
 
     users.groups.media-server = { };
+
+    system.userActivationScripts.mediaServerZshrc = ''
+      if [ ! -e /home/media-server/.zshrc ]; then
+        touch /home/media-server/.zshrc
+        chown media-server:media-server /home/media-server/.zshrc
+        chmod 0644 /home/media-server/.zshrc
+      fi
+    '';
+
   };
 }
