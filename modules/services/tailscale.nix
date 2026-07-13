@@ -54,34 +54,34 @@ in
 
       # *arr admin-only paths
       handle /prowlarr* {
-        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        @notAdmin expression `"{is_admin}" != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:9696
       }
       handle /sonarr* {
-        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        @notAdmin expression `"{is_admin}" != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:8989
       }
       handle /radarr* {
-        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        @notAdmin expression `"{is_admin}" != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:7878
       }
       handle /lidarr* {
-        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        @notAdmin expression `"{is_admin}" != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:8686
       }
       handle /bazarr* {
-        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        @notAdmin expression `"{is_admin}" != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:6767
       }
 
       # Bazarr root-relative static assets (Vue.js app)
       handle /static/* {
-        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        @notAdmin expression `"{is_admin}" != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:6767
       }
