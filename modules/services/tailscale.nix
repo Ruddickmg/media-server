@@ -5,7 +5,9 @@
   ...
 }:
 let
-  adminMap = lib.concatStringsSep "\n" (map (email: ''"${email}" "yes"'') config.media-server.administrators);
+  adminMap = lib.concatStringsSep "\n" (
+    map (email: ''"${email}" "yes"'') config.media-server.administrators
+  );
 in
 {
   services.tailscale = {
