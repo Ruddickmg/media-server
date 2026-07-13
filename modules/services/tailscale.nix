@@ -4,6 +4,9 @@
   config,
   ...
 }:
+let
+  adminMap = lib.concatStringsSep "\n" (map (email: ''"${email}" "yes"'') config.media-server.administrators);
+in
 {
   services.tailscale = {
     enable = true;
@@ -42,12 +45,44 @@
     virtualHosts.":8080".extraConfig = ''
       bind 127.0.0.1
 
-      # *arr path-based routing
-      handle /prowlarr* { reverse_proxy http://127.0.0.1:9696 }
-      handle /sonarr*   { reverse_proxy http://127.0.0.1:8989 }
-      handle /radarr*   { reverse_proxy http://127.0.0.1:7878 }
-      handle /lidarr*   { reverse_proxy http://127.0.0.1:8686 }
-      handle /bazarr*   { reverse_proxy http://127.0.0.1:6767 }
+      # Map Tailscale-User-Login email to admin yes/no variable
+      map {http.request.header.Tailscale-User-Login} {is_admin} {
+        ${adminMap}
+      }
+
+      # *arr admin-only paths
+      handle /prowlarr* {
+        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        respond @notAdmin "Unauthorized" 401
+        reverse_proxy http://127.0.0.1:9696
+      }
+      handle /sonarr* {
+        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        respond @notAdmin "Unauthorized" 401
+        reverse_proxy http://127.0.0.1:8989
+      }
+      handle /radarr* {
+        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        respond @notAdmin "Unauthorized" 401
+        reverse_proxy http://127.0.0.1:7878
+      }
+      handle /lidarr* {
+        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        respond @notAdmin "Unauthorized" 401
+        reverse_proxy http://127.0.0.1:8686
+      }
+      handle /bazarr* {
+        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        respond @notAdmin "Unauthorized" 401
+        reverse_proxy http://127.0.0.1:6767
+      }
+
+      # Bazarr root-relative static assets (Vue.js app)
+      handle /static/* {
+        @notAdmin expression `"{vars.is_admin}" != "yes"`
+        respond @notAdmin "Unauthorized" 401
+        reverse_proxy http://127.0.0.1:6767
+      }
 
       # Seerr — strip /seerr prefix so it thinks it runs at root
       handle_path /seerr* { reverse_proxy http://127.0.0.1:5055 }
@@ -55,9 +90,6 @@
       # Seerr root-relative Next.js static assets and API
       handle /_next/*  { reverse_proxy http://127.0.0.1:5055 }
       handle /api/v1/* { reverse_proxy http://127.0.0.1:5055 }
-
-      # Bazarr root-relative static assets (Vue.js app)
-      handle /static/* { reverse_proxy http://127.0.0.1:6767 }
 
       # Catch-all — everything else (including root /) goes to Seerr
       # This makes refresh/deep-link work for Seerr SPA routes like /requests, /login

@@ -51,6 +51,12 @@ in
         description = "API key for Seerr";
       };
     };
+
+    administrators = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ "ruddickmg@gmail.com" ];
+      description = "Tailscale login emails of administrators granted access to admin-only paths";
+    };
   };
 
   config = {
