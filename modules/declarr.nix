@@ -71,7 +71,12 @@ let
 
       notification = mkGotifyNotification 5;
 
-      rootFolder = [ "/media/tv" ];
+      rootFolder.main = {
+        path = "/media/tv";
+        defaultQualityProfileId = "1080p Balanced";
+        defaultMonitorOption = "all";
+        defaultNewItemMonitorOption = "all";
+      };
     };
   };
 
@@ -114,7 +119,13 @@ let
 
       notification = mkGotifyNotification 5;
 
-      rootFolder = [ "/media/movies" ];
+      rootFolder.main = {
+        path = "/media/movies";
+        defaultQualityProfileId = "1080p Balanced";
+        defaultMonitorOption = "all";
+        defaultNewItemMonitorOption = "all";
+        minimumAvailability = "released";
+      };
     };
   };
 

@@ -238,11 +238,6 @@ in
       eval "$(starship init zsh)"
     '';
 
-    environment.etc."btop/btop.conf".text = ''
-      color_theme = "gruvbox_dark_v2"
-      theme_background = False
-    '';
-
     environment.systemPackages = with pkgs; [
       unzip
       unrar

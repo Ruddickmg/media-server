@@ -16,6 +16,10 @@
       url = "github:ogulcancelik/herdr/v0.7.3";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -23,6 +27,7 @@
       self,
       nixpkgs,
       nixpkgs-unstable,
+      home-manager,
       disko,
       declarr,
       herdr,
@@ -42,6 +47,23 @@
         modules = [
           disko.nixosModules.disko
           declarr.nixosModules.default
+          home-manager.nixosModules.home-manager
+          {
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              users.media-server = {
+                home.stateVersion = "24.05";
+                programs.btop = {
+                  enable = true;
+                  settings = {
+                    color_theme = "gruvbox_dark_v2";
+                    theme_background = false;
+                  };
+                };
+              };
+            };
+          }
           ./hosts/media-server/disko.nix
           ./hosts/media-server/default.nix
         ];
@@ -53,6 +75,23 @@
         modules = [
           disko.nixosModules.disko
           declarr.nixosModules.default
+          home-manager.nixosModules.home-manager
+          {
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              users.media-server = {
+                home.stateVersion = "24.05";
+                programs.btop = {
+                  enable = true;
+                  settings = {
+                    color_theme = "gruvbox_dark_v2";
+                    theme_background = false;
+                  };
+                };
+              };
+            };
+          }
           ./hosts/media-server/disko.nix
           ./hosts/media-server/default.nix
 
