@@ -53,6 +53,7 @@
               useGlobalPkgs = true;
               useUserPackages = true;
               users.media-server = {
+                home.stateVersion = "24.05";
                 programs.btop = {
                   enable = true;
                   settings = {
@@ -80,6 +81,7 @@
               useGlobalPkgs = true;
               useUserPackages = true;
               users.media-server = {
+                home.stateVersion = "24.05";
                 programs.btop = {
                   enable = true;
                   settings = {
