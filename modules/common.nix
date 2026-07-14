@@ -238,10 +238,13 @@ in
       eval "$(starship init zsh)"
     '';
 
-    environment.etc."btop/btop.conf".text = ''
-      color_theme = "gruvbox_dark_v2"
-      theme_background = False
-    '';
+    programs.btop = {
+      enable = true;
+      settings = {
+        color_theme = "gruvbox_dark_v2";
+        theme_background = false;
+      };
+    };
 
     environment.systemPackages = with pkgs; [
       unzip
@@ -256,7 +259,6 @@ in
       starship
       eza
       bat
-      btop
       herdr.packages.${pkgs.system}.default
     ];
   };
