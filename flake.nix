@@ -52,6 +52,7 @@
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
+              backupFileExtension = "hm-backup";
               users.media-server = {
                 home.stateVersion = "24.05";
                 programs.btop = {
@@ -80,6 +81,7 @@
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
+              backupFileExtension = "hm-backup";
               users.media-server = {
                 home.stateVersion = "24.05";
                 programs.btop = {

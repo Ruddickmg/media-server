@@ -29,7 +29,7 @@
       git fetch origin
       if ! git diff --quiet HEAD origin/main; then
         git merge --ff-only origin/main
-        if nixos-rebuild switch --flake /etc/nixos; then
+        if nixos-rebuild switch --no-update-lock-file --flake /etc/nixos; then
           curl -sf -X POST "http://127.0.0.1:6789/message?token=$TOKEN" \
             -F "title=NixOS Build Succeeded" \
             -F "message=System configuration updated successfully" \
