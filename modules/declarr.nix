@@ -71,7 +71,7 @@ let
 
       notification = mkGotifyNotification 5;
 
-      rootFolder = ["/media/tv"];
+      rootFolder = [ "/media/tv" ];
     };
   };
 
@@ -114,7 +114,7 @@ let
 
       notification = mkGotifyNotification 5;
 
-      rootFolder = ["/media/movies"];
+      rootFolder = [ "/media/movies" ];
     };
   };
 
