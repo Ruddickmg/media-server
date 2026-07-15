@@ -65,7 +65,7 @@ let
     tagRequests = true;
     tags = [ ];
     overrideRule = [ ];
-    minimumAvailability = "announced";
+    minimumAvailability = "released";
   };
 
   mkJobs = {
