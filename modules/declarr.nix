@@ -195,7 +195,7 @@ let
         "Interactive Search" = {
           enableAutomaticSearch = false;
           enableInteractiveSearch = true;
-          enableRss = false;
+          enableRss = true;
           minimumSeeders = 1;
         };
       };

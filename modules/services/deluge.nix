@@ -1,4 +1,4 @@
-{
+true
   lib,
   pkgs,
   config,
@@ -107,9 +107,9 @@ in
         # *arrs will remove their torrents earlier; manual torrents hit this cap
         stop_seed_at_ratio = true;
         stop_seed_ratio = 3.0;
-        seed_time_limit = 43200; # 30 days in minutes
+        seed_time_limit = 86400; # 60 days in minutes
         share_ratio_limit = 3.0;
-        remove_seed_at_ratio = false;
+        remove_seed_at_ratio = true;
         auto_managed = true;
       };
       authFile = pkgs.writeText "deluge-auth" ''
