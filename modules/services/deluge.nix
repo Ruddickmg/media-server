@@ -1,4 +1,4 @@
-true
+{
   lib,
   pkgs,
   config,
