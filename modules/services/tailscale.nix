@@ -54,41 +54,41 @@ in
 
       # *arr admin-only paths
       handle /prowlarr* {
-        @notAdmin expression `"{is_admin}" != "yes"`
+        @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:9696
       }
       handle /sonarr* {
-        @notAdmin expression `"{is_admin}" != "yes"`
+        @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:8989
       }
       handle /radarr* {
-        @notAdmin expression `"{is_admin}" != "yes"`
+        @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:7878
       }
       handle /lidarr* {
-        @notAdmin expression `"{is_admin}" != "yes"`
+        @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:8686
       }
       handle /bazarr* {
-        @notAdmin expression `"{is_admin}" != "yes"`
+        @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:6767
       }
 
       # Bazarr root-relative static assets (Vue.js app)
       handle /static/* {
-        @notAdmin expression `"{is_admin}" != "yes"`
+        @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
         reverse_proxy http://127.0.0.1:6767
       }
 
       # autobrr — strip /autobrr prefix, baseUrl is set in the app
       handle /autobrr* {
-        @notAdmin expression `"{is_admin}" != "yes"`
+        @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
         uri strip_prefix /autobrr
         reverse_proxy http://127.0.0.1:7474
@@ -96,7 +96,7 @@ in
 
       # cross-seed — strip /cross-seed prefix (web UI may need dedicated port if assets break)
       handle /cross-seed* {
-        @notAdmin expression `"{is_admin}" != "yes"`
+        @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
         uri strip_prefix /cross-seed
         reverse_proxy http://127.0.0.1:2468
