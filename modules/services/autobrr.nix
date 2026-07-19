@@ -68,6 +68,7 @@ in
       environment = {
         AUTOBRR__HOST = cfg.listenAddress;
         AUTOBRR__PORT = toString cfg.port;
+        AUTOBRR__BASE_URL = "/autobrr";
         AUTOBRR__LOG_LEVEL = "INFO";
         AUTOBRR__LOG_PATH = "stdout";
       };
