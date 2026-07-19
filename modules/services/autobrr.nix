@@ -7,10 +7,23 @@
 let
   inherit (lib) mkIf mkOption types;
   cfg = config.media-server.autobrr;
-  # IRC, indexers, filters, download clients, and *arr integrations are
-  # configured via the autobrr web UI after first run, then persist in the
-  # SQLite database. Only the listen address, port, and data directory are
-  # set declaratively here.
+  apiKeys = config.media-server.apiKeys;
+
+  settingsFormat = pkgs.formats.json { };
+
+  # autobrr config — generated declaratively
+  configFile = settingsFormat.generate "autobrr-config.json" {
+    host = cfg.listenAddress;
+    port = cfg.port;
+    logLevel = "INFO";
+    logPath = "stdout";
+    sessionSecretFile = "${cfg.dataDir}/session.secret";
+    databasePath = "${cfg.dataDir}/autobrr.db";
+    # IRC, indexers, filters, download clients, and *arr integrations
+    # are configured via the web UI at first run, then persist in the DB.
+    # Declarative seeding of initial config is limited; we set up the
+    # critical connectivity so the UI can be used to finish configuration.
+  };
 in
 {
   options.media-server.autobrr = {
