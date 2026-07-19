@@ -214,7 +214,7 @@ Profilarr manages quality profiles and custom formats for Radarr and Sonarr via 
 
 | Tier | Services | How to access | Auth |
 |------|----------|---------------|------|
-| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr (path-based) | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
+| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr, autobrr, cross-seed (path-based) | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
 | **Tailscale HTTPS** | Profilarr, Beszel, Gotify (port-based) | `https://media-server.tailbac0df.ts.net:<port>` (direct via Tailscale Serve) | Tailscale identity |
 
 | **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol) | `localclient:deluge` (auth file) |
