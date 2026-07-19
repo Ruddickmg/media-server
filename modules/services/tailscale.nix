@@ -86,20 +86,11 @@ in
         reverse_proxy http://127.0.0.1:6767
       }
 
-      # autobrr — strip /autobrr prefix, baseUrl is set in the app
+      # autobrr — baseUrl + baseUrlModeLegacy=false in the app; no strip needed
       handle /autobrr* {
         @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
-        uri strip_prefix /autobrr
         reverse_proxy http://127.0.0.1:7474
-      }
-
-      # cross-seed — strip /cross-seed prefix (web UI may need dedicated port if assets break)
-      handle /cross-seed* {
-        @notAdmin expression `{is_admin} != "yes"`
-        respond @notAdmin "Unauthorized" 401
-        uri strip_prefix /cross-seed
-        reverse_proxy http://127.0.0.1:2468
       }
 
       # Seerr — strip /seerr prefix so it thinks it runs at root
@@ -129,6 +120,13 @@ in
     virtualHosts.":28090".extraConfig = ''
       bind 127.0.0.1
       reverse_proxy http://127.0.0.1:8090
+    '';
+
+    # cross-seed is served on a dedicated Tailscale HTTPS port because it
+    # has no urlBase/basePath config option (github.com/cross-seed/cross-seed/issues/799).
+    virtualHosts.":16468".extraConfig = ''
+      bind 127.0.0.1
+      reverse_proxy http://127.0.0.1:2468
     '';
 
     # Profilarr is served on a dedicated Tailscale HTTPS port because it
@@ -195,11 +193,13 @@ in
       # Clear any existing serve config, then serve root to local Caddy
       tailscale serve reset
       tailscale serve --bg http://127.0.0.1:8080
-      # Gotify, Beszel, and Profilarr don't support subpath proxying (root-relative URLs in UI).
+      # Gotify, Beszel, cross-seed, and Profilarr don't support subpath proxying
+      # (root-relative URLs or no urlBase config option).
       # Serve them on dedicated Tailscale HTTPS ports, proxied through Caddy so
       # X-Forwarded-Proto and other reverse-proxy headers are set correctly.
       tailscale serve --bg --https 6789  http://127.0.0.1:16789
       tailscale serve --bg --https 28090 http://127.0.0.1:28090
+      tailscale serve --bg --https 2468  http://127.0.0.1:16468
       tailscale serve --bg --https 6868  http://127.0.0.1:16868
     '';
   };
