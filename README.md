@@ -112,6 +112,8 @@ The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encr
 | `https://media-server.tailbac0df.ts.net/radarr` | Radarr |
 | `https://media-server.tailbac0df.ts.net/lidarr` | Lidarr |
 | `https://media-server.tailbac0df.ts.net/bazarr` | Bazarr |
+| `https://media-server.tailbac0df.ts.net/autobrr` | autobrr |
+| `https://media-server.tailbac0df.ts.net/cross-seed` | cross-seed |
 | `https://media-server.tailbac0df.ts.net:6868` | Profilarr |
 | `https://media-server.tailbac0df.ts.net:28090` | Beszel (monitoring) |
 | `https://media-server.tailbac0df.ts.net:6789`  | Gotify |
@@ -250,6 +252,8 @@ For VPN confinement details, see [VPN confinement](#vpn-confinement).
 | Radarr | 7878 | `https://media-server.tailbac0df.ts.net/radarr` |
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
 | Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
+| autobrr | 7474 | `https://media-server.tailbac0df.ts.net/autobrr` |
+| cross-seed | 2468 | `https://media-server.tailbac0df.ts.net/cross-seed` |
 | Profilarr | 6868 | `https://media-server.tailbac0df.ts.net:6868` |
 | Beszel | 8090 | `https://media-server.tailbac0df.ts.net:28090` |
 | Gotify | 6789 | `https://media-server.tailbac0df.ts.net:6789` |

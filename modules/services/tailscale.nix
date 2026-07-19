@@ -86,6 +86,22 @@ in
         reverse_proxy http://127.0.0.1:6767
       }
 
+      # autobrr — strip /autobrr prefix, baseUrl is set in the app
+      handle /autobrr* {
+        @notAdmin expression `"{is_admin}" != "yes"`
+        respond @notAdmin "Unauthorized" 401
+        uri strip_prefix /autobrr
+        reverse_proxy http://127.0.0.1:7474
+      }
+
+      # cross-seed — strip /cross-seed prefix (web UI may need dedicated port if assets break)
+      handle /cross-seed* {
+        @notAdmin expression `"{is_admin}" != "yes"`
+        respond @notAdmin "Unauthorized" 401
+        uri strip_prefix /cross-seed
+        reverse_proxy http://127.0.0.1:2468
+      }
+
       # Seerr — strip /seerr prefix so it thinks it runs at root
       handle_path /seerr* { reverse_proxy http://127.0.0.1:5055 }
 
