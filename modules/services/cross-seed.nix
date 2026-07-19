@@ -76,6 +76,9 @@ in
         "deluged.service"
         "prowlarr.service"
       ];
+      # --base-path tells the SPA where it's mounted; Caddy strips the prefix before proxying
+      serviceConfig.ExecStart = lib.mkForce
+        "${pkgs.cross-seed}/bin/cross-seed daemon --config ${cfg.dataDir} --base-path /cross-seed";
       serviceConfig = {
         SupplementaryGroups = [ "media" ];
         ReadWritePaths = [
