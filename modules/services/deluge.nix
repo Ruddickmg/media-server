@@ -28,6 +28,68 @@ let
       whitelisted = [ ];
     }
   );
+
+  # ltConfig — Deluge plugin for direct libtorrent tuning
+  # HIGH_PERFORMANCE_SEED base with overrides for home-server use:
+  #   inactivity_timeout 60s (not 20s — avoids churn behind VPN/NAT)
+  #   allow_multiple_connections_per_ip false (redundant connections)
+  ltconfigPkg = pkgs.callPackage ../../pkgs/deluge-ltconfig { };
+
+  ltconfigConf = pkgs.writeText "ltconfig.conf" (
+    builtins.toJSON {
+      apply_on_start = true;
+      settings = {
+        active_dht_limit = 600;
+        active_limit = 2000;
+        active_seeds = 2000;
+        active_tracker_limit = 2000;
+        aio_threads = 8;
+        alert_queue_size = 10000;
+        allow_multiple_connections_per_ip = false;
+        allowed_fast_set_size = 0;
+        auto_upload_slots = false;
+        cache_buffer_chunk_size = 128;
+        cache_expiry = 30;
+        cache_size = 65536;
+        checking_mem_usage = 2048;
+        choking_algorithm = 0;
+        close_redundant_connections = true;
+        coalesce_reads = false;
+        coalesce_writes = false;
+        connection_speed = 500;
+        connections_limit = 8000;
+        dht_upload_rate_limit = 20000;
+        disk_cache_algorithm = 2;
+        explicit_read_cache = false;
+        file_pool_size = 500;
+        inactivity_timeout = 60;
+        listen_queue_size = 3000;
+        max_allowed_in_request_queue = 2000;
+        max_failcount = 1;
+        max_http_recv_buffer_size = 6291456;
+        max_out_request_queue = 1500;
+        max_queued_disk_bytes = 7340032;
+        max_rejects = 10;
+        mixed_mode_algorithm = 0;
+        no_atime_storage = true;
+        optimize_hashing_for_speed = true;
+        peer_timeout = 20;
+        read_cache_line_size = 32;
+        recv_socket_buffer_size = 1048576;
+        request_timeout = 10;
+        send_buffer_low_watermark = 1048576;
+        send_buffer_watermark = 3145728;
+        send_buffer_watermark_factor = 150;
+        send_socket_buffer_size = 1048576;
+        suggest_mode = 1;
+        unchoke_slots_limit = -1;
+        use_disk_cache_pool = true;
+        use_read_cache = true;
+        utp_dynamic_sock_buf = true;
+        write_cache_line_size = 256;
+      };
+    }
+  );
 in
 {
   options.media-server.deluge = {
@@ -59,6 +121,7 @@ in
         enabled_plugins = [
           "Label"
           "Blocklist"
+          "ltConfig"
         ];
         download_location = "/media/downloads/incomplete";
         move_completed = true;
@@ -129,6 +192,12 @@ in
       {
         preStart = lib.mkAfter ''
           cp ${blocklistConfig} ${config.services.deluge.dataDir}/.config/deluge/blocklist.conf
+
+          # Install ltConfig plugin egg and declarative config
+          configDir="${config.services.deluge.dataDir}/.config/deluge"
+          mkdir -p "$configDir/plugins"
+          cp ${ltconfigPkg}/share/deluge/plugins/*.egg "$configDir/plugins/"
+          cp ${ltconfigConf} "$configDir/ltconfig.conf"
         '';
         serviceConfig = {
           ProtectHome = true;

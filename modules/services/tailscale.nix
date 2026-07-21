@@ -93,11 +93,10 @@ in
         reverse_proxy http://127.0.0.1:7474
       }
 
-      # cross-seed — strip /cross-seed prefix, --base-path set in the service
-      handle /cross-seed* {
+      # cross-seed — handle_path strips /cross-seed prefix automatically
+      handle_path /cross-seed* {
         @notAdmin expression `{is_admin} != "yes"`
         respond @notAdmin "Unauthorized" 401
-        uri strip_prefix /cross-seed
         reverse_proxy http://127.0.0.1:2468
       }
 
