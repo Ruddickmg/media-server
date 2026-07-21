@@ -29,7 +29,7 @@ stdenv.mkDerivation {
     # Nix sandbox timestamps are epoch 0 (pre-1980); Python 3.13+ zipfile
     # rejects pre-1980 dates. Touch everything to 1980-01-01 before bdist_egg.
     find . -exec touch -t 198001010000.00 {} +
-    python setup.py bdist_egg
+    python3 setup.py bdist_egg
     runHook postBuild
   '';
 
