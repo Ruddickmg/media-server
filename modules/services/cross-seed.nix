@@ -51,9 +51,8 @@ in
         radarr = "http://127.0.0.1:7878/radarr?apikey=${apiKeys.radarr}";
         linkType = "hardlink";
         duplicateCategories = true;
-        matchMode = "safe";
-        searchCadence = 60;
-        rssCadence = 10;
+        matchMode = "partial";
+        rssCadence = "10 minutes";
         torrentClients = [
           {
             client = "deluge";
