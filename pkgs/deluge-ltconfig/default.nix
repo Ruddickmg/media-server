@@ -19,7 +19,10 @@ stdenv.mkDerivation {
     hash = "sha256-VgFLDUKaDRiA5AKFa1jwuELSgeoKfbgu5P6yYQXj8KI=";
   };
 
-  buildInputs = [ python3 python3.pkgs.setuptools ];
+  buildInputs = [
+    python3
+    python3.pkgs.setuptools
+  ];
 
   buildPhase = ''
     runHook preBuild
