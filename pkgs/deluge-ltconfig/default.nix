@@ -19,7 +19,7 @@ stdenv.mkDerivation {
     hash = "sha256-VgFLDUKaDRiA5AKFa1jwuELSgeoKfbgu5P6yYQXj8KI=";
   };
 
-  buildInputs = [
+  nativeBuildInputs = [
     python3
     python3.pkgs.setuptools
   ];
