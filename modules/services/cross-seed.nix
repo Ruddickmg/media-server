@@ -54,14 +54,7 @@ in
         matchMode = "partial";
         rssCadence = "10 minutes";
         torrentClients = [
-          {
-            client = "deluge";
-            host = "127.0.0.1";
-            port = 8112;
-            username = "localclient";
-            password = "deluge";
-            label = "cross-seed";
-          }
+          "deluge:http://localclient:deluge@127.0.0.1:8112/json"
         ];
       };
     };
