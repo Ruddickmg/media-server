@@ -47,8 +47,8 @@ in
         apiAuth = true;
         action = "inject";
         torznab = torznabUrls;
-        sonarr = "http://127.0.0.1:8989/sonarr?apikey=${apiKeys.sonarr}";
-        radarr = "http://127.0.0.1:7878/radarr?apikey=${apiKeys.radarr}";
+        sonarr = [ "http://127.0.0.1:8989/sonarr?apikey=${apiKeys.sonarr}" ];
+        radarr = [ "http://127.0.0.1:7878/radarr?apikey=${apiKeys.radarr}" ];
         linkType = "hardlink";
         duplicateCategories = true;
         matchMode = "partial";
