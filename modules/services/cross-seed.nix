@@ -42,6 +42,7 @@ in
           "/media/downloads/xseeds"
         ];
         torrentDir = "/var/lib/deluge/.config/deluge/state";
+        outputDir = null;
         port = 2468;
         host = "127.0.0.1";
         apiAuth = true;
@@ -59,6 +60,11 @@ in
       };
     };
 
+    systemd.tmpfiles.rules = [
+      "e /var/lib/deluge/.config/deluge - deluge deluge 710 -"
+      "e /var/lib/deluge/.config/deluge/state - deluge deluge 750 -"
+    ];
+
     systemd.services.cross-seed = {
       wants = [
         "deluged.service"
@@ -69,10 +75,9 @@ in
         "prowlarr.service"
       ];
       serviceConfig = {
-        SupplementaryGroups = [ "media" ];
-        ReadWritePaths = [
-          "/media/downloads/completed"
-          "/media/downloads/xseeds"
+        SupplementaryGroups = [
+          "media"
+          "deluge"
         ];
       };
     };
