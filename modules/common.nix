@@ -199,6 +199,7 @@ in
       "d /media/downloads 2775 root media"
       "d /media/downloads/incomplete 2775 root media"
       "d /media/downloads/completed 2775 root media"
+      "d /media/downloads/xseeds 2775 root media"
       "d /media/movies 2775 root media"
       "d /media/tv 2775 root media"
       "d /media/music 2775 root media"
