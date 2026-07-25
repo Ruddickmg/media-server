@@ -2,6 +2,7 @@
   lib,
   pkgs,
   config,
+  pkgs-unstable,
   ...
 }:
 let
@@ -87,7 +88,7 @@ in
         Type = "simple";
         User = "autobrr";
         Group = "autobrr";
-        ExecStart = "${pkgs.autobrr}/bin/autobrr --config=${cfg.dataDir}";
+        ExecStart = "${pkgs-unstable.autobrr}/bin/autobrr --config=${cfg.dataDir}";
         Restart = "on-failure";
         RestartSec = "10s";
         StateDirectory = "autobrr";
@@ -124,7 +125,7 @@ in
       };
     };
 
-    environment.systemPackages = [ pkgs.autobrr ];
+    environment.systemPackages = [ pkgs-unstable.autobrr ];
 
     networking.firewall = mkIf cfg.openFirewall {
       allowedTCPPorts = [ cfg.port ];
