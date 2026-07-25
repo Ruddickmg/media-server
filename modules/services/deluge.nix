@@ -203,7 +203,6 @@ in
           ProtectHome = true;
           PrivateTmp = true;
           NoNewPrivileges = true;
-          ProtectSystem = "strict";
           LockPersonality = true;
           KeyringMode = "private";
           RestrictSUIDSGID = true;
