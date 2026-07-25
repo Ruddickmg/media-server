@@ -39,7 +39,7 @@ in
           "/media/downloads/completed"
         ];
         linkDirs = [
-          "/media/downloads/completed"
+          "/media/downloads/xseeds"
         ];
         torrentDir = "/var/lib/deluge/.config/deluge/state";
         port = 2468;
@@ -72,6 +72,7 @@ in
         SupplementaryGroups = [ "media" ];
         ReadWritePaths = [
           "/media/downloads/completed"
+          "/media/downloads/xseeds"
         ];
       };
     };

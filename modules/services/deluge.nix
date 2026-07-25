@@ -196,7 +196,7 @@ in
           # Install ltConfig plugin egg and declarative config
           configDir="${config.services.deluge.dataDir}/.config/deluge"
           mkdir -p "$configDir/plugins"
-          cp ${ltconfigPkg}/share/deluge/plugins/*.egg "$configDir/plugins/"
+          cp -f ${ltconfigPkg}/share/deluge/plugins/*.egg "$configDir/plugins/"
           cp ${ltconfigConf} "$configDir/ltconfig.conf"
         '';
         serviceConfig = {
