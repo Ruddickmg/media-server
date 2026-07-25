@@ -75,7 +75,10 @@ in
         "prowlarr.service"
       ];
       serviceConfig = {
-        SupplementaryGroups = [ "media" "deluge" ];
+        SupplementaryGroups = [
+          "media"
+          "deluge"
+        ];
       };
     };
 
