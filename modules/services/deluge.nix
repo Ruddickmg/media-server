@@ -137,7 +137,6 @@ in
         daemon_port = 58846;
         allow_remote = true;
         enabled_plugins = [
-          "Label"
           "Blocklist"
           "ltConfig"
         ];
