@@ -122,8 +122,13 @@ in
     systemd.services."wireguard-wg-${ns}" = {
       bindsTo = [ "create-netns-${ns}.service" ];
       after = [ "create-netns-${ns}.service" ];
-      # Remove stale interface from failed teardown (e.g. during nixos-rebuild switch)
+      # Remove stale interface left behind by a failed teardown.
+      # On failed restarts, `ip link add wg-vpn type wireguard` succeeds in the
+      # init namespace but `ip link set wg-vpn netns vpn` fails (namespace
+      # doesn't exist), leaving a ghost interface. Clean up both namespaces
+      # so wg-quick doesn't hit "already exists" or "File exists".
       preStart = lib.mkAfter ''
+        ip link del wg-${ns} 2>/dev/null || true
         ip netns exec ${ns} ip link del wg-${ns} 2>/dev/null || true
       '';
     };
@@ -135,31 +140,23 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        # Hardening that does NOT create a mount namespace.
+        # Options like PrivateTmp, ProtectHome, ProtectKernelTunables, etc.
+        # create private mount namespaces, which prevent `ip netns add` from
+        # persisting its bind mount at /var/run/netns/ to the host filesystem.
+        # Since the namespace reference disappears when the service exits, the
+        # network namespace is destroyed. This service only runs `ip netns add`
+        # and writes a resolv.conf — the remaining hardening is sufficient.
         NoNewPrivileges = true;
-        PrivateTmp = true;
-        ProtectHome = true;
-        PrivateDevices = true;
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
         RestrictRealtime = true;
         SystemCallArchitectures = "native";
         LockPersonality = true;
-        ProtectClock = true;
-        PrivateMounts = false;
         RemoveIPC = true;
         KeyringMode = "private";
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
-        # Ensure /run/netns exists before systemd sets up mount namespacing.
-        # Without this, a fresh boot fails with "No such file or directory"
-        # because systemd resolves ReadWritePaths before the script runs.
         RuntimeDirectory = "netns";
-        ReadWritePaths = [
-          "/etc/netns"
-          "/var/run/netns"
-        ];
       };
       script = ''
                 ip netns add ${ns} 2>/dev/null || true
