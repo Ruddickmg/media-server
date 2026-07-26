@@ -122,6 +122,10 @@ in
     systemd.services."wireguard-wg-${ns}" = {
       bindsTo = [ "create-netns-${ns}.service" ];
       after = [ "create-netns-${ns}.service" ];
+      # Remove stale interface from failed teardown (e.g. during nixos-rebuild switch)
+      preStart = lib.mkAfter ''
+        ip netns exec ${ns} ip link del wg-${ns} 2>/dev/null || true
+      '';
     };
 
     systemd.services."create-netns-${ns}" = {
