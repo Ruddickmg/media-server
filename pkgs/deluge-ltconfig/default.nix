@@ -19,6 +19,13 @@ stdenv.mkDerivation {
     hash = "sha256-VgFLDUKaDRiA5AKFa1jwuELSgeoKfbgu5P6yYQXj8KI=";
   };
 
+  postPatch = ''
+    # Python 3.13 raises RuntimeError when a dict is modified during iteration.
+    # _normalize_settings() deletes keys from settings while iterating it.
+    substituteInPlace ltconfig/core.py \
+      --replace 'for k in settings.keys():' 'for k in list(settings.keys()):'
+  '';
+
   nativeBuildInputs = [
     python3
     python3.pkgs.setuptools
