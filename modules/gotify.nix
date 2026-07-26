@@ -49,15 +49,17 @@
         ProtectHostname = true;
         ProtectProc = "invisible";
         ProcSubset = "pid";
-        # Per-service state files for notification backoff (tmpfs, reset on reboot)
-        RuntimeDirectory = "gotify-notify";
-        ReadWritePaths = [ "/run/gotify-notify" ];
+        # Persistent state directory for notification backoff.
+        # Must NOT use RuntimeDirectory — systemd deletes it when a oneshot
+        # service finishes, destroying the backoff state and causing infinite
+        # rapid-fire notifications. Managed via tmpfiles instead.
+        ReadWritePaths = [ "/var/lib/gotify-notify" ];
       };
       script = ''
         TOKEN=$(cat ${config.media-server.gotifyTokenFile} 2>/dev/null || echo "")
         [ -z "$TOKEN" ] && exit 0
 
-        STATE_DIR="/run/gotify-notify"
+        STATE_DIR="/var/lib/gotify-notify"
         STATE_FILE="$STATE_DIR/$INSTANCE.state"
         NOW=$(date +%s)
 
@@ -184,9 +186,13 @@
       '';
     };
 
+    systemd.tmpfiles.rules = [
+      "d /var/lib/gotify-notify 0755 root gotify-readers -"
+    ];
+
     # Clear notification backoff state on rebuild so fresh failures notify immediately
     system.activationScripts.clear-gotify-notify-state = ''
-      rm -f /run/gotify-notify/*.state 2>/dev/null || true
+      rm -f /var/lib/gotify-notify/*.state 2>/dev/null || true
     '';
   };
 }
