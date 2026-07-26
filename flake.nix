@@ -17,7 +17,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -42,9 +42,9 @@
     in
     {
       nixosConfigurations.media-server = nixpkgs.lib.nixosSystem {
-        inherit system;
         specialArgs = { inherit pkgs-unstable declarr herdr; };
         modules = [
+          { nixpkgs.hostPlatform = system; }
           disko.nixosModules.disko
           declarr.nixosModules.default
           home-manager.nixosModules.home-manager
@@ -71,9 +71,9 @@
       };
 
       nixosConfigurations.media-server-ci = nixpkgs.lib.nixosSystem {
-        inherit system;
         specialArgs = { inherit pkgs-unstable declarr herdr; };
         modules = [
+          { nixpkgs.hostPlatform = system; }
           disko.nixosModules.disko
           declarr.nixosModules.default
           home-manager.nixosModules.home-manager

@@ -93,13 +93,6 @@ in
         reverse_proxy http://127.0.0.1:7474
       }
 
-      # cross-seed — handle_path strips /cross-seed prefix automatically
-      handle_path /cross-seed* {
-        @notAdmin expression `{is_admin} != "yes"`
-        respond @notAdmin "Unauthorized" 401
-        reverse_proxy http://127.0.0.1:2468
-      }
-
       # Seerr — strip /seerr prefix so it thinks it runs at root
       handle_path /seerr* { reverse_proxy http://127.0.0.1:5055 }
 
