@@ -155,7 +155,6 @@ in
         KeyringMode = "private";
         RestrictSUIDSGID = true;
         ProtectHostname = true;
-        ProtectProc = "invisible";
         RuntimeDirectory = "netns";
       };
       script = ''
