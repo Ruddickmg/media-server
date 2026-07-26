@@ -148,6 +148,10 @@ in
         RestrictSUIDSGID = true;
         ProtectHostname = true;
         ProtectProc = "invisible";
+        # Ensure /run/netns exists before systemd sets up mount namespacing.
+        # Without this, a fresh boot fails with "No such file or directory"
+        # because systemd resolves ReadWritePaths before the script runs.
+        RuntimeDirectory = "netns";
         ReadWritePaths = [
           "/etc/netns"
           "/var/run/netns"
