@@ -8,7 +8,7 @@ The following are configured automatically:
 
 | Setting | Behavior |
 |---------|----------|
-| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`), socket-activated. `media-server` user keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
+| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`, `KbdInteractiveAuthentication=false`), `PermitRootLogin=no`, socket-activated. `media-server` user keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
 | **Console** | Auto-login to `media-server` user on tty1 — no password needed |
 | **Lid close** | Ignored — system stays running |
 | **Suspend / Hibernate** | Disabled entirely — all sleep targets masked |
@@ -121,6 +121,12 @@ The hostname is the machine's MagicDNS name (check `tailscale status` for yours)
 
 > **Prerequisite:** Enable **HTTPS Certificates** in the Tailscale admin console (DNS → HTTPS Certificates). Without this, Tailscale Serve cannot provision TLS certificates.
 
+**Admin-only access:** Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, and autobrr are restricted to Tailscale users listed in `media-server.administrators` (defaults to `["ruddickmg@gmail.com"]`). Seerr is open to all Tailscale users so family members can make requests. To change the admin list:
+
+```nix
+media-server.administrators = [ "your@email.com" ];
+```
+
 ## Post-Deploy Steps
 
 ### Prowlarr — add indexers
@@ -132,9 +138,18 @@ Indexers added in Prowlarr are automatically synced to Sonarr, Radarr, and Lidar
 
 ### Seeding and ratio management
 
-Deluge's global seeding ceiling is set intentionally high (`stop_seed_ratio = 3.0`, `seed_time_limit = 30` days) as a safety net for manually-added torrents. It should never be hit by *arr-managed torrents — those are handled per-indexer.
+By default, Deluge has **no seeding limits** — *arr-managed torrents are removed by per-indexer goals in Prowlarr, and manually-added torrents seed indefinitely.
 
-For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met, well before the global ceiling kicks in.
+To set a global safety net, configure the optional limits in your host config:
+
+```nix
+media-server.deluge.seedRatioLimit = 3.0;   # stop at 3.0 share ratio
+media-server.deluge.seedTimeLimit = 86400;   # stop after 60 days (in minutes)
+```
+
+Either or both can be set independently. When unset, there is no limit.
+
+For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met.
 
 ### Plex — add libraries
 
@@ -179,21 +194,20 @@ You can access the dashboard at `https://media-server.tailbac0df.ts.net:28090`.
 
 Gotify receives alert notifications from systemd service failures (via `OnFailure` hooks), the NixOS auto-update script (build succeeded/failed), and Beszel (monitoring thresholds).
 
-**Setup:**
+On first boot, the `gotify-provision` service automatically creates a **"Media Server"** app in Gotify and saves the token to `/etc/nixos/secrets/gotify-token`. No manual setup is required for notifications to work.
+
+**Manual access** (optional):
 
 1. Open `https://media-server.tailbac0df.ts.net:6789`
 2. Log in with the default credentials: `admin` / `admin`
-3. Go to **Apps** and click **Create Application**
-4. Name it `Media Server Alerts` and click **Create**
-5. Copy the generated token
-6. On the server, save the token:
-   ```bash
-   echo "<your-token>" | sudo tee /etc/nixos/secrets/gotify-token
-   ```
-7. The token is read at runtime — no rebuild is required.
-    - **Auto-update and systemd service failures** will start sending alerts immediately.
-    - **Sonarr, Radarr, Lidarr, and Prowlarr** will pick up the Gotify notification connection on their next declarr sync (or restart the `declarr` service to force it: `systemctl restart declarr`).
-    - **Beszel** notifications are configured in the Beszel web UI (Settings → Notifications). Add the Gotify URL using the Shoutrrr format: `gotify://127.0.0.1:6789/<your-token>?priority=1`.
+3. The **"Media Server"** app should already exist with a generated token
+
+**Notifications are enabled automatically for:**
+
+- **Systemd service failures** — any service with `OnFailure=notify-gotify@%i.service`
+- **Auto-update** — build succeeded/failed messages from `nixos-auto-update.service`
+- **Sonarr, Radarr, Lidarr, and Prowlarr** — picked up on the next declarr sync (or restart: `systemctl restart declarr`)
+- **Beszel** — configure manually in the Beszel web UI (Settings → Notifications) using the Shoutrrr format: `gotify://127.0.0.1:6789/<your-token>?priority=1`
 
 ### Profilarr — quality profiles and custom formats
 
@@ -252,7 +266,7 @@ For VPN confinement details, see [VPN confinement](#vpn-confinement).
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
 | Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
 | autobrr | 7474 | `https://media-server.tailbac0df.ts.net/autobrr` |
-| Profilarr | 6868 | `https://media-server.tailbac0df.ts.net:6868` |
+| Profilarr | 6865 | `https://media-server.tailbac0df.ts.net:6868` |
 | Beszel | 8090 | `https://media-server.tailbac0df.ts.net:28090` |
 | Gotify | 6789 | `https://media-server.tailbac0df.ts.net:6789` |
 
@@ -336,4 +350,21 @@ When `deluge.vpnConfinement` is enabled, Deluge runs inside the VPN namespace an
 
 ## Auto-Updates
 
-A systemd timer runs every 5 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch`. The service checks for uncommitted changes before pulling, so local modifications won't be overwritten.
+A systemd timer runs every 5 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch`. The service checks whether the local branch is behind the remote before pulling.
+
+## Auto-Reboot
+
+A separate systemd timer runs daily at 4:00 AM HST. It compares the running kernel/initrd against the newly built system. If either changed, the server reboots after a 1-minute grace period. This ensures kernel security updates are applied automatically.
+
+## Declarr
+
+Declarr declaratively manages the base configuration of Sonarr, Radarr, Lidarr, and Prowlarr. On each rebuild (or service restart), it syncs:
+
+- **API keys** (generated deterministically from the hostname)
+- **Download client** (Deluge connection)
+- **Root folders** (`/media/movies`, `/media/tv`, `/media/music`)
+- **Naming conventions** for downloaded media
+- **Prowlarr application sync** (full sync to Sonarr, Radarr, Lidarr)
+- **Gotify notification connections** for all *arr apps
+
+Declarr does **not** manage quality profiles or custom formats — those are handled by [Profilarr](#profilarr--quality-profiles-and-custom-formats).

@@ -108,6 +108,24 @@ in
       default = false;
       description = "Run Deluge inside the VPN network namespace";
     };
+    seedRatioLimit = mkOption {
+      type = types.nullOr types.float;
+      default = null;
+      description = ''
+        Stop seeding when global share ratio reaches this value.
+        Set to null to disable ratio-based seeding limit.
+        *arr-managed torrents are removed earlier by per-indexer goals.
+      '';
+    };
+    seedTimeLimit = mkOption {
+      type = types.nullOr types.int;
+      default = null;
+      description = ''
+        Stop seeding after this many minutes.
+        Set to null to disable time-based seeding limit.
+        *arr-managed torrents are removed earlier by per-indexer goals.
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
@@ -166,12 +184,12 @@ in
         max_active_downloading = 5;
         max_active_seeding = 40;
 
-        # Seeding ceiling: stop at 3.0 ratio or 60 days, whichever first
-        # *arrs will remove their torrents earlier; manual torrents hit this cap
-        stop_seed_at_ratio = true;
-        stop_seed_ratio = 3.0;
-        seed_time_limit = 86400; # 60 days in minutes
-        share_ratio_limit = 3.0;
+        # Seeding: *arrs remove their own torrents via per-indexer goals.
+        # These settings act as a safety net for manually-added torrents.
+        stop_seed_at_ratio = cfg.seedRatioLimit != null;
+        stop_seed_ratio = if cfg.seedRatioLimit != null then cfg.seedRatioLimit else -1.0;
+        seed_time_limit = if cfg.seedTimeLimit != null then cfg.seedTimeLimit else -1;
+        share_ratio_limit = if cfg.seedRatioLimit != null then cfg.seedRatioLimit else -1.0;
         remove_seed_at_ratio = true;
         auto_managed = true;
       };
