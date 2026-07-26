@@ -166,7 +166,7 @@ in
         max_active_downloading = 5;
         max_active_seeding = 40;
 
-        # Seeding ceiling: stop at 3.0 ratio or 14 days, whichever first
+        # Seeding ceiling: stop at 3.0 ratio or 60 days, whichever first
         # *arrs will remove their torrents earlier; manual torrents hit this cap
         stop_seed_at_ratio = true;
         stop_seed_ratio = 3.0;
