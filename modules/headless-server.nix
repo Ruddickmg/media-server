@@ -54,6 +54,8 @@ in
 
     powerManagement.cpuFreqGovernor = "performance";
 
+    security.sudo.enable = false;
+
     services.getty.autologinUser = "media-server";
 
     services.tailscale.authKeyFile = "/etc/nixos/secrets/tailscale-auth";
