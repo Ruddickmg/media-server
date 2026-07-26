@@ -3,6 +3,7 @@
   imports = [
     ./hardware-configuration.nix
     ../../modules/common.nix
+    ../../modules/gotify.nix
     ../../modules/headless-server.nix
     ../../modules/auto-update.nix
     ../../modules/auto-reboot.nix
