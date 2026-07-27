@@ -109,22 +109,42 @@ in
       description = "Run Deluge inside the VPN network namespace";
     };
     seedRatioLimit = mkOption {
-      type = types.nullOr types.float;
-      default = null;
+      type = types.float;
+      default = -1.0;
       description = ''
         Stop seeding when global share ratio reaches this value.
-        Set to null to disable ratio-based seeding limit.
+        Set to -1.0 to disable ratio-based seeding limit.
         *arr-managed torrents are removed earlier by per-indexer goals.
       '';
     };
     seedTimeLimit = mkOption {
-      type = types.nullOr types.int;
-      default = null;
+      type = types.int;
+      default = -1;
       description = ''
         Stop seeding after this many minutes.
-        Set to null to disable time-based seeding limit.
+        Set to -1 to disable time-based seeding limit.
         *arr-managed torrents are removed earlier by per-indexer goals.
       '';
+    };
+    authUsername = mkOption {
+      type = types.str;
+      default = "media-server";
+      description = "Username for Deluge Web UI / console authentication";
+    };
+    downloadSpeed = mkOption {
+      type = types.float;
+      default = 7000.0;
+      description = "Global maximum download speed in KiB/s";
+    };
+    uploadSpeed = mkOption {
+      type = types.float;
+      default = 1000.0;
+      description = "Global maximum upload speed in KiB/s";
+    };
+    natpmpGateway = mkOption {
+      type = types.str;
+      default = "10.2.0.1";
+      description = "VPN NAT-PMP gateway IP address";
     };
   };
 
@@ -164,8 +184,8 @@ in
         lsd = false;
 
         # Bandwidth (capped at ~80% of 73.4/10.3 Mbps connection)
-        max_download_speed = 7000.0;
-        max_upload_speed = 1000.0;
+        max_download_speed = cfg.downloadSpeed;
+        max_upload_speed = cfg.uploadSpeed;
 
         # Connections
         max_connections_global = 500;
@@ -186,16 +206,16 @@ in
 
         # Seeding: *arrs remove their own torrents via per-indexer goals.
         # These settings act as a safety net for manually-added torrents.
-        stop_seed_at_ratio = cfg.seedRatioLimit != null;
-        stop_seed_ratio = if cfg.seedRatioLimit != null then cfg.seedRatioLimit else -1.0;
-        seed_time_limit = if cfg.seedTimeLimit != null then cfg.seedTimeLimit else -1;
-        share_ratio_limit = if cfg.seedRatioLimit != null then cfg.seedRatioLimit else -1.0;
+        stop_seed_at_ratio = cfg.seedRatioLimit != -1.0;
+        stop_seed_ratio = cfg.seedRatioLimit;
+        seed_time_limit = cfg.seedTimeLimit;
+        share_ratio_limit = cfg.seedRatioLimit;
         remove_seed_at_ratio = true;
         auto_managed = true;
       };
       authFile = pkgs.writeText "deluge-auth" ''
         localclient:deluge:10
-        ruddickmg:deluge:10
+        ${cfg.authUsername}:deluge:10
       '';
       user = "deluge";
       group = "deluge";
@@ -409,9 +429,9 @@ in
         while true; do
           # Refresh both UDP and TCP mappings — Proton assigns the same public
           # port for both.  Lifetime is 60 s; we refresh every 45 s.
-          udp_out=$(natpmpc -a 1 0 udp 60 -g 10.2.0.1) \
+          udp_out=$(natpmpc -a 1 0 udp 60 -g ${cfg.natpmpGateway}) \
             || { echo "natpmpc UDP request failed" >&2; exit 1; }
-          tcp_out=$(natpmpc -a 1 0 tcp 60 -g 10.2.0.1) \
+          tcp_out=$(natpmpc -a 1 0 tcp 60 -g ${cfg.natpmpGateway}) \
             || { echo "natpmpc TCP request failed" >&2; exit 1; }
 
           tcp_port=$(awk '/Mapped public port/ {print $4; exit}' <<<"$tcp_out")

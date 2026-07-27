@@ -1,6 +1,22 @@
-{ pkgs, ... }:
 {
-  systemd.services.nixos-auto-reboot = {
+  lib,
+  pkgs,
+  config,
+  ...
+}:
+let
+  cfg = config.media-server.autoReboot;
+in
+{
+  options.media-server.autoReboot = {
+    rebootHour = lib.mkOption {
+      type = lib.types.int;
+      default = 4;
+      description = "Hour of the day (UTC) to check for and apply a reboot";
+    };
+  };
+
+  config.systemd.services.nixos-auto-reboot = {
     description = "Reboot if kernel/initrd changed since last boot";
     serviceConfig = {
       Type = "oneshot";
@@ -41,11 +57,11 @@
     '';
   };
 
-  systemd.timers.nixos-auto-reboot = {
-    description = "Daily reboot check at 4am HST";
+  config.systemd.timers.nixos-auto-reboot = {
+    description = "Daily reboot check at ${toString cfg.rebootHour}:00";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "*-*-* 04:00:00";
+      OnCalendar = "*-*-* ${lib.fixedWidthString 2 "0" (toString cfg.rebootHour)}:00:00";
       Persistent = true;
     };
   };

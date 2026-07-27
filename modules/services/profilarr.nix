@@ -8,6 +8,7 @@ let
   cfg = config.media-server.profilarr;
   radarrEnabled = config.media-server.radarr.enable;
   sonarrEnabled = config.media-server.sonarr.enable;
+  tailscaleHostname = config.media-server.tailscaleHostname;
   cleanupProfilarrNft = pkgs.writeShellScript "cleanup-profilarr-nft" ''
     set -o pipefail
     ${pkgs.nftables}/bin/nft -a list ruleset inet netavark 2>/dev/null | \
@@ -68,7 +69,7 @@ in
         PORT = "6865";
         AUTH = "off";
         DENO_DIR = "/tmp/deno";
-        ORIGIN = "https://media-server.tailbac0df.ts.net:6868";
+        ORIGIN = "https://${tailscaleHostname}:6868";
       };
       volumes = [ "/var/lib/profilarr:/config" ];
       ports = [ "127.0.0.1:6865:6865" ];
@@ -147,7 +148,7 @@ in
           if [ -n "$RADARR_ID" ]; then
             echo "Updating existing Radarr instance (id=$RADARR_ID)" >&2
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
-              -H "Origin: https://media-server.tailbac0df.ts.net:6868" \
+              -H "Origin: https://${tailscaleHostname}:6868" \
               -d "name=Radarr" \
               -d "url=http://host.containers.internal:7878" \
               -d "api_key=${config.media-server.apiKeys.radarr}" \
@@ -157,7 +158,7 @@ in
           else
             echo "Creating new Radarr instance" >&2
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
-              -H "Origin: https://media-server.tailbac0df.ts.net:6868" \
+              -H "Origin: https://${tailscaleHostname}:6868" \
               -d "name=Radarr" \
               -d "type=radarr" \
               -d "url=http://host.containers.internal:7878" \
@@ -173,7 +174,7 @@ in
           if [ -n "$SONARR_ID" ]; then
             echo "Updating existing Sonarr instance (id=$SONARR_ID)" >&2
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
-              -H "Origin: https://media-server.tailbac0df.ts.net:6868" \
+              -H "Origin: https://${tailscaleHostname}:6868" \
               -d "name=Sonarr" \
               -d "url=http://host.containers.internal:8989" \
               -d "api_key=${config.media-server.apiKeys.sonarr}" \
@@ -183,7 +184,7 @@ in
           else
             echo "Creating new Sonarr instance" >&2
             CURL_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
-              -H "Origin: https://media-server.tailbac0df.ts.net:6868" \
+              -H "Origin: https://${tailscaleHostname}:6868" \
               -d "name=Sonarr" \
               -d "type=sonarr" \
               -d "url=http://host.containers.internal:8989" \

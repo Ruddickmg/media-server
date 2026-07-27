@@ -12,6 +12,12 @@ let
 in
 {
   options.media-server = {
+    tailscaleHostname = lib.mkOption {
+      type = lib.types.str;
+      default = "media-server.tailbac0df.ts.net";
+      description = "Tailscale hostname used for public-facing HTTPS URLs";
+    };
+
     apiKeys = {
       sonarr = lib.mkOption {
         type = lib.types.str;
