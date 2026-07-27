@@ -44,7 +44,6 @@ in
         outputDir = null;
         port = 2468;
         host = "127.0.0.1";
-        apiAuth = true;
         action = "inject";
         useClientTorrents = true;
         torznab = torznabUrls;
@@ -54,7 +53,13 @@ in
         duplicateCategories = true;
         matchMode = "partial";
         rssCadence = "10 minutes";
-        searchCadence = "10 minutes";
+        searchCadence = "1 day";
+        excludeOlder = "2 weeks";
+        excludeRecentSearch = "3 days";
+        skipRecheck = true;
+        autoResumeMaxDownload = 52428800;
+        includeSingleEpisodes = false;
+        ignoreNonRelevantFilesToResume = true;
         torrentClients = [
           "deluge:http://localclient:deluge@127.0.0.1:8112/json"
         ];
