@@ -224,6 +224,7 @@ in
     };
     apiKeyFile = mkOption {
       type = types.path;
+      default = "/var/lib/autobrr/apiKey";
       description = "Path to file containing the autobrr API key";
     };
     crossSeedApiKeyFile = mkOption {
