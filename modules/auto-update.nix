@@ -30,13 +30,14 @@
       git fetch origin
       if ! git diff --quiet HEAD origin/main; then
         # Backup Deluge state before applying any configuration changes.
-        # Only one backup file is kept; it is overwritten if older than 24 hours.
-        BACKUP_DIR="/var/lib/deluge/backup"
-        TODAY_FILE="$BACKUP_DIR/$(date +%F)-deluge-state.tar.gz"
-        find "$BACKUP_DIR" -maxdepth 1 -type f -name '*-deluge-state.tar.gz' -mtime +0 -delete
-        if [ ! -f "$TODAY_FILE" ]; then
+        # Keep a single backup file; refresh it if it's older than 24 hours.
+        if [ -d /var/lib/deluge/.config/deluge/state ]; then
+          BACKUP_DIR="/var/lib/deluge/backup"
+          BACKUP_FILE="$BACKUP_DIR/deluge-state.tar.gz"
           mkdir -p "$BACKUP_DIR"
-          tar -czf "$TODAY_FILE" -C /var/lib/deluge/.config/deluge state/
+          if [ ! -f "$BACKUP_FILE" ] || [ -n "$(find "$BACKUP_FILE" -mtime +0 -print -quit 2>/dev/null)" ]; then
+            tar -czf "$BACKUP_FILE" -C /var/lib/deluge/.config/deluge state/
+          fi
         fi
 
         git merge --ff-only origin/main
