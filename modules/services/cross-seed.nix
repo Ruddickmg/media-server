@@ -41,12 +41,12 @@ in
         linkDirs = [
           "/media/downloads/xseeds"
         ];
-        torrentDir = "/var/lib/deluge/.config/deluge/state";
         outputDir = null;
         port = 2468;
         host = "127.0.0.1";
         apiAuth = true;
         action = "inject";
+        useClientTorrents = true;
         torznab = torznabUrls;
         sonarr = [ "http://127.0.0.1:8989/sonarr?apikey=${apiKeys.sonarr}" ];
         radarr = [ "http://127.0.0.1:7878/radarr?apikey=${apiKeys.radarr}" ];
@@ -54,6 +54,7 @@ in
         duplicateCategories = true;
         matchMode = "partial";
         rssCadence = "10 minutes";
+        searchCadence = "10 minutes";
         torrentClients = [
           "deluge:http://localclient:deluge@127.0.0.1:8112/json"
         ];
