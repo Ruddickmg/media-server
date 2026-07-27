@@ -51,37 +51,6 @@ let
             | ${pkgs.jq}/bin/jq -e ".[] | select(.name == \"$name\")" >/dev/null 2>&1
         }
 
-        # --- Deluge download client ---
-        if ! resource_exists "download_clients" "Deluge"; then
-          echo "autobrr-setup: creating Deluge download client..."
-          ${pkgs.curl}/bin/curl -sf -X POST \
-            -H "$AUTHHeader" \
-            -H "Content-Type: application/json" \
-            "$API_URL/download_clients" \
-            -d '${
-              builtins.toJSON {
-                name = "Deluge";
-                type = "DELUGE_V2";
-                enabled = true;
-                host = "127.0.0.1";
-                port = 58846;
-                tls = false;
-                tls_skip_verify = false;
-                username = "media-server";
-                password = "deluge";
-                settings = {
-                  basic = { };
-                  rules = {
-                    enabled = true;
-                    max_active_downloads = 0;
-                  };
-                };
-              }
-            }' >/dev/null 2>&1 \
-            && echo "autobrr-setup: created Deluge download client" \
-            || echo "autobrr-setup: failed to create Deluge download client (non-fatal)"
-        fi
-
         # --- Sonarr target ---
         if ! resource_exists "download_clients" "Sonarr"; then
           echo "autobrr-setup: creating Sonarr target..."

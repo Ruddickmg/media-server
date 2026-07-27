@@ -151,36 +151,6 @@ Either or both can be set independently. When unset, there is no limit.
 
 For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met.
 
-### Cross-seed — automatic cross-seeding
-
-cross-seed finds matching torrents across your trackers so you can seed the same data to multiple sites with minimal additional downloads.
-
-1. **Get the API key:**
-   ```bash
-   sudo -u cross-seed CONFIG_DIR=/var/lib/cross-seed cross-seed api-key
-   ```
-
-2. **Deluge on-completion webhook:**
-   In Deluge, enable the **Execute plugin** (Edit → Preferences → Plugins → Execute).
-   Add a command: Event = `Torrent Complete`, Command = `cross-seed-on-complete`.
-   Every finished torrent automatically triggers a cross-seed search.
-
-3. **autobrr announce webhook:**
-   In autobrr, create a high-priority filter (priority `1000`) for all indexers.
-   On the **External** tab:
-   - Type = `Webhook`, Host = `http://127.0.0.1:2468/api/announce`
-   - Headers = `x-api-key:<your-cross-seed-api-key>`
-   - Data (v6 format):
-     ```json
-     {"name":{{ toRawJson .TorrentName }},"guid":"{{ .TorrentUrl }}","link":"{{ .TorrentUrl }}","tracker":{{ toRawJson .IndexerName }}}
-     ```
-   - Retry: status `202`, max 100 retries, 900s delay
-   - Actions tab: add at least one action (e.g. Test) — required for the webhook to fire
-
-   Place this filter above your *arr and direct-to-Deluge filters.
-
-> **Note:** cross-seed has no web UI. It runs as a background daemon on port 2468. The on-completion script and autobrr webhook handle all interaction.
-
 ### Plex — add libraries
 
 1. Open `http://<machine-ip>:32400/web`
@@ -296,7 +266,6 @@ For VPN confinement details, see [VPN confinement](#vpn-confinement).
 | Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
 | Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
 | autobrr | 7474 | `https://media-server.tailbac0df.ts.net/autobrr` |
-| cross-seed | 2468 | internal only (API, no web UI) |
 | Profilarr | 6865 | `https://media-server.tailbac0df.ts.net:6868` |
 | Beszel | 8090 | `https://media-server.tailbac0df.ts.net:28090` |
 | Gotify | 6789 | `https://media-server.tailbac0df.ts.net:6789` |
