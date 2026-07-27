@@ -17,6 +17,7 @@ let
   apiKeys = config.media-server.apiKeys;
   sonarrEnabled = config.media-server.sonarr.enable or false;
   radarrEnabled = config.media-server.radarr.enable or false;
+  tailscaleHostname = config.media-server.tailscaleHostname;
 
   mkSonarr = {
     name = "Sonarr";
@@ -34,7 +35,7 @@ let
     id = 0;
     is4k = false;
     isDefault = true;
-    externalUrl = "https://media-server.tailbac0df.ts.net/sonarr";
+    externalUrl = "https://${tailscaleHostname}/sonarr";
     syncEnabled = true;
     enableAutomaticSearch = true;
     preventSearch = false;
@@ -58,7 +59,7 @@ let
     id = 0;
     is4k = false;
     isDefault = true;
-    externalUrl = "https://media-server.tailbac0df.ts.net/radarr";
+    externalUrl = "https://${tailscaleHostname}/radarr";
     syncEnabled = true;
     enableAutomaticSearch = true;
     preventSearch = false;
@@ -83,7 +84,7 @@ let
   settingsJson = builtins.toJSON (
     {
       main = {
-        applicationUrl = "https://media-server.tailbac0df.ts.net";
+        applicationUrl = "https://${tailscaleHostname}";
         mediaServerType = 4;
       };
       network = {
@@ -103,7 +104,7 @@ let
     {
       main = {
         mediaServerType = 4;
-        applicationUrl = "https://media-server.tailbac0df.ts.net";
+        applicationUrl = "https://${tailscaleHostname}";
       };
       network = {
         trustProxy = true;
