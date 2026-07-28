@@ -5,9 +5,9 @@
   ...
 }:
 {
-  systemd.tmpfiles.settings."10-auto-update"."/var/lib/deluge/backup" = {
-    d = {
-      mode = "0755";
+  systemd.tmpfiles.settings."10-auto-update" = lib.mkIf config.media-server.deluge.enable {
+    "/var/lib/deluge/backup".d = {
+      mode = "0700";
       user = "root";
       group = "root";
     };
