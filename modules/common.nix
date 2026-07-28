@@ -44,6 +44,11 @@ in
         default = key "seerr";
         description = "API key for Seerr";
       };
+      autobrr = lib.mkOption {
+        type = lib.types.str;
+        default = key "autobrr";
+        description = "API key for autobrr";
+      };
     };
 
     administrators = lib.mkOption {
