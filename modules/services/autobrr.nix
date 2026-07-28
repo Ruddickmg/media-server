@@ -20,20 +20,20 @@ let
 
         # --- Step 1: ensure API key exists in the database ---
         if [ -f "$DB" ]; then
-          KEY=$(cat "${autobrrApiKeyFile}" 2>/dev/null || true)
+          KEY=$(cat "${cfg.apiKeyFile}" 2>/dev/null || cat "${autobrrApiKeyFile}" 2>/dev/null || true)
           if [ -n "$KEY" ]; then
             ${pkgs.sqlite}/bin/sqlite3 "$DB" \
               "INSERT OR IGNORE INTO api_key (name, key, scopes) VALUES ('nixos', '$KEY', '{}');" \
               2>/dev/null || true
             # Also write to the apiKeyFile for reference
             if [ ! -f "${cfg.apiKeyFile}" ]; then
-              install -m 600 "${autobrrApiKeyFile}" "${cfg.apiKeyFile}" 2>/dev/null || true
+              ${pkgs.coreutils}/bin/install -m 600 "${autobrrApiKeyFile}" "${cfg.apiKeyFile}" 2>/dev/null || true
             fi
           fi
         fi
 
         # --- Step 2: read autobrr API key ---
-        API_KEY=$(cat "${autobrrApiKeyFile}" 2>/dev/null || cat "${cfg.apiKeyFile}" 2>/dev/null || true)
+        API_KEY=$(cat "${cfg.apiKeyFile}" 2>/dev/null || cat "${autobrrApiKeyFile}" 2>/dev/null || true)
         if [ -z "$API_KEY" ]; then
           echo "autobrr-setup: API key not found, skipping"
           exit 0
