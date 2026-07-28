@@ -88,12 +88,12 @@ in
         radarr = [ "http://127.0.0.1:7878/radarr?apikey=${apiKeys.radarr}" ];
         linkType = "hardlink";
         duplicateCategories = true;
-        matchMode = "partial";
+        matchMode = "flexible";
         rssCadence = "10 minutes";
         searchCadence = "1 day";
         excludeOlder = "2 weeks";
         excludeRecentSearch = "3 days";
-        skipRecheck = true;
+        skipRecheck = false;
         autoResumeMaxDownload = 52428800;
         includeSingleEpisodes = false;
         ignoreNonRelevantFilesToResume = true;
