@@ -5,6 +5,14 @@
   ...
 }:
 {
+  systemd.tmpfiles.settings."10-auto-update"."/var/lib/deluge/backup" = {
+    d = {
+      mode = "0755";
+      user = "root";
+      group = "root";
+    };
+  };
+
   systemd.services.nixos-auto-update = {
     description = "Pull latest NixOS config from Git and rebuild";
     after = [
