@@ -9,26 +9,39 @@ let
   inherit (lib) mkIf mkOption types;
   cfg = config.media-server.autobrr;
   apiKeys = config.media-server.apiKeys;
+  autobrrApiKeyFile = pkgs.writeText "autobrr-api-key" apiKeys.autobrr;
 
   postStartScript = pkgs.writeShellScriptBin "autobrr-setup" ''
         set -euo pipefail
 
+        DATA_DIR="${cfg.dataDir}"
         API_URL="http://127.0.0.1:${toString cfg.port}/api"
+        DB="$DATA_DIR/autobrr.db"
 
-        # --- read autobrr API key ---
-        if [ ! -f "${cfg.apiKeyFile}" ]; then
-          echo "autobrr-setup: API key file not found at ${cfg.apiKeyFile}, skipping"
-          exit 0
+        # --- Step 1: ensure API key exists in the database ---
+        if [ -f "$DB" ]; then
+          KEY=$(cat "${autobrrApiKeyFile}" 2>/dev/null || true)
+          if [ -n "$KEY" ]; then
+            ${pkgs.sqlite}/bin/sqlite3 "$DB" \
+              "INSERT OR IGNORE INTO api_key (name, key, scopes) VALUES ('nixos', '$KEY', '{}');" \
+              2>/dev/null || true
+            # Also write to the apiKeyFile for reference
+            if [ ! -f "${cfg.apiKeyFile}" ]; then
+              install -m 600 "${autobrrApiKeyFile}" "${cfg.apiKeyFile}" 2>/dev/null || true
+            fi
+          fi
         fi
-        API_KEY=$(cat "${cfg.apiKeyFile}" 2>/dev/null || true)
+
+        # --- Step 2: read autobrr API key ---
+        API_KEY=$(cat "${autobrrApiKeyFile}" 2>/dev/null || cat "${cfg.apiKeyFile}" 2>/dev/null || true)
         if [ -z "$API_KEY" ]; then
-          echo "autobrr-setup: API key is empty, skipping"
+          echo "autobrr-setup: API key not found, skipping"
           exit 0
         fi
 
         AUTHHeader="X-API-Token: $API_KEY"
 
-        # --- wait for autobrr readiness ---
+        # --- Step 3: wait for autobrr readiness ---
         echo "autobrr-setup: waiting for autobrr to be ready..."
         for i in $(seq 1 30); do
           if ${pkgs.curl}/bin/curl -sf "$API_URL/healthz/readiness" >/dev/null 2>&1; then
@@ -283,7 +296,6 @@ in
         AUTOBRR__BASE_URL = "/autobrr/";
         AUTOBRR__BASE_URL_MODE_LEGACY = "false";
         AUTOBRR__LOG_LEVEL = "INFO";
-        AUTOBRR__LOG_PATH = "stdout";
       };
 
       preStart = ''
@@ -298,6 +310,7 @@ in
       path = with pkgs; [
         curl
         jq
+        sqlite
       ];
 
       postStart = "${postStartScript}/bin/autobrr-setup";
