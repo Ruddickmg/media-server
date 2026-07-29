@@ -88,7 +88,7 @@ in
         radarr = [ "http://127.0.0.1:7878/radarr?apikey=${apiKeys.radarr}" ];
         linkType = "hardlink";
         duplicateCategories = true;
-        matchMode = "flexible";
+        matchMode = "safe";
         rssCadence = "10 minutes";
         searchCadence = "1 day";
         excludeOlder = "2 weeks";
