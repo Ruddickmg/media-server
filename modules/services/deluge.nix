@@ -229,6 +229,24 @@ in
     systemd.services.deluged = mkMerge [
       {
         preStart = lib.mkAfter ''
+          # Restore torrent state from backup if corrupted or empty.
+          # An empty pickle dict serializes to < 100 bytes; any smaller file
+          # means Deluge wrote an empty state on a previous failed shutdown.
+          # Only restore if the backup is valid (passes gzip integrity check).
+          STATE_DIR="${config.services.deluge.dataDir}/.config/deluge/state"
+          STATE_FILE="$STATE_DIR/torrents.state"
+          BACKUP_FILE="${config.services.deluge.dataDir}/backup/deluge-state.tar.gz"
+          if [ -f "$BACKUP_FILE" ] && gzip -t "$BACKUP_FILE" 2>/dev/null; then
+            if [ -f "$STATE_FILE" ]; then
+              size=$(stat -c%s "$STATE_FILE" 2>/dev/null || echo 0)
+              if [ "$size" -lt 100 ] 2>/dev/null; then
+                tar -xzf "$BACKUP_FILE" -C "${config.services.deluge.dataDir}/.config/deluge" 2>/dev/null || true
+              fi
+            else
+              tar -xzf "$BACKUP_FILE" -C "${config.services.deluge.dataDir}/.config/deluge" 2>/dev/null || true
+            fi
+          fi
+
           cp ${blocklistConfig} ${config.services.deluge.dataDir}/.config/deluge/blocklist.conf
 
           # Install ltConfig plugin egg and declarative config
@@ -248,6 +266,7 @@ in
           RestrictRealtime = true;
           SystemCallArchitectures = "native";
           LimitNOFILE = mkForce 65536;
+          TimeoutStopSec = 180;
           ReadWritePaths = [
             "/var/lib/deluge"
             "/media/downloads"

@@ -25,6 +25,7 @@
       pkgs.nixos-rebuild
       pkgs.curl
       pkgs.gnutar
+      pkgs.gzip
     ];
     serviceConfig = {
       Type = "oneshot";
@@ -39,12 +40,24 @@
       if ! git diff --quiet HEAD origin/main; then
         # Backup Deluge state before applying any configuration changes.
         # Keep a single backup file; refresh it if it's older than 24 hours.
+        # If the existing backup is corrupt, overwrite it regardless of age.
+        # Use a temp file and atomic rename to avoid leaving a truncated archive.
         if [ -d /var/lib/deluge/.config/deluge/state ]; then
           BACKUP_DIR="/var/lib/deluge/backup"
           BACKUP_FILE="$BACKUP_DIR/deluge-state.tar.gz"
+          TMP_FILE="$BACKUP_DIR/deluge-state.tar.gz.tmp"
           mkdir -p "$BACKUP_DIR"
-          if [ ! -f "$BACKUP_FILE" ] || [ -n "$(find "$BACKUP_FILE" -mtime +0 -print -quit 2>/dev/null)" ]; then
-            tar -czf "$BACKUP_FILE" -C /var/lib/deluge/.config/deluge state/
+          refresh=
+          if [ ! -f "$BACKUP_FILE" ]; then
+            refresh=1
+          elif [ -n "$(find "$BACKUP_FILE" -mtime +0 -print -quit 2>/dev/null)" ]; then
+            refresh=1
+          elif ! gzip -t "$BACKUP_FILE" 2>/dev/null; then
+            refresh=1
+          fi
+          if [ -n "$refresh" ]; then
+            tar -czf "$TMP_FILE" -C /var/lib/deluge/.config/deluge state/
+            mv -f "$TMP_FILE" "$BACKUP_FILE"
           fi
         fi
 
