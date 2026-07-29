@@ -103,11 +103,6 @@ in
       };
     };
 
-    systemd.tmpfiles.rules = [
-      "e /var/lib/deluge/.config/deluge - deluge deluge 710 -"
-      "e /var/lib/deluge/.config/deluge/state - deluge deluge 750 -"
-    ];
-
     systemd.services.cross-seed = {
       wants = [
         "deluged.service"
@@ -120,7 +115,6 @@ in
       serviceConfig = {
         SupplementaryGroups = [
           "media"
-          "deluge"
         ];
       };
     };
