@@ -94,7 +94,7 @@ in
         excludeOlder = "2 weeks";
         excludeRecentSearch = "3 days";
         skipRecheck = false;
-        autoResumeMaxDownload = 52428800;
+        autoResumeMaxDownload = 0;
         includeSingleEpisodes = false;
         ignoreNonRelevantFilesToResume = true;
         torrentClients = [
