@@ -64,6 +64,7 @@
     prowlarr.enable = true;
     deluge.enable = true;
     deluge.vpnConfinement = true;
+    deluge.authUsername = "ruddickmg";
     bazarr.enable = true;
     plex.enable = true;
     seerr.enable = true;

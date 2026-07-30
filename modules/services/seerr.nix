@@ -25,7 +25,7 @@ let
     port = 8989;
     apiKey = apiKeys.sonarr;
     useSsl = false;
-    baseUrl = "";
+    baseUrl = "/sonarr";
     activeProfileId = 1;
     activeProfileName = "Any";
     activeAnimeProfileId = 1;
@@ -52,7 +52,7 @@ let
     port = 7878;
     apiKey = apiKeys.radarr;
     useSsl = false;
-    baseUrl = "";
+    baseUrl = "/radarr";
     activeProfileId = 1;
     activeProfileName = "Any";
     activeDirectory = "/media/movies";
