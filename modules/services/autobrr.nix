@@ -136,47 +136,207 @@ let
             || echo "autobrr-setup: failed to create Lidarr target (non-fatal)"
         fi
 
-        # --- cross-seed announce filter ---
-        if ! resource_exists "filters" "cross-seed"; then
-          # Read cross-seed API key — auto-generated, stored in the cross-seed data dir.
-          CROSS_SEED_KEY=""
-          if [ -f "${cfg.crossSeedApiKeyFile}" ]; then
-            CROSS_SEED_KEY=$(cat "${cfg.crossSeedApiKeyFile}" 2>/dev/null || true)
-          fi
-          if [ -n "$CROSS_SEED_KEY" ]; then
-            echo "autobrr-setup: creating cross-seed announce filter..."
-            CROSS_SEED_PAYLOAD=$(cat <<CSEED_EOF
+        # --- per-\*arr push filters with Lists ---
+        # autobrr evaluates only the highest-priority matching filter for a
+        # release, so a single catch-all filter is not viable without pushing
+        # every announce to every \*arr. Instead each \*arr gets its own filter
+        # whose allowed titles are auto-maintained by an autobrr "List": a
+        # SONARR/RADARR/LIDARR list queries the \*arr's API for monitored
+        # titles and writes them into the linked filter's Shows (or
+        # Artists/Albums for Lidarr) fields. Lists refresh on save and every
+        # 6 hours (autobrr built-in cron), so a release routes to exactly one
+        # \*arr and anything not monitored is ignored. Filters are created
+        # first because a list requires at least one linked filter; the list
+        # creation then triggers the first title sync.
+        ARRS_CLIENTS=$(${pkgs.curl}/bin/curl -sf -H "$AUTHHeader" "$API_URL/download_clients" 2>/dev/null || true)
+        get_client_id() {
+          printf '%s' "$ARRS_CLIENTS" \
+            | ${pkgs.jq}/bin/jq -r ".[] | select(.name == \"$1\") | .id" 2>/dev/null || true
+        }
+        get_filter_id() {
+          ${pkgs.curl}/bin/curl -sf -H "$AUTHHeader" "$API_URL/filters" 2>/dev/null \
+            | ${pkgs.jq}/bin/jq -r ".[] | select(.name == \"$1\") | .id" 2>/dev/null || true
+        }
+        SONARR_ID=$(get_client_id "Sonarr")
+        RADARR_ID=$(get_client_id "Radarr")
+        LIDARR_ID=$(get_client_id "Lidarr")
+
+        if [ -n "$SONARR_ID" ] && [ -n "$RADARR_ID" ] && [ -n "$LIDARR_ID" ]; then
+          # Remove filters created by earlier configs that have since been
+          # superseded (the old cross-seed announce forwarder and the interim
+          # catch-all "arrs" filter).
+          for STALE in "cross-seed" "arrs"; do
+            STALE_ID=$(get_filter_id "$STALE")
+            if [ -n "$STALE_ID" ]; then
+              ${pkgs.curl}/bin/curl -sf -X DELETE \
+                -H "$AUTHHeader" \
+                "$API_URL/filters/$STALE_ID" >/dev/null 2>&1 \
+                && echo "autobrr-setup: removed superseded '$STALE' filter" || true
+            fi
+          done
+
+          # --- Sonarr filter + list ---
+          SONARR_FILTER_ID=$(get_filter_id "Sonarr")
+          if [ -z "$SONARR_FILTER_ID" ]; then
+            echo "autobrr-setup: creating Sonarr filter..."
+            SONARR_PAYLOAD=$(cat <<SONARR_FILTER_EOF
     {
-      "name": "cross-seed",
+      "name": "Sonarr",
       "enabled": true,
       "priority": 1000,
+      "min_size": "25MB",
+      "max_size": "1TB",
       "indexers": [],
-      "actions": [{"name": "test", "type": "TEST", "enabled": true}],
-      "external": [{
-        "name": "cross-seed",
-        "type": "WEBHOOK",
-        "enabled": true,
-        "webhook_host": "http://127.0.0.1:2468/api/announce?apikey=$CROSS_SEED_KEY",
-        "webhook_method": "POST",
-        "webhook_data": "{\"name\":{{ toRawJson .TorrentName }},\"guid\":\"{{ .TorrentUrl }}\",\"link\":\"{{ .TorrentUrl }}\",\"tracker\":{{ toRawJson .IndexerName }}}",
-        "webhook_expect_status": 200,
-        "webhook_retry_max_retries": 100,
-        "webhook_retry_interval_seconds": 900,
-        "webhook_retry_statuses": [202]
-      }]
+      "actions": [
+        {"name": "Sonarr", "type": "SONARR", "enabled": true, "client_id": $SONARR_ID}
+      ]
     }
-    CSEED_EOF
+    SONARR_FILTER_EOF
             )
             ${pkgs.curl}/bin/curl -sf -X POST \
               -H "$AUTHHeader" \
               -H "Content-Type: application/json" \
               "$API_URL/filters" \
-              -d "$CROSS_SEED_PAYLOAD" >/dev/null 2>&1 \
-              && echo "autobrr-setup: created cross-seed announce filter" \
-              || echo "autobrr-setup: failed to create cross-seed filter (non-fatal)"
-          else
-            echo "autobrr-setup: cross-seed API key not found at ${cfg.crossSeedApiKeyFile}, skipping filter"
+              -d "$SONARR_PAYLOAD" >/dev/null 2>&1 || true
+            SONARR_FILTER_ID=$(get_filter_id "Sonarr")
+            echo "autobrr-setup: Sonarr filter id=$SONARR_FILTER_ID"
           fi
+
+          if [ -n "$SONARR_FILTER_ID" ] && ! resource_exists "lists" "Sonarr"; then
+            echo "autobrr-setup: creating Sonarr list..."
+            SONARR_LIST_PAYLOAD=$(cat <<SONARR_LIST_EOF
+    {
+      "name": "Sonarr",
+      "type": "SONARR",
+      "enabled": true,
+      "client_id": $SONARR_ID,
+      "filters": [{"id": $SONARR_FILTER_ID, "name": "Sonarr"}],
+      "match_release": false,
+      "include_unmonitored": false,
+      "include_alternate_titles": true
+    }
+    SONARR_LIST_EOF
+            )
+            ${pkgs.curl}/bin/curl -sf -X POST \
+              -H "$AUTHHeader" \
+              -H "Content-Type: application/json" \
+              "$API_URL/lists" \
+              -d "$SONARR_LIST_PAYLOAD" >/dev/null 2>&1 \
+              && echo "autobrr-setup: created Sonarr list (title sync triggered)" \
+              || echo "autobrr-setup: failed to create Sonarr list (non-fatal, retried on next boot)"
+          fi
+
+          # --- Radarr filter + list ---
+          RADARR_FILTER_ID=$(get_filter_id "Radarr")
+          if [ -z "$RADARR_FILTER_ID" ]; then
+            echo "autobrr-setup: creating Radarr filter..."
+            RADARR_PAYLOAD=$(cat <<RADARR_FILTER_EOF
+    {
+      "name": "Radarr",
+      "enabled": true,
+      "priority": 1001,
+      "min_size": "25MB",
+      "max_size": "1TB",
+      "indexers": [],
+      "actions": [
+        {"name": "Radarr", "type": "RADARR", "enabled": true, "client_id": $RADARR_ID}
+      ]
+    }
+    RADARR_FILTER_EOF
+            )
+            ${pkgs.curl}/bin/curl -sf -X POST \
+              -H "$AUTHHeader" \
+              -H "Content-Type: application/json" \
+              "$API_URL/filters" \
+              -d "$RADARR_PAYLOAD" >/dev/null 2>&1 || true
+            RADARR_FILTER_ID=$(get_filter_id "Radarr")
+            echo "autobrr-setup: Radarr filter id=$RADARR_FILTER_ID"
+          fi
+
+          if [ -n "$RADARR_FILTER_ID" ] && ! resource_exists "lists" "Radarr"; then
+            echo "autobrr-setup: creating Radarr list..."
+            RADARR_LIST_PAYLOAD=$(cat <<RADARR_LIST_EOF
+    {
+      "name": "Radarr",
+      "type": "RADARR",
+      "enabled": true,
+      "client_id": $RADARR_ID,
+      "filters": [{"id": $RADARR_FILTER_ID, "name": "Radarr"}],
+      "match_release": false,
+      "include_unmonitored": false,
+      "include_alternate_titles": true
+    }
+    RADARR_LIST_EOF
+            )
+            ${pkgs.curl}/bin/curl -sf -X POST \
+              -H "$AUTHHeader" \
+              -H "Content-Type: application/json" \
+              "$API_URL/lists" \
+              -d "$RADARR_LIST_PAYLOAD" >/dev/null 2>&1 \
+              && echo "autobrr-setup: created Radarr list (title sync triggered)" \
+              || echo "autobrr-setup: failed to create Radarr list (non-fatal, retried on next boot)"
+          fi
+
+          # --- Lidarr filter + list ---
+          LIDARR_FILTER_ID=$(get_filter_id "Lidarr")
+          if [ -z "$LIDARR_FILTER_ID" ]; then
+            echo "autobrr-setup: creating Lidarr filter..."
+            LIDARR_PAYLOAD=$(cat <<LIDARR_FILTER_EOF
+    {
+      "name": "Lidarr",
+      "enabled": true,
+      "priority": 1002,
+      "min_size": "25MB",
+      "max_size": "1TB",
+      "indexers": [],
+      "actions": [
+        {"name": "Lidarr", "type": "LIDARR", "enabled": true, "client_id": $LIDARR_ID}
+      ]
+    }
+    LIDARR_FILTER_EOF
+            )
+            ${pkgs.curl}/bin/curl -sf -X POST \
+              -H "$AUTHHeader" \
+              -H "Content-Type: application/json" \
+              "$API_URL/filters" \
+              -d "$LIDARR_PAYLOAD" >/dev/null 2>&1 || true
+            LIDARR_FILTER_ID=$(get_filter_id "Lidarr")
+            echo "autobrr-setup: Lidarr filter id=$LIDARR_FILTER_ID"
+          fi
+
+          if [ -n "$LIDARR_FILTER_ID" ] && ! resource_exists "lists" "Lidarr"; then
+            echo "autobrr-setup: creating Lidarr list..."
+            LIDARR_LIST_PAYLOAD=$(cat <<LIDARR_LIST_EOF
+    {
+      "name": "Lidarr",
+      "type": "LIDARR",
+      "enabled": true,
+      "client_id": $LIDARR_ID,
+      "filters": [{"id": $LIDARR_FILTER_ID, "name": "Lidarr"}],
+      "match_release": false,
+      "include_unmonitored": false
+    }
+    LIDARR_LIST_EOF
+            )
+            ${pkgs.curl}/bin/curl -sf -X POST \
+              -H "$AUTHHeader" \
+              -H "Content-Type: application/json" \
+              "$API_URL/lists" \
+              -d "$LIDARR_LIST_PAYLOAD" >/dev/null 2>&1 \
+              && echo "autobrr-setup: created Lidarr list (title sync triggered)" \
+              || echo "autobrr-setup: failed to create Lidarr list (non-fatal, retried on next boot)"
+          fi
+
+          # Lists created on an earlier boot may have failed their first sync
+          # if the \*arr wasn't reachable yet; refresh now so every filter gets
+          # its monitored-titles list populated.
+          ${pkgs.curl}/bin/curl -sf -X POST \
+            -H "$AUTHHeader" \
+            "$API_URL/lists/refresh" >/dev/null 2>&1 \
+            && echo "autobrr-setup: refreshed lists" \
+            || echo "autobrr-setup: list refresh failed (non-fatal)"
+        else
+          echo "autobrr-setup: download clients not found, skipping \*arr filters"
         fi
 
         # --- Gotify notification agent ---
@@ -240,11 +400,6 @@ in
       default = "/var/lib/autobrr/apiKey";
       description = "Path to file containing the autobrr API key";
     };
-    crossSeedApiKeyFile = mkOption {
-      type = types.path;
-      default = "/var/lib/cross-seed/apiKey";
-      description = "Path to cross-seed API key file (auto-generated by cross-seed)";
-    };
     gotifyTokenFile = mkOption {
       type = types.path;
       default = "/etc/nixos/secrets/gotify-token";
@@ -271,10 +426,6 @@ in
       # Ensure secret files are readable by the autobrr group.
       # Rules only apply to existing files — create them after first boot.
       "${cfg.apiKeyFile}".z = {
-        mode = "0640";
-        group = "autobrr";
-      };
-      "${cfg.crossSeedApiKeyFile}".z = {
         mode = "0640";
         group = "autobrr";
       };

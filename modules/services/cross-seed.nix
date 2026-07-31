@@ -53,17 +53,10 @@ in
   #    enable the Execute plugin (Edit -> Preferences -> Plugins -> Execute),
   #    add a command: Event = "Torrent Complete", Command = "cross-seed-on-complete".
   #    This triggers a cross-seed search every time a torrent finishes downloading.
+  #    No need to tag/filter cross-seed-injected torrents: /api/webhook defaults
+  #    to ignoreCrossSeeds=true, so cross-seed skips torrents it injected itself.
   #
-  # 2. autobrr announce webhook:
-  #    In autobrr (Settings -> Filters), create a high-priority filter with:
-  #    - Indexers: all
-  #    - External tab: Type = Webhook, Host = http://127.0.0.1:2468/api/announce
-  #    - Headers: x-api-key=<cross-seed API key>
-  #    - Data (v6 format):
-  #      {"name":{{ toRawJson .TorrentName }},"guid":"{{ .TorrentUrl }}","link":"{{ .TorrentUrl }}","tracker":{{ toRawJson .IndexerName }}}
-  #    - Retry: status 202, max 100 retries, 900s delay
-  #
-  # 3. API key retrieval:
+  # 2. API key retrieval:
   #    Run: sudo -u cross-seed CONFIG_DIR=/var/lib/cross-seed cross-seed api-key
   #    Or read: cat /var/lib/cross-seed/apiKey
 
@@ -89,10 +82,12 @@ in
         linkType = "hardlink";
         duplicateCategories = true;
         matchMode = "safe";
+        # RSS polling is cross-seed's new-release discovery path (autobrr no
+        # longer feeds announces). Minimum cadence is 10 minutes.
         rssCadence = "10 minutes";
-        searchCadence = "1 day";
+        searchCadence = "30 days";
         excludeOlder = "2 weeks";
-        excludeRecentSearch = "3 days";
+        excludeRecentSearch = "14 days";
         skipRecheck = false;
         autoResumeMaxDownload = 0;
         includeSingleEpisodes = false;
