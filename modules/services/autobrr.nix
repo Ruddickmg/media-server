@@ -182,6 +182,10 @@ let
               SONARR_FILTER_ID=$(get_filter_id "Sonarr")
               if [ -z "$SONARR_FILTER_ID" ]; then
                 echo "autobrr-setup: creating Sonarr filter..."
+                # The filter table defines resolutions/codecs/sources/containers
+                # as NOT NULL TEXT[] columns. Empty arrays make the API insert
+                # '{}' (satisfying NOT NULL) — empty means "match any", which
+                # is what the arr-driven filters want.
                 SONARR_PAYLOAD=$(cat <<SONARR_FILTER_EOF
         {
           "name": "Sonarr",
@@ -190,6 +194,10 @@ let
           "min_size": "25MB",
           "max_size": "1TB",
           "indexers": [],
+          "resolutions": [],
+          "codecs": [],
+          "sources": [],
+          "containers": [],
           "actions": [
             {"name": "Sonarr", "type": "SONARR", "enabled": true, "client_id": $SONARR_ID}
           ]
@@ -241,6 +249,10 @@ let
           "min_size": "25MB",
           "max_size": "1TB",
           "indexers": [],
+          "resolutions": [],
+          "codecs": [],
+          "sources": [],
+          "containers": [],
           "actions": [
             {"name": "Radarr", "type": "RADARR", "enabled": true, "client_id": $RADARR_ID}
           ]
@@ -292,6 +304,10 @@ let
           "min_size": "25MB",
           "max_size": "1TB",
           "indexers": [],
+          "resolutions": [],
+          "codecs": [],
+          "sources": [],
+          "containers": [],
           "actions": [
             {"name": "Lidarr", "type": "LIDARR", "enabled": true, "client_id": $LIDARR_ID}
           ]
