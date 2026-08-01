@@ -136,6 +136,14 @@ media-server.administrators = [ "your@email.com" ];
 
 Indexers added in Prowlarr are automatically synced to Sonarr, Radarr, and Lidarr via the pre-configured application connections.
 
+### autobrr — add IRC indexers
+
+The automation pipeline (filters, download clients, lists) is created automatically on deploy. What cannot be automated is the announce source: each indexer needs its own IRC server, channel, and account credentials.
+
+1. Open `https://media-server.tailbac0df.ts.net/autobrr`
+2. Go to **Settings → Indexers → Add New Indexer** and add your trackers' IRC announce channels
+3. Verify the pre-created filters under **Filters** and lists under **Lists**
+
 ### Seeding and ratio management
 
 By default, Deluge has **no seeding limits** — *arr-managed torrents are removed by per-indexer goals in Prowlarr, and manually-added torrents seed indefinitely.

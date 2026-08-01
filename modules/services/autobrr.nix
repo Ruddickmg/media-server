@@ -15,7 +15,10 @@ let
         set -euo pipefail
 
         DATA_DIR="${cfg.dataDir}"
-        API_URL="http://127.0.0.1:${toString cfg.port}/api"
+        # autobrr serves its API under AUTOBRR__BASE_URL (set below), not at
+        # the root path — non-legacy baseUrl mode mounts the API at
+        # baseUrl + "api". This must stay in sync with AUTOBRR__BASE_URL.
+        API_URL="http://127.0.0.1:${toString cfg.port}/autobrr/api"
         DB="$DATA_DIR/autobrr.db"
 
         # --- Step 1: ensure API key exists in the database ---
@@ -191,7 +194,7 @@ let
         {"name": "Sonarr", "type": "SONARR", "enabled": true, "client_id": $SONARR_ID}
       ]
     }
-    SONARR_FILTER_EOF
+SONARR_FILTER_EOF
             )
             ${pkgs.curl}/bin/curl -sf -X POST \
               -H "$AUTHHeader" \
@@ -215,7 +218,7 @@ let
       "include_unmonitored": false,
       "include_alternate_titles": true
     }
-    SONARR_LIST_EOF
+SONARR_LIST_EOF
             )
             ${pkgs.curl}/bin/curl -sf -X POST \
               -H "$AUTHHeader" \
@@ -242,7 +245,7 @@ let
         {"name": "Radarr", "type": "RADARR", "enabled": true, "client_id": $RADARR_ID}
       ]
     }
-    RADARR_FILTER_EOF
+RADARR_FILTER_EOF
             )
             ${pkgs.curl}/bin/curl -sf -X POST \
               -H "$AUTHHeader" \
@@ -266,7 +269,7 @@ let
       "include_unmonitored": false,
       "include_alternate_titles": true
     }
-    RADARR_LIST_EOF
+RADARR_LIST_EOF
             )
             ${pkgs.curl}/bin/curl -sf -X POST \
               -H "$AUTHHeader" \
@@ -293,7 +296,7 @@ let
         {"name": "Lidarr", "type": "LIDARR", "enabled": true, "client_id": $LIDARR_ID}
       ]
     }
-    LIDARR_FILTER_EOF
+LIDARR_FILTER_EOF
             )
             ${pkgs.curl}/bin/curl -sf -X POST \
               -H "$AUTHHeader" \
@@ -316,7 +319,7 @@ let
       "match_release": false,
       "include_unmonitored": false
     }
-    LIDARR_LIST_EOF
+LIDARR_LIST_EOF
             )
             ${pkgs.curl}/bin/curl -sf -X POST \
               -H "$AUTHHeader" \
@@ -353,7 +356,7 @@ let
       "host": "http://127.0.0.1:6789",
       "token": "$GOTIFY_TOKEN"
     }
-    GOTIFY_EOF
+GOTIFY_EOF
             )
             ${pkgs.curl}/bin/curl -sf -X POST \
               -H "$AUTHHeader" \
