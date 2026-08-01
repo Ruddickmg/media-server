@@ -151,7 +151,29 @@ let
             # \*arr and anything not monitored is ignored. Filters are created
             # first because a list requires at least one linked filter; the list
             # creation then triggers the first title sync.
+            #
+            # The autobrr API only persists a filter's indexers and actions via
+            # PUT /filters/{id}; POST /filters stores just the bare filter row.
+            # Filters are therefore created bare with POST and the full payload
+            # (indexers + actions) is reconciled with PUT on every boot.
             ARRS_CLIENTS=$(${pkgs.curl}/bin/curl -sf -H "$AUTHHeader" "$API_URL/download_clients" 2>/dev/null || true)
+            # A filter's "indexers" field must list every enabled indexer to act
+            # as the UI's "All" selection; an empty array links the filter to NO
+            # indexer (IRC matching INNER JOINs filter_indexer, so zero rows mean
+            # the filter never fires). Retry briefly in case autobrr is still
+            # registering the IRC-backed indexers on first boot.
+            ARRS_INDEXERS='[]'
+            for _ in 1 2 3 4 5; do
+              ARRS_INDEXERS=$(${pkgs.curl}/bin/curl -sf -H "$AUTHHeader" "$API_URL/indexers" 2>/dev/null \
+                | ${pkgs.jq}/bin/jq -c '[.[] | select(.enabled == true) | {id, name}]' 2>/dev/null || true)
+              if [ -z "$ARRS_INDEXERS" ]; then
+                ARRS_INDEXERS='[]'
+              fi
+              if [ "$ARRS_INDEXERS" != "[]" ]; then
+                break
+              fi
+              sleep 5
+            done
             get_client_id() {
               printf '%s' "$ARRS_CLIENTS" \
                 | ${pkgs.jq}/bin/jq -r ".[] | select(.name == \"$1\") | .id" 2>/dev/null || true
@@ -182,6 +204,14 @@ let
               SONARR_FILTER_ID=$(get_filter_id "Sonarr")
               if [ -z "$SONARR_FILTER_ID" ]; then
                 echo "autobrr-setup: creating Sonarr filter..."
+                ${pkgs.curl}/bin/curl -sf -X POST \
+                  -H "$AUTHHeader" \
+                  -H "Content-Type: application/json" \
+                  "$API_URL/filters" \
+                  -d '{"name":"Sonarr","enabled":true}' >/dev/null 2>&1 || true
+                SONARR_FILTER_ID=$(get_filter_id "Sonarr")
+              fi
+              if [ -n "$SONARR_FILTER_ID" ] && [ "$ARRS_INDEXERS" != "[]" ]; then
                 # The filter table defines resolutions/codecs/sources/containers
                 # as NOT NULL TEXT[] columns. Empty arrays make the API insert
                 # '{}' (satisfying NOT NULL) — empty means "match any", which
@@ -193,7 +223,7 @@ let
           "priority": 1000,
           "min_size": "25MB",
           "max_size": "1TB",
-          "indexers": [],
+          "indexers": $ARRS_INDEXERS,
           "resolutions": [],
           "codecs": [],
           "sources": [],
@@ -204,13 +234,13 @@ let
         }
     SONARR_FILTER_EOF
                 )
-                ${pkgs.curl}/bin/curl -sf -X POST \
+                ${pkgs.curl}/bin/curl -sf -X PUT \
                   -H "$AUTHHeader" \
                   -H "Content-Type: application/json" \
-                  "$API_URL/filters" \
-                  -d "$SONARR_PAYLOAD" >/dev/null 2>&1 || true
-                SONARR_FILTER_ID=$(get_filter_id "Sonarr")
-                echo "autobrr-setup: Sonarr filter id=$SONARR_FILTER_ID"
+                  "$API_URL/filters/$SONARR_FILTER_ID" \
+                  -d "$SONARR_PAYLOAD" >/dev/null 2>&1 \
+                  && echo "autobrr-setup: reconciled Sonarr filter id=$SONARR_FILTER_ID" \
+                  || echo "autobrr-setup: failed to reconcile Sonarr filter (non-fatal, retried next boot)"
               fi
 
               if [ -n "$SONARR_FILTER_ID" ] && ! resource_exists "lists" "Sonarr"; then
@@ -246,6 +276,14 @@ let
               RADARR_FILTER_ID=$(get_filter_id "Radarr")
               if [ -z "$RADARR_FILTER_ID" ]; then
                 echo "autobrr-setup: creating Radarr filter..."
+                ${pkgs.curl}/bin/curl -sf -X POST \
+                  -H "$AUTHHeader" \
+                  -H "Content-Type: application/json" \
+                  "$API_URL/filters" \
+                  -d '{"name":"Radarr","enabled":true}' >/dev/null 2>&1 || true
+                RADARR_FILTER_ID=$(get_filter_id "Radarr")
+              fi
+              if [ -n "$RADARR_FILTER_ID" ] && [ "$ARRS_INDEXERS" != "[]" ]; then
                 RADARR_PAYLOAD=$(cat <<RADARR_FILTER_EOF
         {
           "name": "Radarr",
@@ -253,7 +291,7 @@ let
           "priority": 1001,
           "min_size": "25MB",
           "max_size": "1TB",
-          "indexers": [],
+          "indexers": $ARRS_INDEXERS,
           "resolutions": [],
           "codecs": [],
           "sources": [],
@@ -264,13 +302,13 @@ let
         }
     RADARR_FILTER_EOF
                 )
-                ${pkgs.curl}/bin/curl -sf -X POST \
+                ${pkgs.curl}/bin/curl -sf -X PUT \
                   -H "$AUTHHeader" \
                   -H "Content-Type: application/json" \
-                  "$API_URL/filters" \
-                  -d "$RADARR_PAYLOAD" >/dev/null 2>&1 || true
-                RADARR_FILTER_ID=$(get_filter_id "Radarr")
-                echo "autobrr-setup: Radarr filter id=$RADARR_FILTER_ID"
+                  "$API_URL/filters/$RADARR_FILTER_ID" \
+                  -d "$RADARR_PAYLOAD" >/dev/null 2>&1 \
+                  && echo "autobrr-setup: reconciled Radarr filter id=$RADARR_FILTER_ID" \
+                  || echo "autobrr-setup: failed to reconcile Radarr filter (non-fatal, retried next boot)"
               fi
 
               if [ -n "$RADARR_FILTER_ID" ] && ! resource_exists "lists" "Radarr"; then
@@ -304,6 +342,14 @@ let
               LIDARR_FILTER_ID=$(get_filter_id "Lidarr")
               if [ -z "$LIDARR_FILTER_ID" ]; then
                 echo "autobrr-setup: creating Lidarr filter..."
+                ${pkgs.curl}/bin/curl -sf -X POST \
+                  -H "$AUTHHeader" \
+                  -H "Content-Type: application/json" \
+                  "$API_URL/filters" \
+                  -d '{"name":"Lidarr","enabled":true}' >/dev/null 2>&1 || true
+                LIDARR_FILTER_ID=$(get_filter_id "Lidarr")
+              fi
+              if [ -n "$LIDARR_FILTER_ID" ] && [ "$ARRS_INDEXERS" != "[]" ]; then
                 LIDARR_PAYLOAD=$(cat <<LIDARR_FILTER_EOF
         {
           "name": "Lidarr",
@@ -311,7 +357,7 @@ let
           "priority": 1002,
           "min_size": "25MB",
           "max_size": "1TB",
-          "indexers": [],
+          "indexers": $ARRS_INDEXERS,
           "resolutions": [],
           "codecs": [],
           "sources": [],
@@ -322,13 +368,13 @@ let
         }
     LIDARR_FILTER_EOF
                 )
-                ${pkgs.curl}/bin/curl -sf -X POST \
+                ${pkgs.curl}/bin/curl -sf -X PUT \
                   -H "$AUTHHeader" \
                   -H "Content-Type: application/json" \
-                  "$API_URL/filters" \
-                  -d "$LIDARR_PAYLOAD" >/dev/null 2>&1 || true
-                LIDARR_FILTER_ID=$(get_filter_id "Lidarr")
-                echo "autobrr-setup: Lidarr filter id=$LIDARR_FILTER_ID"
+                  "$API_URL/filters/$LIDARR_FILTER_ID" \
+                  -d "$LIDARR_PAYLOAD" >/dev/null 2>&1 \
+                  && echo "autobrr-setup: reconciled Lidarr filter id=$LIDARR_FILTER_ID" \
+                  || echo "autobrr-setup: failed to reconcile Lidarr filter (non-fatal, retried next boot)"
               fi
 
               if [ -n "$LIDARR_FILTER_ID" ] && ! resource_exists "lists" "Lidarr"; then
