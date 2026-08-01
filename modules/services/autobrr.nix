@@ -215,12 +215,17 @@ let
 
               if [ -n "$SONARR_FILTER_ID" ] && ! resource_exists "lists" "Sonarr"; then
                 echo "autobrr-setup: creating Sonarr list..."
+                # The list table defines headers/tags_included/tags_excluded as
+                # NOT NULL TEXT[] columns, same as the filter arrays above.
                 SONARR_LIST_PAYLOAD=$(cat <<SONARR_LIST_EOF
         {
           "name": "Sonarr",
           "type": "SONARR",
           "enabled": true,
           "client_id": $SONARR_ID,
+          "headers": [],
+          "tags_included": [],
+          "tags_excluded": [],
           "filters": [{"id": $SONARR_FILTER_ID, "name": "Sonarr"}],
           "match_release": false,
           "include_unmonitored": false,
@@ -276,6 +281,9 @@ let
           "type": "RADARR",
           "enabled": true,
           "client_id": $RADARR_ID,
+          "headers": [],
+          "tags_included": [],
+          "tags_excluded": [],
           "filters": [{"id": $RADARR_FILTER_ID, "name": "Radarr"}],
           "match_release": false,
           "include_unmonitored": false,
@@ -331,6 +339,9 @@ let
           "type": "LIDARR",
           "enabled": true,
           "client_id": $LIDARR_ID,
+          "headers": [],
+          "tags_included": [],
+          "tags_excluded": [],
           "filters": [{"id": $LIDARR_FILTER_ID, "name": "Lidarr"}],
           "match_release": false,
           "include_unmonitored": false
