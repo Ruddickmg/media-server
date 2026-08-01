@@ -85,9 +85,13 @@ in
         # RSS polling is cross-seed's new-release discovery path (autobrr no
         # longer feeds announces). Minimum cadence is 10 minutes.
         rssCadence = "10 minutes";
-        searchCadence = "30 days";
+        # cross-seed validates: searchCadence >= 1 day, excludeRecentSearch >=
+        # 3x searchCadence, excludeOlder between 2x and 5x excludeRecentSearch.
+        # Docs: don't raise searchCadence above 1 day (bunches up searches,
+        # hurts searchLimit) — control frequency via excludeOlder/excludeRecentSearch.
+        searchCadence = "1 day";
         excludeOlder = "2 weeks";
-        excludeRecentSearch = "14 days";
+        excludeRecentSearch = "3 days";
         skipRecheck = false;
         autoResumeMaxDownload = 0;
         includeSingleEpisodes = false;

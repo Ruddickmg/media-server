@@ -34,7 +34,12 @@ Do not commit, push, or create PRs. The user handles version control manually. M
 
 ## Remote Server
 
-The target server is remote. This machine is a development workstation. Nix config changes are edited here, pushed to git, and applied on the remote via `nixos-rebuild switch`. Do not attempt to run system commands (systemctl, journalctl, ss, etc.) to check service state — those won't reflect the remote server.
+The target server is remote. This machine is a development workstation. Nix config changes are edited here, pushed to git, and applied on the remote via `nixos-rebuild switch`.
+
+This workstation is NOT the remote server:
+- Do NOT run system commands (systemctl, journalctl, ss, ps, etc.) to check service state — those won't reflect the remote.
+- Do NOT attempt a full-flake build or eval locally — `hosts/media-server/hardware-configuration.nix` is intentionally absent, so the system closure cannot be built here. Only isolated module checks (e.g. `nix-instantiate --parse`, rendering a module with a stub config) are possible.
+- Diagnose remote runtime issues only from logs the user pastes. Verification of fixes happens only after the user pushes and runs `nixos-rebuild switch` on the remote.
 
 ## Hardware Configuration
 
