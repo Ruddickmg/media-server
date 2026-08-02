@@ -283,6 +283,32 @@ in
       })
     ];
 
+    # Label plugin labels. *arr apps only create labels when the download client
+    # is saved/tested (label.add); at grab time they only call label.set_torrent,
+    # which throws "Unknown Label" if the label is missing. Declare them so grabs
+    # can't silently fail again — they were lost once in the config-dir reset
+    # incidents. "f" creates the file only if absent, preserving torrent->label
+    # mappings and manual labels. Runs after nixpkgs' "10-deluged" config-dir
+    # rule (lexicographic order).
+    systemd.tmpfiles.settings."90-deluge-labels" = {
+      "${config.services.deluge.dataDir}/.config/deluge/label.conf".f = {
+        mode = "0644";
+        user = "deluge";
+        group = "deluge";
+        argument = builtins.toJSON {
+          file = 1;
+          format = 1;
+          torrent_labels = { };
+          labels = {
+            radarr = { };
+            tv-sonarr = { };
+            lidarr = { };
+            cross-seed = { };
+          };
+        };
+      };
+    };
+
     systemd.sockets.proxy-deluge = mkIf useVpn {
       description = "Socket for proxy to Deluge daemon in VPN namespace";
       listenStreams = [ "58846" ];
