@@ -264,7 +264,14 @@ local function ensure_filter_id(autobrr, name)
     if f then return f.id end
   end
   print(("autobrr-setup: creating %s filter..."):format(name))
-  autobrr:post("/filters", { name = name, enabled = true })
+  autobrr:post("/filters", {
+    name = name,
+    enabled = true,
+    resolutions = empty(),
+    codecs = empty(),
+    sources = empty(),
+    containers = empty(),
+  })
   local after = autobrr:get("/filters")
   local f = after and find_by_name(after, name)
   return f and f.id
@@ -287,6 +294,10 @@ local function reconcile_filter(autobrr, name, priority, categories, indexers, a
     min_size = "25MB",
     max_size = "1TB",
     indexers = indexers,
+    resolutions = empty(),
+    codecs = empty(),
+    sources = empty(),
+    containers = empty(),
     actions = actions,
   }
   if categories then
@@ -305,6 +316,9 @@ local function ensure_list(autobrr, arr)
     type = arr.type,
     enabled = true,
     client_id = arr.client_id,
+    headers = empty(),
+    tags_included = empty(),
+    tags_excluded = empty(),
     filters = { { id = arr.filter_id, name = arr.name } },
     match_release = false,
     include_unmonitored = false,
