@@ -102,7 +102,7 @@ in
           "MP3*"
         ];
       };
-      description = "Category patterns (substring/wildcard, case-insensitive, OR within the list) used by the low-priority fallback filters. When a release's title matches no list-backed title filter, its announce category routes it to the matching *arr (e.g. TV* -> Sonarr). An empty list skips that *arr's fallback filter.";
+      description = "Category patterns (substring/wildcard, case-insensitive, OR within the list) used as the announce-category gate for the per-*arr filters. Sonarr and Lidarr are plain category filters (every matching announce is pushed and the arr decides); Radarr is list-gated and does not use this option (its entry is unused). An empty list skips that *arr's category routing.";
     };
   };
 

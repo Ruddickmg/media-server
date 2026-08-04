@@ -6,12 +6,13 @@
 --   1. ensure the autobrr API key row exists in the sqlite database
 --   2. wait for the autobrr API to be ready
 --   3. create *arr -> autobrr Webhook notifications (list-trigger on media
---      add/delete) so arr lists refresh within seconds
+--      add/delete) only for arrs that use a list (currently Radarr), so the
+--      list refreshes within seconds
 --   4. create autobrr download clients for each *arr if missing
---   5. create/reconcile per-*arr title filters (priority 1000-1002) linked to
---      autobrr lists with match_release=true (substring title matching)
---   6. create/reconcile low-priority fallback filters: category routing
---      (800-802) and a catch-all (500) that offers to every *arr
+--   5. create/reconcile per-*arr filters (priority 1000-1002): Radarr is
+--      gated by its list (shows matching); Sonarr/Lidarr are plain category
+--      filters that route by announce category and let the arr decide
+--   6. remove stale lists and filters from earlier architectures
 --   7. refresh the lists, then create the Gotify notification agent
 --
 -- Dependencies (nixpkgs): lua5_3, lua53Packages.{cjson,luasocket,luasql-sqlite3}
@@ -34,8 +35,20 @@ local CONFIG = {
   api_key_file = "/var/lib/autobrr/apiKey",
   gotify_token_file = "/etc/nixos/secrets/gotify-token",
   gotify_host = "http://127.0.0.1:6789",
-  catch_all_priority = 500,
-  stale_filters = { "cross-seed", "arrs" },
+  -- Filters/lists from earlier architectures that get deleted on boot. Sonarr
+  -- and Lidarr lists are gone because their title matching is unreliable;
+  -- Radarr is the only list-gated arr (movies have stable titles). The
+  -- category filters ("* Fallback", catch-all) were superseded by per-arr
+  -- filters that route by announce category.
+  stale_filters = {
+    "cross-seed",
+    "arrs",
+    "Sonarr Fallback",
+    "Radarr Fallback",
+    "Lidarr Fallback",
+    "arrs Catch-all",
+  },
+  stale_lists = { "Sonarr", "Lidarr" },
   arrs = {
     {
       name = "Sonarr",
@@ -44,7 +57,8 @@ local CONFIG = {
       host = "http://127.0.0.1:8989/sonarr",
       api_key = os.getenv("SONARR_API_KEY") or "SONARR_API_KEY",
       filter_priority = 1000,
-      fallback_priority = 800,
+      -- Category gate: every TV* announce goes to Sonarr, which decides.
+      use_list = false,
       fallback_categories = { "TV*" },
       events = { onSeriesAdd = true, onSeriesDelete = true },
     },
@@ -55,8 +69,9 @@ local CONFIG = {
       host = "http://127.0.0.1:7878/radarr",
       api_key = os.getenv("RADARR_API_KEY") or "RADARR_API_KEY",
       filter_priority = 1001,
-      fallback_priority = 801,
-      fallback_categories = { "Movie*" },
+      -- List-gated: only releases matching a monitored movie title are pushed.
+      use_list = true,
+      fallback_categories = {},
       events = { onMovieAdded = true, onMovieDelete = true },
     },
     {
@@ -66,7 +81,8 @@ local CONFIG = {
       host = "http://127.0.0.1:8686/lidarr",
       api_key = os.getenv("LIDARR_API_KEY") or "LIDARR_API_KEY",
       filter_priority = 1002,
-      fallback_priority = 802,
+      -- Category gate: every music announce goes to Lidarr, which decides.
+      use_list = false,
       fallback_categories = { "Audio*", "Music*", "FLAC*", "MP3*" },
       events = { onArtistAdd = true, onArtistDelete = true },
     },
@@ -125,6 +141,7 @@ end
 function Autobrr:get(path) return self:request("GET", path) end
 function Autobrr:post(path, payload) return self:request("POST", path, payload) end
 function Autobrr:put(path, payload) return self:request("PUT", path, payload) end
+function Autobrr:patch(path, payload) return self:request("PATCH", path, payload) end
 function Autobrr:delete(path) return self:request("DELETE", path) end
 
 function Autobrr:is_ready()
@@ -277,17 +294,23 @@ local function ensure_filter_id(autobrr, name)
   return f and f.id
 end
 
--- The autobrr API only persists a filter's indexers/actions via PUT; POST
--- stores just the bare row. Reconcile therefore creates bare, then PUTs the
--- full payload on every boot.
-local function reconcile_filter(autobrr, name, priority, categories, indexers, actions)
+-- The autobrr API only persists a filter's indexers/actions/lists via PUT or
+-- PATCH; POST stores just the bare row. Reconcile therefore creates bare, then
+-- PATCHes the full payload on every boot. PATCH (updatePartial) only touches
+-- the fields present in the body, so list-managed fields like `shows` (which
+-- the title list writes) are not clobbered — a PUT here would wipe them on
+-- every boot until the list refresh repopulated them.
+--
+-- clear_list_fields is set for filters that are no longer list-gated: it
+-- explicitly zeroes the list-managed `shows`/`albums`/`artists`, otherwise a
+-- stale list's frozen titles would keep gating the filter forever.
+local function reconcile_filter(autobrr, name, priority, categories, indexers, actions, clear_list_fields)
   local id = ensure_filter_id(autobrr, name)
   if not id then
     print(("autobrr-setup: failed to create %s filter"):format(name))
     return
   end
   local payload = {
-    id = id,
     name = name,
     enabled = true,
     priority = priority,
@@ -303,7 +326,12 @@ local function reconcile_filter(autobrr, name, priority, categories, indexers, a
   if categories then
     payload.match_categories = table.concat(categories, ",")
   end
-  local ok, err = autobrr:put(("/filters/%d"):format(id), payload)
+  if clear_list_fields then
+    payload.shows = ""
+    payload.albums = ""
+    payload.artists = ""
+  end
+  local ok, err = autobrr:patch(("/filters/%d"):format(id), payload)
   print(ok and ("autobrr-setup: reconciled %s filter id=%d"):format(name, id)
     or ("autobrr-setup: failed to reconcile %s filter (%s), retried next boot"):format(name, err))
 end
@@ -350,6 +378,21 @@ local function remove_stale_filters(autobrr)
       local ok, err = autobrr:delete(("/filters/%d"):format(f.id))
       print(ok and ("autobrr-setup: removed superseded '%s' filter"):format(stale)
         or ("autobrr-setup: failed to remove superseded '%s' filter (%s)"):format(stale, err))
+    end
+  end
+end
+
+-- Stale lists must be deleted, not just left orphaned: an orphaned list keeps
+-- refreshing and re-writing `shows` into the filter it still references, which
+-- would re-gate a filter that is now meant to be a plain category filter.
+local function remove_stale_lists(autobrr)
+  for _, stale in ipairs(CONFIG.stale_lists) do
+    local lists = autobrr:get("/lists")
+    local l = lists and find_by_name(lists, stale)
+    if l and l.id > 0 then
+      local ok, err = autobrr:delete(("/lists/%d"):format(l.id))
+      print(ok and ("autobrr-setup: removed superseded '%s' list"):format(stale)
+        or ("autobrr-setup: failed to remove superseded '%s' list (%s)"):format(stale, err))
     end
   end
 end
@@ -408,7 +451,9 @@ local function main()
   for _ = 1, 6 do
     local all = true
     for _, arr in ipairs(CONFIG.arrs) do
-      all = ensure_webhook(arr, webhook_url, api_key) and all
+      if arr.use_list then
+        all = ensure_webhook(arr, webhook_url, api_key) and all
+      end
     end
     if all then break end
     socket.sleep(5)
@@ -424,13 +469,17 @@ local function main()
     local data = autobrr:get("/indexers")
     if data then
       for _, ix in ipairs(data) do
-        if ix.enabled then
-          indexers[#indexers + 1] = { id = ix.id, name = ix.name }
-        end
+        indexers[#indexers + 1] = { id = ix.id, name = ix.name }
       end
     end
     if #indexers > 0 then break end
     socket.sleep(5)
+  end
+
+  if #indexers > 0 then
+    local names = {}
+    for _, ix in ipairs(indexers) do names[#names + 1] = ix.name end
+    print(("autobrr-setup: attaching %d indexers to filters: %s"):format(#indexers, table.concat(names, ", ")))
   end
 
   local clients = autobrr:get("/download_clients")
@@ -448,7 +497,11 @@ local function main()
   if not all_clients then
     print("autobrr-setup: download clients not found, skipping *arr filters")
   else
+    if #indexers == 0 then
+      print("autobrr-setup: no indexers from /indexers; skipping filter reconciliation to protect existing filter connections")
+    else
     remove_stale_filters(autobrr)
+    remove_stale_lists(autobrr)
 
     for _, arr in ipairs(CONFIG.arrs) do
       local filter_id = ensure_filter_id(autobrr, arr.name)
@@ -456,30 +509,27 @@ local function main()
         arr.filter_id = filter_id
         arr.client_id = ids[arr.name]
         local action = { { name = arr.name, type = arr.type, enabled = true, client_id = ids[arr.name] } }
-        reconcile_filter(autobrr, arr.name, arr.filter_priority, nil, indexers, action)
-        ensure_list(autobrr, arr)
+        local categories = nil
+        if not arr.use_list then
+          categories = arr.fallback_categories
+        end
+        reconcile_filter(autobrr, arr.name, arr.filter_priority, categories, indexers, action, not arr.use_list)
+        if arr.use_list then
+          ensure_list(autobrr, arr)
+        end
       end
     end
 
-    local catch_all_actions = {}
+    local use_lists = false
     for _, arr in ipairs(CONFIG.arrs) do
-      catch_all_actions[#catch_all_actions + 1] = {
-        name = arr.name, type = arr.type, enabled = true, client_id = ids[arr.name],
-      }
+      if arr.use_list then use_lists = true end
     end
-
-    for _, arr in ipairs(CONFIG.arrs) do
-      if #arr.fallback_categories > 0 then
-        local action = { { name = arr.name, type = arr.type, enabled = true, client_id = ids[arr.name] } }
-        reconcile_filter(autobrr, arr.name .. " Fallback", arr.fallback_priority, arr.fallback_categories, indexers, action)
-      end
-    end
-
-    reconcile_filter(autobrr, "arrs Catch-all", CONFIG.catch_all_priority, nil, indexers, catch_all_actions)
-
-    local ok, err = autobrr:post("/lists/refresh")
-    print(ok and "autobrr-setup: refreshed lists"
+    if use_lists then
+      local ok, err = autobrr:post("/lists/refresh")
+      print(ok and "autobrr-setup: refreshed lists"
       or ("autobrr-setup: list refresh failed (%s) (non-fatal)"):format(err))
+    end
+    end
   end
 
   ensure_gotify(autobrr, read_file(CONFIG.gotify_token_file))
