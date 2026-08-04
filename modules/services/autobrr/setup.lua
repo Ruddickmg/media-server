@@ -287,10 +287,6 @@ local function reconcile_filter(autobrr, name, priority, categories, indexers, a
     min_size = "25MB",
     max_size = "1TB",
     indexers = indexers,
-    resolutions = empty(),
-    codecs = empty(),
-    sources = empty(),
-    containers = empty(),
     actions = actions,
   }
   if categories then
@@ -309,19 +305,21 @@ local function ensure_list(autobrr, arr)
     type = arr.type,
     enabled = true,
     client_id = arr.client_id,
-    headers = empty(),
-    tags_included = empty(),
-    tags_excluded = empty(),
     filters = { { id = arr.filter_id, name = arr.name } },
-    match_release = true,
+    match_release = false,
     include_unmonitored = false,
     include_alternate_titles = true,
   }
   if existing then
-    print(("autobrr-setup: reconciling %s list..."):format(arr.name))
-    local ok, err = autobrr:put(("/lists/%d"):format(existing.id), payload)
-    print(ok and ("autobrr-setup: reconciled %s list"):format(arr.name)
-      or ("autobrr-setup: failed to reconcile %s list (%s), retried on next boot"):format(arr.name, err))
+    if existing.id > 0 then
+      payload.id = existing.id
+      print(("autobrr-setup: reconciling %s list..."):format(arr.name))
+      local ok, err = autobrr:put(("/lists/%d"):format(existing.id), payload)
+      print(ok and ("autobrr-setup: reconciled %s list"):format(arr.name)
+        or ("autobrr-setup: failed to reconcile %s list (%s), retried on next boot"):format(arr.name, err))
+    else
+      print(("autobrr-setup: %s list exists but has no id, skipping"):format(arr.name))
+    end
   else
     print(("autobrr-setup: creating %s list..."):format(arr.name))
     local ok, err = autobrr:post("/lists", payload)
