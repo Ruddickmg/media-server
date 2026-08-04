@@ -529,6 +529,7 @@ local function main()
       print(ok and "autobrr-setup: refreshed lists"
       or ("autobrr-setup: list refresh failed (%s) (non-fatal)"):format(err))
     end
+    end
   end
 
   ensure_gotify(autobrr, read_file(CONFIG.gotify_token_file))
