@@ -12,36 +12,42 @@ let
   autobrrApiKeyFile = pkgs.writeText "autobrr-api-key" apiKeys.autobrr;
 
   # Lua runtime for the setup script, with the modules it requires.
-  luaRuntime = pkgs.lua5_3.withPackages (ps: [ ps.cjson ps.luasocket ps.luasql-sqlite3 ]);
+  luaRuntime = pkgs.lua5_3.withPackages (ps: [
+    ps.cjson
+    ps.luasocket
+    ps.luasql-sqlite3
+  ]);
 
   # Runtime values that only exist at eval time, injected as JSON overrides
   # (see load_config in setup.lua). The API key file may not exist yet on a
   # fresh boot, so the writeText fallback (always present in the store) backs
   # it up — same cat-A-||-cat-B logic the bash script used.
-  setupConfig = pkgs.writeText "autobrr-setup.json" (builtins.toJSON {
-    autobrr_base = "http://127.0.0.1:${toString cfg.port}/autobrr/api";
-    autobrr_db = "${cfg.dataDir}/autobrr.db";
-    api_key_file = cfg.apiKeyFile;
-    api_key_file_fallback = autobrrApiKeyFile;
-    gotify_token_file = cfg.gotifyTokenFile;
-    arrs = [
-      {
-        name = "Sonarr";
-        api_key = apiKeys.sonarr;
-        fallback_categories = cfg.fallbackCategories.sonarr;
-      }
-      {
-        name = "Radarr";
-        api_key = apiKeys.radarr;
-        fallback_categories = cfg.fallbackCategories.radarr;
-      }
-      {
-        name = "Lidarr";
-        api_key = apiKeys.lidarr;
-        fallback_categories = cfg.fallbackCategories.lidarr;
-      }
-    ];
-  });
+  setupConfig = pkgs.writeText "autobrr-setup.json" (
+    builtins.toJSON {
+      autobrr_base = "http://127.0.0.1:${toString cfg.port}/autobrr/api";
+      autobrr_db = "${cfg.dataDir}/autobrr.db";
+      api_key_file = cfg.apiKeyFile;
+      api_key_file_fallback = autobrrApiKeyFile;
+      gotify_token_file = cfg.gotifyTokenFile;
+      arrs = [
+        {
+          name = "Sonarr";
+          api_key = apiKeys.sonarr;
+          fallback_categories = cfg.fallbackCategories.sonarr;
+        }
+        {
+          name = "Radarr";
+          api_key = apiKeys.radarr;
+          fallback_categories = cfg.fallbackCategories.radarr;
+        }
+        {
+          name = "Lidarr";
+          api_key = apiKeys.lidarr;
+          fallback_categories = cfg.fallbackCategories.lidarr;
+        }
+      ];
+    }
+  );
 
   postStartScript = pkgs.writeShellScriptBin "autobrr-setup" ''
     exec ${luaRuntime}/bin/lua ${./setup.lua} ${setupConfig}
@@ -89,7 +95,12 @@ in
       default = {
         sonarr = [ "TV*" ];
         radarr = [ "Movie*" ];
-        lidarr = [ "Audio*" "Music*" "FLAC*" "MP3*" ];
+        lidarr = [
+          "Audio*"
+          "Music*"
+          "FLAC*"
+          "MP3*"
+        ];
       };
       description = "Category patterns (substring/wildcard, case-insensitive, OR within the list) used by the low-priority fallback filters. When a release's title matches no list-backed title filter, its announce category routes it to the matching *arr (e.g. TV* -> Sonarr). An empty list skips that *arr's fallback filter.";
     };
