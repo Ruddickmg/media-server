@@ -286,7 +286,6 @@ local function reconcile_filter(autobrr, name, priority, categories, indexers, a
     print(("autobrr-setup: failed to create %s filter"):format(name))
     return
   end
-  if #indexers == 0 then return end
   local payload = {
     name = name,
     enabled = true,
