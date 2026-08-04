@@ -81,7 +81,7 @@ in
         radarr = [ "http://127.0.0.1:7878/radarr?apikey=${apiKeys.radarr}" ];
         linkType = "hardlink";
         duplicateCategories = true;
-        matchMode = "safe";
+        matchMode = "flexible";
         # RSS polling is cross-seed's new-release discovery path (autobrr no
         # longer feeds announces). Minimum cadence is 10 minutes.
         rssCadence = "10 minutes";

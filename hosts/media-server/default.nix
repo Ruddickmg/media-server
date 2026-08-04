@@ -22,7 +22,7 @@
     ../../modules/services/podman.nix
     ../../modules/services/profilarr.nix
     ../../modules/services/cross-seed.nix
-    ../../modules/services/autobrr.nix
+    ../../modules/services/autobrr
     ../../modules/declarr.nix
   ];
 
