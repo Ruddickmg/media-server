@@ -287,6 +287,7 @@ local function reconcile_filter(autobrr, name, priority, categories, indexers, a
     return
   end
   local payload = {
+    id = id,
     name = name,
     enabled = true,
     priority = priority,
