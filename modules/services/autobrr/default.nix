@@ -81,7 +81,7 @@ in
       description = "Open port in firewall for autobrr web UI";
     };
     apiKeyFile = mkOption {
-      type = types.path;
+      type = types.str;
       default = "/var/lib/autobrr/apiKey";
       description = "Path to file containing the autobrr API key";
     };

@@ -99,9 +99,9 @@ local function http_request(method, url, headers, body)
     return nil, ("%s %s"):format(code, status or "error")
   end
   local text = table.concat(sink)
-  if text == "" then return true end
+  if text == "" then return empty() end
   local ok, data = pcall(json.decode, text)
-  if not ok then return true end
+  if not ok then return nil, "invalid JSON response" end
   return data
 end
 
@@ -181,8 +181,8 @@ local function ensure_api_key_in_db(db, key)
   if not f then return end
   f:close()
   local env = luasql.sqlite3()
-  local con = assert(env:connect(db))
-  con:execute(("INSERT OR IGNORE INTO api_key (name, key, scopes) VALUES ('nixos', '%s', '{}');"):format(key))
+  local con = env:connect(db); if not con then env:close(); return end
+  pcall(con.execute, con, ("INSERT OR IGNORE INTO api_key (name, key, scopes) VALUES ('nixos', '%s', '{}');"):format((tostring(key):gsub("'", "''"))))
   con:close()
   env:close()
 end
