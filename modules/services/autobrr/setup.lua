@@ -127,6 +127,16 @@ function Autobrr:post(path, payload) return self:request("POST", path, payload) 
 function Autobrr:put(path, payload) return self:request("PUT", path, payload) end
 function Autobrr:delete(path) return self:request("DELETE", path) end
 
+function Autobrr:is_ready()
+  local _, code = http.request{
+    url = self.base .. "/healthz/readiness",
+    method = "GET",
+    headers = {},
+    sink = ltn12.sink.table({}),
+  }
+  return type(code) == "number" and code >= 200 and code < 300
+end
+
 -- --- helpers -------------------------------------------------------------
 
 local function read_file(path)
@@ -371,7 +381,7 @@ local function main()
   print("autobrr-setup: waiting for autobrr to be ready...")
   local ready = false
   for _ = 1, 30 do
-    if autobrr:get("/healthz/readiness") then
+    if autobrr:is_ready() then
       ready = true
       break
     end
