@@ -424,13 +424,17 @@ local function main()
     local data = autobrr:get("/indexers")
     if data then
       for _, ix in ipairs(data) do
-        if ix.enabled then
-          indexers[#indexers + 1] = { id = ix.id, name = ix.name }
-        end
+        indexers[#indexers + 1] = { id = ix.id, name = ix.name }
       end
     end
     if #indexers > 0 then break end
     socket.sleep(5)
+  end
+
+  if #indexers > 0 then
+    local names = {}
+    for _, ix in ipairs(indexers) do names[#names + 1] = ix.name end
+    print(("autobrr-setup: attaching %d indexers to filters: %s"):format(#indexers, table.concat(names, ", ")))
   end
 
   local clients = autobrr:get("/download_clients")
@@ -448,6 +452,9 @@ local function main()
   if not all_clients then
     print("autobrr-setup: download clients not found, skipping *arr filters")
   else
+    if #indexers == 0 then
+      print("autobrr-setup: no indexers from /indexers; skipping filter reconciliation to protect existing filter connections")
+    else
     remove_stale_filters(autobrr)
 
     for _, arr in ipairs(CONFIG.arrs) do
@@ -480,6 +487,7 @@ local function main()
     local ok, err = autobrr:post("/lists/refresh")
     print(ok and "autobrr-setup: refreshed lists"
       or ("autobrr-setup: list refresh failed (%s) (non-fatal)"):format(err))
+    end
   end
 
   ensure_gotify(autobrr, read_file(CONFIG.gotify_token_file))
