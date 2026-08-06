@@ -20,8 +20,9 @@ let
   # listens on 127.0.0.1:2468 in the root namespace. A filesystem UNIX socket
   # (visible across network namespaces) bridged by the cross-seed-webhook proxy
   # carries the request: curl -> /run/cross-seed/webhook.sock -> socket-proxyd
-  # -> 127.0.0.1:2468. The API key is declared in apiKeys.cross-seed and must be
-  # synced into cross-seed's DB once (see integration notes below).
+  # -> 127.0.0.1:2468. The API key is declared in apiKeys.cross-seed and reaches
+  # the daemon via settingsFile -> config.js, which cross-seed's auth prefers
+  # over its SQLite DB, so no DB sync is needed (see integration notes below).
   onCompleteScript = pkgs.writeShellScriptBin "cross-seed-on-complete" ''
     # Arguments from Deluge Execute plugin: $1 = infoHash, $2 = name, $3 = path
     if [ -n "$1" ]; then
@@ -49,13 +50,14 @@ in
 
   # Integration notes (post-deploy manual steps):
   #
-  # 1. One-time API key sync (existing installs only):
-  #    cross-seed stores its API key in its SQLite DB, which takes precedence
-  #    over config.js. The declared key only takes effect on a freshly
-  #    initialized data directory. On an existing install, sync the DB once:
-  #      sudo -u cross-seed CONFIG_DIR=/var/lib/cross-seed cross-seed api-key --api-key '<declared key>'
-  #    The declared key is derived deterministically from hostname+prefix
-  #    (see common.nix), so DB and config.js then agree permanently.
+  # 1. API key (no step needed):
+  #    The declared key (apiKeys.cross-seed, derived deterministically from
+  #    hostname+prefix — see common.nix) reaches webhook auth with no manual
+  #    sync. The nixpkgs module merges settingsFile into config.js, cross-seed
+  #    loads it as the daemon's runtime apiKey, and getApiKey() (src/auth.ts)
+  #    checks that key BEFORE its SQLite settings table, so the DB is never
+  #    consulted. (The old `cross-seed api-key --api-key <key>` guidance was
+  #    wrong: it does not write to the DB, and the DB is only a fallback.)
   #
   # 2. Deluge on-completion webhook:
   #    The Execute plugin is enabled and the "Torrent Complete" command is

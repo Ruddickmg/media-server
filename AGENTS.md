@@ -10,6 +10,8 @@ Contains only:
 - User-facing configuration options
 - Post-deploy steps (things a user must do after deploying)
 
+Omit automatic steps from the README.md: anything the system does on its own must not be documented as a user step. Only tell users what they need to do — never describe setup that happens automatically.
+
 ### Implementation-specific Details
 
 Belong as Nix comments alongside the code that configures them. Examples:
