@@ -160,6 +160,7 @@ in
           "Label"
           "Blocklist"
           "ltConfig"
+          "Execute"
         ];
         download_location = "/media/downloads/incomplete";
         move_completed = true;
@@ -270,6 +271,11 @@ in
           ReadWritePaths = [
             "/var/lib/deluge"
             "/media/downloads"
+            # Allow the Execute plugin's subprocess to connect to the cross-seed
+            # webhook UNIX socket. ProtectSystem=strict remounts /run read-only;
+            # the kernel rejects connect() to a socket on a read-only mount, so
+            # the socket dir must be a read-write bind mount here.
+            "/run/cross-seed"
           ];
         };
       }
@@ -305,6 +311,32 @@ in
             lidarr = { };
             cross-seed = { };
           };
+        };
+      };
+    };
+
+    # Execute plugin: pre-seed the "Torrent Complete" command so the cross-seed
+    # on-completion webhook works with no Web UI step. Config format matches the
+    # plugin's ConfigManager defaults (commands are [id, event, command]
+    # arrays; event is the string "complete"; args passed to the script are
+    # $1=infoHash $2=name $3=download_location). "f" creates the file only if
+    # absent, preserving commands added via the UI. Runs after nixpkgs'
+    # "10-deluged" config-dir rule (lexicographic order).
+    systemd.tmpfiles.settings."90-deluge-execute" = {
+      "${config.services.deluge.dataDir}/.config/deluge/execute.conf".f = {
+        mode = "0644";
+        user = "deluge";
+        group = "deluge";
+        argument = builtins.toJSON {
+          file = 1;
+          format = 1;
+          commands = [
+            [
+              "cross-seed-on-complete"
+              "complete"
+              "/run/current-system/sw/bin/cross-seed-on-complete"
+            ]
+          ];
         };
       };
     };
