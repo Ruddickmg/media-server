@@ -142,7 +142,6 @@ The automation pipeline (filters, download clients, lists) is created automatica
 
 1. Open `https://media-server.tailbac0df.ts.net/autobrr`
 2. Go to **Settings → Indexers → Add New Indexer** and add your trackers' IRC announce channels
-3. Verify the pre-created filters under **Filters** and lists under **Lists**
 
 ### Seeding and ratio management
 
@@ -172,8 +171,6 @@ For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers
 
 Seerr provides a clean UI for friends and family to request movies and TV shows, which flow through Sonarr and Radarr automatically.
 
-On first deploy, Seerr is pre-configured with Sonarr and Radarr connections.
-
 1. Open `https://media-server.tailbac0df.ts.net/seerr`
 2. Sign in with your **Plex account** (Seerr uses Plex for authentication)
 3. Configure user permissions and notification settings as desired
@@ -200,22 +197,9 @@ You can access the dashboard at `https://media-server.tailbac0df.ts.net:28090`.
 
 ### Gotify — push notifications
 
-Gotify receives alert notifications from systemd service failures (via `OnFailure` hooks), the NixOS auto-update script (build succeeded/failed), and Beszel (monitoring thresholds).
+Access the notification dashboard at `https://media-server.tailbac0df.ts.net:6789` (login: `admin` / `admin`).
 
-On first boot, the `gotify-provision` service automatically creates a **"Media Server"** app in Gotify and saves the token to `/etc/nixos/secrets/gotify-token`. No manual setup is required for notifications to work.
-
-**Manual access** (optional):
-
-1. Open `https://media-server.tailbac0df.ts.net:6789`
-2. Log in with the default credentials: `admin` / `admin`
-3. The **"Media Server"** app should already exist with a generated token
-
-**Notifications are enabled automatically for:**
-
-- **Systemd service failures** — any service with `OnFailure=notify-gotify@%i.service`
-- **Auto-update** — build succeeded/failed messages from `nixos-auto-update.service`
-- **Sonarr, Radarr, Lidarr, and Prowlarr** — picked up on the next declarr sync (or restart: `systemctl restart declarr`)
-- **Beszel** — configure manually in the Beszel web UI (Settings → Notifications) using the Shoutrrr format: `gotify://127.0.0.1:6789/<your-token>?priority=1`
+For Beszel monitoring alerts, configure a notification in the Beszel web UI (Settings → Notifications) with the Shoutrrr format `gotify://127.0.0.1:6789/<your-token>?priority=1`.
 
 ### Profilarr — quality profiles and custom formats
 
@@ -351,10 +335,6 @@ media-server = {
   deluge.vpnConfinement = true;
 };
 ```
-
-#### Port forwarding
-
-When `deluge.vpnConfinement` is enabled, Deluge runs inside the VPN namespace and its BitTorrent listen port is refreshed automatically from Proton's NAT-PMP every ~45 s. You do not need to configure the port manually. The thin client is unaffected — it still connects to the daemon RPC port (`58846`) through `proxy-deluge`.
 
 ## Auto-Updates
 

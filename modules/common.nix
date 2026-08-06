@@ -49,6 +49,11 @@ in
         default = key "autobrr";
         description = "API key for autobrr";
       };
+      cross-seed = lib.mkOption {
+        type = lib.types.str;
+        default = key "cross-seed";
+        description = "API key for cross-seed";
+      };
     };
 
     administrators = lib.mkOption {
