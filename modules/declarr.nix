@@ -274,20 +274,38 @@ in
         DECLARR_SECRET_FILE_GOTIFY_TOKEN = cfg.declarr.gotifyTokenFile;
       };
 
+      # declarr configures Deluge as a download client in the *arrs. Deluge's
+      # Web UI runs in the VPN netns; root-ns 127.0.0.1:8112 is served by the
+      # proxy-deluge-web socket proxy. Without this ordering declarr can race
+      # ahead of the proxy, Lidarr's download-client test gets connection
+      # refused (HTTP 400), and the 1s restart loop churns for the whole outage.
       after =
         optionals cfg.sonarr.enable [ "sonarr.service" ]
         ++ optionals cfg.radarr.enable [ "radarr.service" ]
         ++ optionals cfg.lidarr.enable [ "lidarr.service" ]
         ++ optionals cfg.prowlarr.enable [ "prowlarr.service" ]
-        ++ optionals cfg.deluge.enable [ "deluged.service" ]
+        ++ optionals cfg.deluge.enable [
+          "deluged.service"
+          "delugeweb.service"
+          "proxy-deluge-web.socket"
+          "proxy-deluge-web.service"
+        ]
         ++ [ "gotify-provision.service" ];
-      wants = [ "network.target" ];
+      wants = [
+        "network.target"
+        "delugeweb.service"
+        "proxy-deluge-web.socket"
+      ];
       unitConfig = {
         StartLimitBurst = 10;
         OnFailure = "notify-gotify@%n.service";
       };
       serviceConfig = {
-        RestartSec = "1s";
+        # Slow the self-heal loop: during a Deluge-stack outage each restart
+        # re-runs the full *arr sync. 10s cuts API churn while still recovering
+        # within 10s of Deluge returning. Notifications stay throttled by the
+        # notify-gotify@ backoff.
+        RestartSec = "10s";
         SupplementaryGroups = [ "gotify-readers" ];
         ProtectHome = true;
         PrivateTmp = true;
