@@ -20,9 +20,9 @@ let
   # listens on 127.0.0.1:2468 in the root namespace. A filesystem UNIX socket
   # (visible across network namespaces) bridged by the cross-seed-webhook proxy
   # carries the request: curl -> /run/cross-seed/webhook.sock -> socket-proxyd
-  # -> 127.0.0.1:2468. The API key is declared in apiKeys.cross-seed and reaches
-  # the daemon via settingsFile -> config.js, which cross-seed's auth prefers
-  # over its SQLite DB, so no DB sync is needed (see integration notes below).
+  # -> 127.0.0.1:2468. The API key (apiKeys.cross-seed) is embedded directly in
+  # config.js (see configJs below) and used for webhook auth; cross-seed's
+  # getApiKey() reads it before its SQLite settings table, so no DB sync.
   onCompleteScript = pkgs.writeShellScriptBin "cross-seed-on-complete" ''
     # Arguments from Deluge Execute plugin: $1 = infoHash, $2 = name, $3 = path
     if [ -n "$1" ]; then
@@ -31,6 +31,29 @@ let
         "http://cross-seed/api/webhook?apikey=${apiKeys.cross-seed}&infoHash=$1&includeSingleEpisodes=true" \
         >/dev/null 2>&1
     fi
+  '';
+
+  # Declared API key, embedded directly into config.js at build time. Deliberately
+  # NOT via the nixpkgs module's settingsFile/LoadCredential: that makes config.js
+  # read process.env.CREDENTIALS_DIRECTORY (systemd-only), which breaks `cross-seed`
+  # from a shell. The key is derived deterministically from hostname+prefix (see
+  # common.nix) and already appears in the store via onCompleteScript, so embedding
+  # it here is not a security regression.
+  configJs = pkgs.writeText "cross-seed-config.js" ''
+    module.exports = ${builtins.toJSON (config.services.cross-seed.settings // { apiKey = apiKeys.cross-seed; })};
+  '';
+
+  # PATH `cross-seed`: sets CONFIG_DIR/HOME so plain `cross-seed search` finds the
+  # data dir (cross-seed's appDir() is $CONFIG_DIR, else $HOME/.cross-seed), and
+  # umask 002 so files created by either the daemon or the CLI are group-writable
+  # in the 2770 cross-seed:media data dir (both are media-group members). It makes
+  # no privilege changes — it runs as whoever invokes it (media-server from a
+  # shell, cross-seed via systemd User=). The real binary is not on PATH, so it
+  # can't be run with a wrong config dir or umask.
+  crossSeedCli = pkgs.writeShellScriptBin "cross-seed" ''
+    umask 002
+    exec env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
+      ${pkgs.cross-seed}/bin/cross-seed "$@"
   '';
 
 in
@@ -52,12 +75,12 @@ in
   #
   # 1. API key (no step needed):
   #    The declared key (apiKeys.cross-seed, derived deterministically from
-  #    hostname+prefix — see common.nix) reaches webhook auth with no manual
-  #    sync. The nixpkgs module merges settingsFile into config.js, cross-seed
-  #    loads it as the daemon's runtime apiKey, and getApiKey() (src/auth.ts)
-  #    checks that key BEFORE its SQLite settings table, so the DB is never
-  #    consulted. (The old `cross-seed api-key --api-key <key>` guidance was
-  #    wrong: it does not write to the DB, and the DB is only a fallback.)
+  #    hostname+prefix — see common.nix) is embedded into config.js at build
+  #    time and serves both webhook and CLI auth. v6 getApiKey() (src/auth.ts)
+  #    reads the config.js apiKey before the SQLite settings table, so no DB
+  #    sync is needed. Embedding (instead of the module's settingsFile /
+  #    LoadCredential) keeps config.js free of systemd's CREDENTIALS_DIRECTORY
+  #    so `cross-seed` also works from a shell.
   #
   # 2. Deluge on-completion webhook:
   #    The Execute plugin is enabled and the "Torrent Complete" command is
@@ -70,12 +93,9 @@ in
     services.cross-seed = {
       enable = true;
       configDir = cfg.dataDir;
-      # Declared API key for the webhook. Must live in settingsFile (not
-      # settings) — the nixpkgs module asserts against apiKey in `settings` and
-      # loads settingsFile as a LoadCredential, merging it into config.js.
-      settingsFile = (pkgs.formats.json { }).generate "cross-seed-secrets.json" {
-        apiKey = apiKeys.cross-seed;
-      };
+      # PATH cross-seed is the env-setting launcher (see crossSeedCli); the
+      # daemon and CLI share it, so the config dir and umask are always right.
+      package = crossSeedCli;
       settings = {
         dataDirs = [
           "/media/downloads/completed"
@@ -114,6 +134,13 @@ in
       };
     };
 
+    # cross-seed user is a member of the media group, which owns the /media
+    # data and link dirs (2775 root:media), so both the daemon and the CLI
+    # launcher can read dataDirs and hardlink into linkDirs.
+    users.users.cross-seed = {
+      extraGroups = [ "media" ];
+    };
+
     systemd.services.cross-seed = {
       wants = [
         "deluged.service"
@@ -123,11 +150,24 @@ in
         "deluged.service"
         "prowlarr.service"
       ];
+      # The nixpkgs module sets StateDirectory="cross-seed", which makes systemd
+      # re-chown the data dir to cross-seed:cross-seed on every start — wiping the
+      # declared cross-seed:media group. Clear it; the tmpfiles d rule below owns
+      # creation and mode.
+      stateDirectory = lib.mkForce [ ];
       serviceConfig = {
         SupplementaryGroups = [
           "media"
         ];
       };
+      # Install config.js (settings + embedded apiKey) as cross-seed:media 0640 so
+      # the CLI (run as a media-group member) can read it. Replaces the nixpkgs
+      # module's preStart, which loaded the apiKey via LoadCredential and baked a
+      # systemd-only CREDENTIALS_DIRECTORY dependency into config.js that crashed
+      # `cross-seed` from a shell. Runs as the cross-seed service user (non-root).
+      preStart = lib.mkForce ''
+        install -D -m 0640 -o cross-seed -g media ${configJs} ${cfg.dataDir}/config.js
+      '';
     };
 
     # Webhook bridge: Deluge (VPN netns) -> UNIX socket -> cross-seed (root ns).
@@ -141,6 +181,21 @@ in
     # because ProtectSystem=strict remounts /run read-only and the kernel
     # rejects connect() to a socket on a read-only mount.
     systemd.tmpfiles.settings."10-cross-seed" = {
+      # cross-seed's data dir: setgid cross-seed:media 2770, mirroring the /media
+      # rules in common.nix — cross-seed owns it, and the media group (deluge,
+      # sonarr, radarr, unpackerr, the media-server login) can run the CLI. mkForce
+      # overrides the module's 0700 rule; Z recursively re-owns the legacy
+      # root-owned files (left by pre-module root CLI runs that broke the daemon's
+      # utime with EPERM) — declarative repair, no runtime chown.
+      "/var/lib/cross-seed".d = lib.mkForce {
+        mode = "2770";
+        user = "cross-seed";
+        group = "media";
+      };
+      "/var/lib/cross-seed".Z = {
+        user = "cross-seed";
+        group = "media";
+      };
       "/run/cross-seed".d = {
         mode = "0770";
         user = "root";
