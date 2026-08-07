@@ -169,7 +169,7 @@ in
       # systemd-only CREDENTIALS_DIRECTORY dependency into config.js that crashed
       # `cross-seed` from a shell. Runs as the cross-seed service user (non-root).
       preStart = lib.mkForce ''
-        install -D -m 0640 -o cross-seed -g media ${configJs} ${cfg.dataDir}/config.js
+        ${pkgs.coreutils}/bin/install -D -m 0640 -g media ${configJs} ${cfg.dataDir}/config.js
       '';
     };
 
@@ -190,15 +190,15 @@ in
       # overrides the module's 0700 rule; Z recursively re-owns the legacy
       # root-owned files (left by pre-module root CLI runs that broke the daemon's
       # utime with EPERM) — declarative repair, no runtime chown.
-"${cfg.dataDir}".d = lib.mkForce {
-  mode = "2770";
-  user = "cross-seed";
-  group = "media";
-};
-"${cfg.dataDir}".Z = {
-  user = "cross-seed";
-  group = "media";
-};
+      "${cfg.dataDir}".d = lib.mkForce {
+        mode = "2770";
+        user = "cross-seed";
+        group = "media";
+      };
+      "${cfg.dataDir}".Z = {
+        user = "cross-seed";
+        group = "media";
+      };
       "/run/cross-seed".d = {
         mode = "0770";
         user = "root";
