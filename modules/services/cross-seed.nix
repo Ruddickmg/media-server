@@ -40,7 +40,9 @@ let
   # common.nix) and already appears in the store via onCompleteScript, so embedding
   # it here is not a security regression.
   configJs = pkgs.writeText "cross-seed-config.js" ''
-    module.exports = ${builtins.toJSON (config.services.cross-seed.settings // { apiKey = apiKeys.cross-seed; })};
+    module.exports = ${
+      builtins.toJSON (config.services.cross-seed.settings // { apiKey = apiKeys.cross-seed; })
+    };
   '';
 
   # PATH `cross-seed`: sets CONFIG_DIR/HOME so plain `cross-seed search` finds the
@@ -150,15 +152,16 @@ in
         "deluged.service"
         "prowlarr.service"
       ];
-      # The nixpkgs module sets StateDirectory="cross-seed", which makes systemd
-      # re-chown the data dir to cross-seed:cross-seed on every start — wiping the
-      # declared cross-seed:media group. Clear it; the tmpfiles d rule below owns
-      # creation and mode.
-      stateDirectory = lib.mkForce [ ];
       serviceConfig = {
         SupplementaryGroups = [
           "media"
         ];
+        # Clear the module's StateDirectory="cross-seed", which makes systemd
+        # re-chown the data dir to cross-seed:cross-seed on every start — wiping
+        # the declared cross-seed:media group. This nixpkgs exposes StateDirectory
+        # only via the serviceConfig freeform (there is no `stateDirectory`
+        # option). The tmpfiles d rule below owns creation and mode.
+        StateDirectory = lib.mkForce [ ];
       };
       # Install config.js (settings + embedded apiKey) as cross-seed:media 0640 so
       # the CLI (run as a media-group member) can read it. Replaces the nixpkgs
