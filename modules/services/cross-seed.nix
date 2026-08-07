@@ -190,15 +190,15 @@ in
       # overrides the module's 0700 rule; Z recursively re-owns the legacy
       # root-owned files (left by pre-module root CLI runs that broke the daemon's
       # utime with EPERM) — declarative repair, no runtime chown.
-      "/var/lib/cross-seed".d = lib.mkForce {
-        mode = "2770";
-        user = "cross-seed";
-        group = "media";
-      };
-      "/var/lib/cross-seed".Z = {
-        user = "cross-seed";
-        group = "media";
-      };
+"${cfg.dataDir}".d = lib.mkForce {
+  mode = "2770";
+  user = "cross-seed";
+  group = "media";
+};
+"${cfg.dataDir}".Z = {
+  user = "cross-seed";
+  group = "media";
+};
       "/run/cross-seed".d = {
         mode = "0770";
         user = "root";
