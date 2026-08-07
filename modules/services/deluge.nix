@@ -179,10 +179,15 @@ in
         # reconnection to the same client due to socket TIME_WAIT. See
         # libtorrent docs: https://libtorrent.org/reference-Settings.html
 
-        # Service discovery — irrelevant behind VPN/Tailscale
+        # Peer discovery — irrelevant behind VPN/Tailscale; private trackers
+        # require DHT/PEX/LSD disabled. Disabling DHT also disables magnet
+        # metadata fetching. Keys are Deluge core.conf keys (preferencesmanager
+        # maps them to libtorrent enable_dht/enable_pex/enable_lsd).
         upnp = false;
         natpmp = false;
         lsd = false;
+        dht = false;
+        utpex = false;
 
         # Bandwidth (capped at ~80% of 73.4/10.3 Mbps connection)
         max_download_speed = cfg.downloadSpeed;
