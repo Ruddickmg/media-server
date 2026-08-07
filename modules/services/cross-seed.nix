@@ -28,7 +28,9 @@ let
     if [ -n "$1" ]; then
       ${pkgs.curl}/bin/curl -sf -XPOST \
         --unix-socket /run/cross-seed/webhook.sock \
-        "http://cross-seed/api/webhook?apikey=${apiKeys.cross-seed}&infoHash=$1&includeSingleEpisodes=true" \
+        -H "Content-Type: application/json" \
+        --data "{\"infoHash\":\"$1\",\"includeSingleEpisodes\":true}" \
+        "http://cross-seed/api/webhook?apikey=${apiKeys.cross-seed}" \
         >/dev/null 2>&1
     fi
   '';
