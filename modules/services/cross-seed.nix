@@ -179,13 +179,14 @@ in
     # setuid root wrapper: interactive `cross-seed` (as any user) runs as the
     # cross-seed user via crossSeedDrop. Required because the Nix store can't
     # carry setuid bits (/nix/store is mounted nosuid) — this is the declarative
-    # way to grant it. Only the euid is elevated; crossSeedDrop drops it before
-    # the real binary starts (see comment above crossSeedDrop).
+    # way to grant it. Only the euid is elevated; crossSeedDrop drops it (uid and
+    # gid) via setpriv before the real binary starts (see comment above
+    # crossSeedDrop). No setgid bit: the setuid root euid already supplies the
+    # CAP_SETGID that setpriv needs, and the transient egid is never used.
     security.wrappers.cross-seed = {
       owner = "root";
       group = "root";
       setuid = true;
-      setgid = true;
       source = "${crossSeedDrop}/bin/cross-seed";
     };
 
