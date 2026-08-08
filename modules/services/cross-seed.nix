@@ -28,7 +28,9 @@ let
     if [ -n "$1" ]; then
       ${pkgs.curl}/bin/curl -sf -XPOST \
         --unix-socket /run/cross-seed/webhook.sock \
-        "http://cross-seed/api/webhook?apikey=${apiKeys.cross-seed}&infoHash=$1&includeSingleEpisodes=true" \
+        -H "Content-Type: application/json" \
+        --data "{\"infoHash\":\"$1\",\"includeSingleEpisodes\":true}" \
+        "http://cross-seed/api/webhook?apikey=${apiKeys.cross-seed}" \
         >/dev/null 2>&1
     fi
   '';
@@ -45,16 +47,47 @@ let
     };
   '';
 
-  # PATH `cross-seed`: sets CONFIG_DIR/HOME so plain `cross-seed search` finds the
-  # data dir (cross-seed's appDir() is $CONFIG_DIR, else $HOME/.cross-seed), and
-  # umask 002 so files created by either the daemon or the CLI are group-writable
-  # in the 2770 cross-seed:media data dir (both are media-group members). It makes
-  # no privilege changes — it runs as whoever invokes it (media-server from a
-  # shell, cross-seed via systemd User=). The real binary is not on PATH, so it
-  # can't be run with a wrong config dir or umask.
+  # Daemon launcher: sets CONFIG_DIR/HOME so cross-seed finds the data dir
+  # (appDir() is $CONFIG_DIR, else $HOME/.cross-seed) and umask 002 so files are
+  # group-writable in the 2770 cross-seed:media data dir. This is only reached by
+  # the systemd service (User=cross-seed) — the shell resolves `cross-seed` to the
+  # setuid wrapper (crossSeedDrop, see security.wrappers below). Refusing
+  # non-cross-seed callers is defense in depth: a direct hit as any other user
+  # (e.g. via /run/current-system/sw/bin/cross-seed) would create files the
+  # daemon can't own, reproducing the utime EPERM. cross-seed is single-process
+  # (CLI and daemon share one config dir/DB), so the caller becomes the file owner
+  # — the wrapper makes the daemon's user the owner always.
   crossSeedCli = pkgs.writeShellScriptBin "cross-seed" ''
+    if [ "$(${pkgs.coreutils}/bin/id -u)" -ne "$(${pkgs.coreutils}/bin/id -u cross-seed)" ]; then
+      echo "cross-seed: refusing to run as $(${pkgs.coreutils}/bin/id -un); use the shell wrapper (drops to user cross-seed)" >&2
+      exit 1
+    fi
     umask 002
     exec env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
+      ${pkgs.cross-seed}/bin/cross-seed "$@"
+  '';
+
+  # setuid root wrapper for the shell: `cross-seed` on a user's PATH is this
+  # (security.wrappers installs it to /run/wrappers/bin, which environment.extraInit
+  # prepends to PATH). It permanently drops to the cross-seed user before exec, so
+  # interactive searches create cross-seed-owned files the daemon can manage. The
+  # root euid lasts only until setpriv; absolute paths avoid PATH spoofing, and the
+  # NixOS wrapper harness (wrapper.c) clears LD_PRELOAD and friends.
+  crossSeedDrop = pkgs.writeShellScriptBin "cross-seed" ''
+    target_uid=$(${pkgs.coreutils}/bin/id -u cross-seed)
+    if [ "$(${pkgs.coreutils}/bin/id -u)" -eq "$target_uid" ]; then
+      umask 002
+      exec env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
+        ${pkgs.cross-seed}/bin/cross-seed "$@"
+    fi
+    if [ "$(${pkgs.coreutils}/bin/id -u)" -ne 0 ]; then
+      echo "cross-seed: refusing to run as $(${pkgs.coreutils}/bin/id -un); use the setuid wrapper" >&2
+      exit 1
+    fi
+    umask 002
+    exec ${pkgs.util-linux}/bin/setpriv \
+      --reuid=cross-seed --regid=cross-seed --init-groups \
+      ${pkgs.coreutils}/bin/env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
       ${pkgs.cross-seed}/bin/cross-seed "$@"
   '';
 
@@ -141,6 +174,20 @@ in
     # launcher can read dataDirs and hardlink into linkDirs.
     users.users.cross-seed = {
       extraGroups = [ "media" ];
+    };
+
+    # setuid root wrapper: interactive `cross-seed` (as any user) runs as the
+    # cross-seed user via crossSeedDrop. Required because the Nix store can't
+    # carry setuid bits (/nix/store is mounted nosuid) — this is the declarative
+    # way to grant it. Only the euid is elevated; crossSeedDrop drops it (uid and
+    # gid) via setpriv before the real binary starts (see comment above
+    # crossSeedDrop). No setgid bit: the setuid root euid already supplies the
+    # CAP_SETGID that setpriv needs, and the transient egid is never used.
+    security.wrappers.cross-seed = {
+      owner = "root";
+      group = "root";
+      setuid = true;
+      source = "${crossSeedDrop}/bin/cross-seed";
     };
 
     systemd.services.cross-seed = {
