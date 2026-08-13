@@ -156,6 +156,19 @@ media-server.deluge.seedTimeLimit = 86400;   # stop after 60 days (in minutes)
 
 Either or both can be set independently. When unset, there is no limit.
 
+### Disk-space download guard
+
+Deluge automatically halts downloads when free disk space runs low (prevents the disk-full failure that can corrupt the system). By default it stops downloads when free space on `/media` drops below **5 GB** and resumes when it recovers above **10 GB**, checking every minute.
+
+To adjust, configure in your host config:
+
+```nix
+media-server.deluge.diskGuard.thresholdGiB = 8;   # halt below 8 GB free
+media-server.deluge.diskGuard.resumeGiB = 15;     # resume above 15 GB free
+media-server.deluge.diskGuard.intervalMins = 5;   # check every 5 minutes
+media-server.deluge.diskGuard.notify = false;     # disable Gotify alerts
+```
+
 For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met.
 
 ### Plex — add libraries

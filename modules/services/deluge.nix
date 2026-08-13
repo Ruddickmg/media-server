@@ -10,6 +10,7 @@ let
     mkIf
     mkMerge
     mkOption
+    optionals
     types
     ;
   cfg = config.media-server.deluge;
@@ -145,6 +146,38 @@ in
       type = types.str;
       default = "10.2.0.1";
       description = "VPN NAT-PMP gateway IP address";
+    };
+    diskGuard = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Halt Deluge downloads when free disk space drops below the threshold";
+      };
+      checkPath = mkOption {
+        type = types.str;
+        default = "/media";
+        description = "Filesystem path whose free space is monitored";
+      };
+      thresholdGiB = mkOption {
+        type = types.int;
+        default = 5;
+        description = "Halt downloads when free space on checkPath drops below this many GiB";
+      };
+      resumeGiB = mkOption {
+        type = types.int;
+        default = 10;
+        description = "Resume downloads once free space on checkPath recovers above this many GiB (hysteresis)";
+      };
+      intervalMins = mkOption {
+        type = types.int;
+        default = 1;
+        description = "How often (in minutes) the disk-space guard checks free space";
+      };
+      notify = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Send a Gotify notification when downloads are halted or resumed";
+      };
     };
   };
 
@@ -576,6 +609,120 @@ in
         ReadWritePaths = [
           "/var/lib/deluge"
         ];
+      };
+    };
+
+    # Disk-space download guard: halt Deluge downloads before the disk fills.
+    # The disk-full incident (100% btrfs allocation from a runaway download)
+    # truncated /etc/passwd and bricked boot, so this is a hard safety valve:
+    # when free space drops below the threshold, throttle the global download
+    # speed to 1 KiB/s — stopping downloads while leaving seeding untouched.
+    #
+    # The speed is 1, NOT 0: Deluge maps max_download_speed to libtorrent's
+    # download_rate_limit, where 0 means "unlimited" — a naive 0 would do
+    # nothing. A state marker makes the unit idempotent so config --set only
+    # fires on transitions. The console connects to 127.0.0.1:58846 from the
+    # root namespace (same path the *arr apps use) — via proxy-deluge when
+    # VPN-confined, directly otherwise — so no NetworkNamespacePath is needed.
+    systemd.services.deluge-disk-guard = mkIf cfg.diskGuard.enable {
+      description = "Halt Deluge downloads when disk space runs low";
+      after = [ "deluged.service" ] ++ optionals useVpn [ "proxy-deluge.service" ];
+      requires = [ "deluged.service" ] ++ optionals useVpn [ "proxy-deluge.service" ];
+      environment.HOME = config.services.deluge.dataDir;
+      path = with pkgs; [
+        deluge
+        gawk
+        coreutils
+      ];
+      script = ''
+        set -uo pipefail
+
+        STATE_FILE="${config.services.deluge.dataDir}/.disk-guard-throttled"
+        CHECK_PATH="${cfg.diskGuard.checkPath}"
+        THRESHOLD_KIB=$(( ${toString cfg.diskGuard.thresholdGiB} * 1024 * 1024 ))
+        RESUME_KIB=$(( ${toString cfg.diskGuard.resumeGiB} * 1024 * 1024 ))
+        NOTIFY_ENABLED=${if cfg.diskGuard.notify then "1" else "0"}
+        CONSOLE_CMD="connect 127.0.0.1:58846 localclient deluge;"
+
+        notify() {
+          [ "$NOTIFY_ENABLED" = "1" ] || return 0
+          local title="$1" message="$2" token
+          token=$(cat ${config.media-server.gotifyTokenFile} 2>/dev/null || echo "")
+          [ -n "$token" ] || return 0
+          ${pkgs.curl}/bin/curl -sf -X POST "http://127.0.0.1:6789/message?token=$token" \
+            -F "title=Deluge Disk Guard: $title" \
+            -F "message=$message" \
+            -F "priority=5" >/dev/null 2>&1 || true
+        }
+
+        free_kib=$(df -Pk "$CHECK_PATH" 2>/dev/null | awk 'NR==2 {print $4}')
+        if [ -z "$free_kib" ]; then
+          echo "deluge-disk-guard: failed to read free space on $CHECK_PATH" >&2
+          exit 1
+        fi
+        echo "deluge-disk-guard: free space on $CHECK_PATH is $(( free_kib / 1024 )) MiB"
+
+        if [ "$free_kib" -lt "$THRESHOLD_KIB" ]; then
+          if [ ! -e "$STATE_FILE" ]; then
+            echo "deluge-disk-guard: free space below ${toString cfg.diskGuard.thresholdGiB} GiB, halting downloads"
+            if deluge-console "$CONSOLE_CMD config --set max_download_speed 1"; then
+              touch "$STATE_FILE"
+              notify "Downloads halted" "Free space on $CHECK_PATH dropped below ${toString cfg.diskGuard.thresholdGiB} GiB (now $(( free_kib / 1048576 )) GiB). Downloads stopped."
+            else
+              echo "deluge-disk-guard: deluge-console failed, will retry" >&2
+            fi
+          fi
+        elif [ "$free_kib" -gt "$RESUME_KIB" ] && [ -e "$STATE_FILE" ]; then
+          echo "deluge-disk-guard: free space above ${toString cfg.diskGuard.resumeGiB} GiB, resuming downloads"
+          if deluge-console "$CONSOLE_CMD config --set max_download_speed ${toString cfg.downloadSpeed}"; then
+            rm -f "$STATE_FILE"
+            notify "Downloads resumed" "Free space on $CHECK_PATH recovered above ${toString cfg.diskGuard.resumeGiB} GiB (now $(( free_kib / 1048576 )) GiB). Download speed restored to ${toString cfg.downloadSpeed} KiB/s."
+          else
+            echo "deluge-disk-guard: deluge-console failed, will retry" >&2
+          fi
+        fi
+      '';
+      serviceConfig = {
+        User = "deluge";
+        Group = "deluge";
+        Type = "oneshot";
+        # Hardening — mirror the deluge-natpmp service profile.
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = [ "" ];
+        ProtectSystem = "strict";
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        PrivateDevices = true;
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        MemoryDenyWriteExecute = true;
+        ReadWritePaths = [
+          config.services.deluge.dataDir
+        ];
+        # Read the Gotify app token (0600 root:gotify-readers) for notifications.
+        SupplementaryGroups = mkIf cfg.diskGuard.notify [ "gotify-readers" ];
+      };
+    };
+
+    systemd.timers.deluge-disk-guard = mkIf cfg.diskGuard.enable {
+      description = "Check Deluge disk-space guard";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "*:0/${toString cfg.diskGuard.intervalMins}";
+        Persistent = true;
       };
     };
 
