@@ -65,6 +65,9 @@ in
     # user database mid-write and bricking boot with "unknown user" failures.
     users.mutableUsers = false;
 
+    # Immutable users wipe any undeclared password to `!`, so su/auth fails
+    # unless a hash is declared here. Replace CHANGE_ME with `openssl passwd -6`.
+    users.users.root.hashedPassword = "$6$l23IgwTooT7aGSGk$NJQ6lAHU1knD36IofTzFzVEHjFXdrdqr49ku3IyFioQ8XEAhFnk/nkwQ.CWLENAOtZc2b3oRxm8etUJ7e0vF31";
     users.users.root.openssh.authorizedKeys.keys = cfg.authorizedKeys;
 
     users.users.media-server = {
