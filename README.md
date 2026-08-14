@@ -171,6 +171,16 @@ media-server.deluge.diskGuard.notify = false;     # disable Gotify alerts
 
 For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met.
 
+### Deleting media completely
+
+Deleting a file from the library leaves its hard links behind — the copy in `/media/downloads/completed` (and the cross-seed link in `/media/downloads/xseeds`), so disk space is never freed. To remove a file or a whole movie/show folder together with every hard link:
+
+```bash
+delete-media /media/movies/Some\ Movie\ (2020)
+```
+
+The command lists every hard link it found, asks for confirmation, deletes them all, and prunes the emptied folders. Remove the torrent from Deluge first if it is still seeding.
+
 ### Plex — add libraries
 
 1. Open `http://<machine-ip>:32400/web`
