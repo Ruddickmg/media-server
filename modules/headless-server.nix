@@ -60,6 +60,11 @@ in
 
     services.tailscale.authKeyFile = "/etc/nixos/secrets/tailscale-auth";
 
+    # Render /etc/passwd, /etc/group, /etc/shadow as immutable store symlinks
+    # instead of mutable files. Prevents a disk-full write from truncating the
+    # user database mid-write and bricking boot with "unknown user" failures.
+    users.mutableUsers = false;
+
     users.users.root.openssh.authorizedKeys.keys = cfg.authorizedKeys;
 
     users.users.media-server = {
