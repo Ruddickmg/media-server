@@ -253,6 +253,10 @@ in
   };
 
   config = mkIf hasAnyArr {
+    users.groups.declarr = {
+      gid = 996;
+    };
+
     services.declarr = {
       enable = true;
 

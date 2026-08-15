@@ -81,7 +81,9 @@ in
       openssh.authorizedKeys.keys = cfg.authorizedKeys;
     };
 
-    users.groups.media-server = { };
+    users.groups.media-server = {
+      gid = 992;
+    };
 
     system.userActivationScripts.mediaServerZshrc = ''
       if [ ! -e /home/media-server/.zshrc ]; then

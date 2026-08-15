@@ -176,6 +176,10 @@ in
       extraGroups = [ "media" ];
     };
 
+    users.groups.cross-seed = {
+      gid = 997;
+    };
+
     # setuid root wrapper: interactive `cross-seed` (as any user) runs as the
     # cross-seed user via crossSeedDrop. Required because the Nix store can't
     # carry setuid bits (/nix/store is mounted nosuid) — this is the declarative
