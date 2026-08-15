@@ -20,7 +20,9 @@
   };
 
   config = {
-    users.groups.gotify-readers = { };
+    users.groups.gotify-readers = {
+      gid = 994;
+    };
 
     systemd.services."notify-gotify@" = {
       description = "Gotify notification for failed service %i";

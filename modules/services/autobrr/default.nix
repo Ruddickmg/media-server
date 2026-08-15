@@ -114,7 +114,9 @@ in
       home = cfg.dataDir;
     };
 
-    users.groups.autobrr = { };
+    users.groups.autobrr = {
+      gid = 999;
+    };
 
     systemd.tmpfiles.settings."10-autobrr" = {
       "${cfg.dataDir}".d = {

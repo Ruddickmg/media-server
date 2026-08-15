@@ -59,6 +59,10 @@ in
       "d /var/lib/beszel-hub 0750 beszel-hub beszel-hub -"
     ];
 
+    users.groups."beszel-agent" = {
+      gid = 998;
+    };
+
     # Reads the hub's SSH key from disk and writes it to the agent env file,
     # then registers the local agent as a system in the hub via API.
     # The hub generates its SSH key at /var/lib/beszel-hub/beszel_data/id_ed25519

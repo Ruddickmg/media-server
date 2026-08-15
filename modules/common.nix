@@ -64,7 +64,16 @@ in
   };
 
   config = {
-    users.groups.media = { };
+    # Pin gids to their current server values. Auto-assigned gids shift whenever
+    # the set of declared groups changes; that drift left the persistent @media
+    # tree's files on stale numeric gids (the hardlink breakage). Pinning freezes
+    # the numbering so it can never renumber again.
+    users.groups.media = {
+      gid = 993;
+    };
+    users.groups.dhcpcd = {
+      gid = 995;
+    };
 
     systemd.tmpfiles.rules = [
       "d /media 2775 root media"
@@ -75,6 +84,17 @@ in
       "d /media/movies 2775 root media"
       "d /media/tv 2775 root media"
       "d /media/music 2775 root media"
+
+      # Repair the /media tree group after the gid-shift incident: files on the
+      # @media subvolume are gid 998 (beszel-agent, empty group) instead of media
+      # (993). The *arr services run as gid media; with fs.protected_hardlinks=1,
+      # cross-group hardlinks fail, so Radarr silently copies instead of linking.
+      # Z (recursive, age-ignoring) forces group media on existing files; mode
+      # and uid are left untouched.
+      "Z /media/downloads - - media -"
+      "Z /media/movies - - media -"
+      "Z /media/tv - - media -"
+      "Z /media/music - - media -"
     ];
 
     programs.zsh = {

@@ -265,6 +265,10 @@ in
       extraGroups = [ "media" ];
     };
 
+    users.groups.deluge = {
+      gid = 83;
+    };
+
     systemd.services.deluged = mkMerge [
       {
         preStart = lib.mkAfter ''
