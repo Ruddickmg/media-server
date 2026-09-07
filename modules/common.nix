@@ -84,17 +84,6 @@ in
       "d /media/movies 2775 root media"
       "d /media/tv 2775 root media"
       "d /media/music 2775 root media"
-
-      # Repair the /media tree group after the gid-shift incident: files on the
-      # @media subvolume are gid 998 (beszel-agent, empty group) instead of media
-      # (993). The *arr services run as gid media; with fs.protected_hardlinks=1,
-      # cross-group hardlinks fail, so Radarr silently copies instead of linking.
-      # Z (recursive, age-ignoring) forces group media on existing files; mode
-      # and uid are left untouched.
-      "Z /media/downloads - - media -"
-      "Z /media/movies - - media -"
-      "Z /media/tv - - media -"
-      "Z /media/music - - media -"
     ];
 
     programs.zsh = {
