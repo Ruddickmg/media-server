@@ -353,11 +353,11 @@ in
         # Declared API key (apiKeys.cross-seed), already in the store via
         # config.js/onCompleteScript — no security regression.
         ExecStart = "${pkgs.curl}/bin/curl -fsS -XPOST 'http://127.0.0.1:2468/api/job?apikey=${apiKeys.cross-seed}' -H 'Content-Type: application/json' --data '{\"name\":\"search\",\"ignoreExcludeRecentSearch\":true,\"ignoreExcludeOlder\":true}'";
-        # Hardening — mirror the cross-seed-webhook proxy profile; loopback is
-        # all this unit needs, so PrivateNetwork=true is fine.
+        # Hardening — mirror the cross-seed-webhook proxy profile; this unit must reach
+        # cross-seed via the host loopback (127.0.0.1), so PrivateNetwork can't be used.
         NoNewPrivileges = true;
         PrivateTmp = true;
-        PrivateNetwork = true;
+        # PrivateNetwork = true;
         ProtectSystem = "strict";
         CapabilityBoundingSet = [ "" ];
         ProtectHome = true;
