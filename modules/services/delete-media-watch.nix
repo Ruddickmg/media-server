@@ -53,14 +53,24 @@ let
     set -uo pipefail
 
     INDEX=/run/delete-media-watch/index
+    DELUGE_COOKIE=/run/delete-media-watch/deluge-cookies
     ROOTS=(${builtins.concatStringsSep " " roots})
     WATCH_ROOTS=(${builtins.concatStringsSep " " watchRoots})
     GUARD_ROOTS=(${builtins.concatStringsSep " " guardRoots})
-    # Deluge web JSON RPC — the same endpoint/auth cross-seed already uses
+    # Deluge web JSON RPC — the same endpoint cross-seed already uses
     # (proxy-deluge-web socket, root namespace), so this path is battle-tested
     # in this deployment.
     DELUGE_URL="http://127.0.0.1:8112/json"
     DELUGE_AUTH="localclient:deluge"
+    # Deluge web's /json does not accept HTTP Basic alone — it answers RPC calls
+    # with "Not authenticated" unless the request carries a session cookie. The
+    # cookie is established by an explicit auth.login (matching the deluge module's
+    # authFile localclient:deluge entry) and reused for every call in this run.
+    deluge_call() { curl -sfS -m 30 -b "$DELUGE_COOKIE" -c "$DELUGE_COOKIE" -u "$DELUGE_AUTH" -H 'Content-Type: application/json' "$@"; }
+    deluge_login() {
+      deluge_call --data '{"method":"auth.login","params":["deluge"],"id":0}' "$DELUGE_URL" \
+        | jq -e '.result == true' >/dev/null || { log "deluge: auth.login failed"; return 1; }
+    }
 
     log() { echo "delete-media-watch: $*"; }
 
@@ -84,19 +94,14 @@ let
       local hashes=()
       [ "''${#dirs[@]}" -eq 0 ] && return 0
       local hosts host_id torrents ids
-      hosts=$(curl -sfS -m 10 -u "$DELUGE_AUTH" \
-        -H 'Content-Type: application/json' \
-        --data '{"method":"web.get_hosts","params":[],"id":1}' "$DELUGE_URL") \
+      deluge_login || return 1
+      hosts=$(deluge_call --data '{"method":"web.get_hosts","params":[],"id":1}' "$DELUGE_URL") \
         || { log "deluge: web.get_hosts failed"; return 1; }
-      host_id=$(jq -r '.result[0][0]' <<<"$hosts")
-      [ -n "$host_id" ] && [ "$host_id" != "null" ] || { log "deluge: no daemon host"; return 1; }
-      curl -sfS -m 10 -u "$DELUGE_AUTH" \
-        -H 'Content-Type: application/json' \
-        --data "{\"method\":\"web.connect\",\"params\":[\"$host_id\"],\"id\":2}" "$DELUGE_URL" \
+      host_id=$(jq -r '.result[0][0] // .result[0].id // empty' <<<"$hosts")
+      [ -n "$host_id" ] || { log "deluge: web.get_hosts returned no host: $hosts"; return 1; }
+      deluge_call --data "{\"method\":\"web.connect\",\"params\":[\"$host_id\"],\"id\":2}" "$DELUGE_URL" \
         >/dev/null 2>&1 || { log "deluge: web.connect failed"; return 1; }
-      torrents=$(curl -sfS -m 30 -u "$DELUGE_AUTH" \
-        -H 'Content-Type: application/json' \
-        --data '{"method":"core.get_torrents_status","params":[{},["name","save_path"]],"id":3}' "$DELUGE_URL") \
+      torrents=$(deluge_call --data '{"method":"core.get_torrents_status","params":[{},["name","save_path"]],"id":3}' "$DELUGE_URL") \
         || { log "deluge: get_torrents_status failed"; return 1; }
       while IFS=$'\t' read -r sp hash; do
         for d in "''${dirs[@]}"; do
@@ -106,9 +111,7 @@ let
       [ "''${#hashes[@]}" -eq 0 ] && return 0
       # A multi-file deletion can match the same torrent more than once.
       ids=$(printf '%s\n' "''${hashes[@]}" | sort -u | jq -R . | jq -s -c .)
-      if curl -sfS -m 30 -u "$DELUGE_AUTH" \
-        -H 'Content-Type: application/json' \
-        --data "{\"method\":\"core.remove_torrent\",\"params\":[$ids,false],\"id\":4}" "$DELUGE_URL" >/dev/null; then
+      if deluge_call --data "{\"method\":\"core.remove_torrent\",\"params\":[$ids,false],\"id\":4}" "$DELUGE_URL" >/dev/null; then
         log "deluge: removed ''${#hashes[@]} torrent(s): ''${hashes[*]}"
       else
         log "deluge: remove_torrent failed"
@@ -244,7 +247,14 @@ in
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
-        CapabilityBoundingSet = [ "" ];
+        # Root with an empty CapabilityBoundingSet has no CAP_DAC_OVERRIDE, so
+        # DAC checks still apply: `rm` on hard links inside the deluge/*arr-owned
+        # 755 dirs under /media fails with EPERM. Bound the set to just the DAC
+        # caps the watcher needs to unlink sibling links anywhere on /media.
+        CapabilityBoundingSet = [
+          "CAP_DAC_OVERRIDE"
+          "CAP_DAC_READ_SEARCH"
+        ];
         ProtectHome = true;
         RemoveIPC = true;
         KeyringMode = "private";
