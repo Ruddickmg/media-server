@@ -61,6 +61,25 @@ in
       default = [ "ruddickmg@gmail.com" ];
       description = "Tailscale login emails of administrators granted access to admin-only paths";
     };
+
+    # Single source of truth for the hard-link topology. All four/five roots live
+    # on the @media btrfs subvolume, so library files, download-folder copies,
+    # and cross-seed links share inodes. delete-media and delete-media-watch both
+    # derive their search scope and their empty-dir guard list from this, so the
+    # two scripts can never drift.
+    deleteMedia = {
+      rootPaths = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [
+          "/media/downloads/completed"
+          "/media/downloads/xseeds"
+          "/media/movies"
+          "/media/tv"
+          "/media/music"
+        ];
+        description = "Root directories whose files participate in the hard-link topology";
+      };
+    };
   };
 
   config = {
@@ -84,17 +103,6 @@ in
       "d /media/movies 2775 root media"
       "d /media/tv 2775 root media"
       "d /media/music 2775 root media"
-
-      # Repair the /media tree group after the gid-shift incident: files on the
-      # @media subvolume are gid 998 (beszel-agent, empty group) instead of media
-      # (993). The *arr services run as gid media; with fs.protected_hardlinks=1,
-      # cross-group hardlinks fail, so Radarr silently copies instead of linking.
-      # Z (recursive, age-ignoring) forces group media on existing files; mode
-      # and uid are left untouched.
-      "Z /media/downloads - - media -"
-      "Z /media/movies - - media -"
-      "Z /media/tv - - media -"
-      "Z /media/music - - media -"
     ];
 
     programs.zsh = {
@@ -219,12 +227,22 @@ in
         # Prune empty folders left behind by the deletion (movie/show shells,
         # emptied download dirs). Never remove the well-known /media roots:
         # tmpfiles only recreates them on boot and the cross-seed daemon expects
-        # /media/downloads/xseeds to exist.
+        # /media/downloads/xseeds to exist. Guard list comes from
+        # media-server.deleteMedia.rootPaths (shared with delete-media-watch).
+        guard_roots=(${
+          builtins.concatStringsSep " " (
+            [
+              "/media"
+              "/media/downloads"
+              "/media/downloads/incomplete"
+            ]
+            ++ config.media-server.deleteMedia.rootPaths
+          )
+        })
         while IFS= read -r d; do
-          case "$d" in
-            /media|/media/downloads|/media/downloads/incomplete|/media/downloads/completed|/media/downloads/xseeds|/media/movies|/media/tv|/media/music)
-              continue ;;
-          esac
+          for g in "''${guard_roots[@]}"; do
+            [ "$d" = "$g" ] && continue 2
+          done
           rmdir "$d" 2>/dev/null || true
         done < <(find /media -depth -type d -empty)
 

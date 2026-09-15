@@ -181,6 +181,8 @@ delete-media /media/movies/Some\ Movie\ (2020)
 
 The command lists every hard link it found, asks for confirmation, deletes them all, and prunes the emptied folders. Remove the torrent from Deluge first if it is still seeding.
 
+**Deleting from the Plex UI** (Movies/TV libraries) also cleans up hard-linked copies in `/media/downloads/completed` and `/media/downloads/xseeds` and prunes emptied folders; no Plex settings are required because media deletion is enforced automatically in the server config.
+
 ### Plex — add libraries
 
 1. Open `http://<machine-ip>:32400/web`

@@ -311,6 +311,75 @@ in
       };
     };
 
+    # Daily full-library search sweep, catching torrents the daemon's own daily
+    # search skips under its excludeRecentSearch=3 days / excludeOlder=2 weeks
+    # windows (e.g. library content that pre-dates them). cross-seed v6 docs
+    # forbid `cross-seed search` while the daemon runs — "This will create
+    # errors with the sqlite database" — so the sweep triggers the daemon's
+    # search via its HTTP API instead: /api/job maps the CLI flags to
+    # ignoreExcludeRecentSearch / ignoreExcludeOlder (the exact equivalent of
+    # `--no-exclude-recent-search --no-exclude-older`), with no second process
+    # touching the daemon's DB.
+    #
+    # Two API quirks, both benign:
+    # - A successful early trigger pushes the daemon's next scheduled search run
+    #   to double its cadence — fine, since this daily sweep effectively
+    #   supersedes the searchCadence run.
+    # - If the daemon's own search is mid-run, /api/job answers 409 and curl -f
+    #   fails the unit for that night; the next day's run proceeds.
+    systemd.timers.cross-seed-search = {
+      description = "Daily full-library cross-seed search";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "*-*-* 04:30:00";
+        Persistent = true;
+        RandomizedDelaySec = "15m";
+      };
+    };
+
+    systemd.services.cross-seed-search = {
+      description = "Trigger daily full-library cross-seed search";
+      requires = [
+        "cross-seed.service"
+      ];
+      after = [
+        "cross-seed.service"
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        # Needs no filesystem access — only loopback HTTP to the daemon.
+        User = "cross-seed";
+        Group = "cross-seed";
+        # Declared API key (apiKeys.cross-seed), already in the store via
+        # config.js/onCompleteScript — no security regression.
+        ExecStart = "${pkgs.curl}/bin/curl -fsS -XPOST 'http://127.0.0.1:2468/api/job?apikey=${apiKeys.cross-seed}' -H 'Content-Type: application/json' --data '{\"name\":\"search\",\"ignoreExcludeRecentSearch\":true,\"ignoreExcludeOlder\":true}'";
+        # Hardening — mirror the cross-seed-webhook proxy profile; this unit must reach
+        # cross-seed via the host loopback (127.0.0.1), so PrivateNetwork can't be used.
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        # PrivateNetwork = true;
+        ProtectSystem = "strict";
+        CapabilityBoundingSet = [ "" ];
+        ProtectHome = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        PrivateDevices = true;
+      };
+    };
+
     # Make the on-completion script available for the Deluge Execute plugin.
     environment.systemPackages = [ onCompleteScript ];
 
