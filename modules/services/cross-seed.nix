@@ -339,6 +339,12 @@ in
 
     systemd.services.cross-seed-search = {
       description = "Trigger daily full-library cross-seed search";
+      # Pull the rdfind dedup sweep so it runs after this finder every night
+      # (the sweep orders itself after this unit and starts regardless of
+      # whether the search succeeded).
+      wants = [
+        "rdfind-sweep.service"
+      ];
       requires = [
         "cross-seed.service"
       ];
@@ -380,8 +386,74 @@ in
       };
     };
 
-    # Make the on-completion script available for the Deluge Execute plugin.
-    environment.systemPackages = [ onCompleteScript ];
+    # Nightly dedup safety net. cross-seed's search only hardlinks the files it
+    # matched itself; anything it missed (pre-existing data, never-matched
+    # releases, duplicates between the completed//movies//tv/ trees) stays as
+    # byte-identical copies wasting space. rdfind turns every duplicate set into
+    # hard links. Pulled by cross-seed-search (order + always-run semantics live
+    # there and here), so this fires after the 04:30 finder is attempted.
+    #
+    # - completed first = the "kept" inode: rdfind keeps the first occurrence,
+    #   so torrent save_path trees stay primary and xseeds/library link back.
+    # - Runs as root: the deluge/*arr-owned 755 subdirs under completed/ are not
+    #   group-writable, so a media-group user could not swap files inside them
+    #   (the same wall that forced CAP_DAC_OVERRIDE in delete-media-watch).
+    # - Idle priority + no timeout: whole-library hashing runs overnight and
+    #   must not compete with Plex streaming or seeding.
+    systemd.services.rdfind-sweep = {
+      description = "Deduplicate hard links across media and torrent trees";
+      unitConfig.RequiresMountsFor = [
+        "/media/downloads/completed"
+        "/media/downloads/xseeds"
+        "/media/movies"
+        "/media/tv"
+      ];
+      after = [
+        "cross-seed-search.service"
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        # ProtectSystem=strict makes everything read-only except these (the
+        # trees rdfind must unlink and re-hardlink within).
+        ReadWritePaths = [
+          "/media/downloads/completed"
+          "/media/downloads/xseeds"
+          "/media/movies"
+          "/media/tv"
+        ];
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        RemoveIPC = true;
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectClock = true;
+        PrivateMounts = true;
+        PrivateDevices = true;
+        TimeoutStartSec = 0;
+        Nice = 19;
+        IOSchedulingClass = "idle";
+        ExecStart = "${pkgs.rdfind}/bin/rdfind -makeresultsfile false -makehardlinks true /media/downloads/completed /media/downloads/xseeds /media/movies /media/tv";
+      };
+    };
+
+    # Make the on-completion script and rdfind available system-wide (rdfind is
+    # also usable interactively for one-off sweeps).
+    environment.systemPackages = [
+      onCompleteScript
+      pkgs.rdfind
+    ];
 
   };
 }
