@@ -402,6 +402,12 @@ in
     #   must not compete with Plex streaming or seeding.
     systemd.services.rdfind-sweep = {
       description = "Deduplicate hard links across media and torrent trees";
+      unitConfig.RequiresMountsFor = [
+        "/media/downloads/completed"
+        "/media/downloads/xseeds"
+        "/media/movies"
+        "/media/tv"
+      ];
       after = [
         "cross-seed-search.service"
       ];
@@ -409,7 +415,12 @@ in
         Type = "oneshot";
         # ProtectSystem=strict makes everything read-only except these (the
         # trees rdfind must unlink and re-hardlink within).
-        ReadWritePaths = [ "/media" ];
+        ReadWritePaths = [
+          "/media/downloads/completed"
+          "/media/downloads/xseeds"
+          "/media/movies"
+          "/media/tv"
+        ];
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
