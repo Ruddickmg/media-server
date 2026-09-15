@@ -17,13 +17,21 @@ let
   # Deletion sources: a file unlinked in /media/{movies,tv,music} triggers this
   # process. A deletion in completed/ or xseeds/ is a cleanup TARGET, never a
   # trigger — those roots are only scanned for sibling hard links to remove.
-  watchRoots = builtins.filter (p: builtins.elem p [
-    "/media/movies"
-    "/media/tv"
-    "/media/music"
-  ]) roots;
+  watchRoots = builtins.filter (
+    p:
+    builtins.elem p [
+      "/media/movies"
+      "/media/tv"
+      "/media/music"
+    ]
+  ) roots;
 
-  guardRoots = [ "/media" "/media/downloads" "/media/downloads/incomplete" ] ++ roots;
+  guardRoots = [
+    "/media"
+    "/media/downloads"
+    "/media/downloads/incomplete"
+  ]
+  ++ roots;
 
   # Long-running daemon (never a one-shot): watches the Plex library dirs for
   # unlinks and removes every hard link to the deleted file (download-folder

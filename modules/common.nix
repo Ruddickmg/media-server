@@ -229,7 +229,16 @@ in
         # tmpfiles only recreates them on boot and the cross-seed daemon expects
         # /media/downloads/xseeds to exist. Guard list comes from
         # media-server.deleteMedia.rootPaths (shared with delete-media-watch).
-        guard_roots=(${builtins.concatStringsSep " " (["/media" "/media/downloads" "/media/downloads/incomplete"] ++ config.media-server.deleteMedia.rootPaths)})
+        guard_roots=(${
+          builtins.concatStringsSep " " (
+            [
+              "/media"
+              "/media/downloads"
+              "/media/downloads/incomplete"
+            ]
+            ++ config.media-server.deleteMedia.rootPaths
+          )
+        })
         while IFS= read -r d; do
           for g in "''${guard_roots[@]}"; do
             [ "$d" = "$g" ] && continue 2

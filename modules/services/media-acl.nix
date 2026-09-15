@@ -30,7 +30,11 @@ in
     # the default ACL automatically (POSIX propagates it through new dirs).
     systemd.services.media-acl = {
       description = "Ensure media-group ACLs on Plex library roots";
-      requiresMountsFor = [
+      # Wait for /media (disko @media subvolume -> media.mount) before touching
+      # ACLs. RequiresMountsFor emits Requires= + After= on the mount unit backing
+      # each path; it is a freeform [Unit] key, which is why it goes under
+      # unitConfig - nixpkgs has no camelCase unit option named requiresMountsFor.
+      unitConfig.RequiresMountsFor = [
         "/media/movies"
         "/media/tv"
       ];
