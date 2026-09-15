@@ -23,6 +23,7 @@
     ../../modules/services/profilarr.nix
     ../../modules/services/cross-seed.nix
     ../../modules/services/delete-media-watch.nix
+    ../../modules/services/media-acl.nix
     ../../modules/services/autobrr
     ../../modules/declarr.nix
   ];
@@ -74,6 +75,7 @@
     cross-seed.enable = true;
     autobrr.enable = true;
     delete-media-watch.enable = true;
+    media-acl.enable = true;
 
     beszel.enable = true;
   };
