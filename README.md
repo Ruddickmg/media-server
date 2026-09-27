@@ -192,6 +192,30 @@ The command lists every hard link it found, asks for confirmation, deletes them 
    - **TV Shows** → `/media/tv`
    - **Music** → `/media/music`
 
+### Plex — hardware transcoding
+
+The server hardware-transcodes with the host CPU's integrated GPU (Intel Quick Sync) instead of falling back to software encoding. Turn it on in the dashboard:
+
+1. Open **Settings → Transcoder** in the Plex web UI
+2. Enable **Use hardware-accelerated video**
+3. Under **Transcoder quality**, pick **Custom** and choose the **Intel (QSV)** setting
+
+**If you move the server to a different computer, re-check the driver config.** The graphics driver is pinned to the specific CPU the box shipped with, and the wrong one means Plex silently drops back to software transcoding. Check the new host with `lspci | grep -i vga`, then update `modules/graphics.nix`:
+
+| New host GPU | Change in `modules/graphics.nix` |
+| --- | --- |
+| Intel Broadwell (2014) or newer | No change — `intel-media-driver` is correct |
+| Intel older than Broadwell | Swap `intel-media-driver` for `intel-vaapi-driver` (unmaintained; decode only) |
+| NVIDIA or AMD | Different driver entirely — `intel-media-driver` will not work, and NVIDIA also needs a nonfree driver enabled |
+
+To confirm the driver loaded after any change:
+
+```bash
+nix shell nixpkgs#vainfo -c vainfo
+```
+
+`Driver version: Intel iHD` in the output means Plex can use the GPU. If that command reports no driver at all, the config is wrong for the host. Note that Tiger Lake and newer provide hardware *encode* for H.264, H.265 and VP9, plus AV1 *decode* — but not AV1 *encode*, which needs an Intel Arc or newer GPU. Plex falls back to software automatically for anything the hardware cannot handle.
+
 ### Seerr — media request portal
 
 Seerr provides a clean UI for friends and family to request movies and TV shows, which flow through Sonarr and Radarr automatically.

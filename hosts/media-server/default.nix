@@ -8,6 +8,7 @@
     ../../modules/auto-update.nix
     ../../modules/auto-reboot.nix
     ../../modules/vpn-confinement.nix
+    ../../modules/graphics.nix
     ../../modules/services/tailscale.nix
     ../../modules/services/deluge.nix
     ../../modules/services/unpackerr.nix
@@ -69,6 +70,7 @@
     deluge.authUsername = "ruddickmg";
     bazarr.enable = true;
     plex.enable = true;
+    graphics.enable = true;
     seerr.enable = true;
     unpackerr.enable = true;
     profilarr.enable = true;
