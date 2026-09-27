@@ -215,13 +215,13 @@ The command lists every hard link it found, asks for confirmation, deletes them 
 
 ### Plex — hardware transcoding
 
-The server hardware-transcodes with the host CPU's integrated GPU (Intel Quick Sync). Turn it on in the dashboard:
+The server hardware-transcodes with the host CPU's integrated GPU (Intel Quick Sync) instead of falling back to software encoding. Turn it on in the dashboard:
 
 1. Open **Settings → Transcoder** in the Plex web UI
 2. Enable **Use hardware-accelerated video**
 3. Under **Transcoder quality**, pick **Custom** and choose the **Intel (QSV)** setting
 
-**If you move the server to a different computer, re-check the driver config.** The graphics driver in `modules/graphics.nix` is pinned to the CPU the box shipped with, and the wrong one means Plex silently drops back to software transcoding. Check the new host with `lspci | grep -i vga`, then update `modules/graphics.nix`:
+**If you move the server to a different computer, re-check the driver config.** The graphics driver is pinned to the specific CPU the box shipped with, and the wrong one means Plex silently drops back to software transcoding. Check the new host with `lspci | grep -i vga`, then update `modules/graphics.nix`:
 
 | New host GPU | Change in `modules/graphics.nix` |
 | --- | --- |
@@ -235,7 +235,7 @@ To confirm the driver loaded after any change:
 nix shell nixpkgs#vainfo -c vainfo
 ```
 
-`Driver version: Intel iHD` in the output means Plex can use the GPU. If that command reports no driver at all, the config is wrong for the host. Plex falls back to software automatically for anything the hardware cannot handle.
+`Driver version: Intel iHD` in the output means Plex can use the GPU. If that command reports no driver at all, the config is wrong for the host. Note that Tiger Lake and newer provide hardware *encode* for H.264, H.265 and VP9, plus AV1 *decode* — but not AV1 *encode*, which needs an Intel Arc or newer GPU. Plex falls back to software automatically for anything the hardware cannot handle.
 
 ### Seerr — media request portal
 
