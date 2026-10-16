@@ -2,22 +2,6 @@
 
 NixOS configuration for a media server running Plex, Deluge, and the *arr suite.
 
-## Files & secrets
-
-The system expects the flake at `/etc/nixos` and reads a few files from fixed locations. `secrets/` and `hardware-configuration.nix` are gitignored, so they live only on the server.
-
-| Path | Contents | How it gets there |
-|------|----------|-------------------|
-| `/etc/nixos` | This flake — the system rebuilds from it and auto-update pulls into it | `git clone` the repo there before installing ([step 2](#2-clone-the-flake)) |
-| `/etc/nixos/hosts/media-server/disko.nix` | Disk layout | You edit `device` before installing ([step 3](#3-set-the-target-disk)) |
-| `/etc/nixos/hosts/media-server/default.nix` | Includes your SSH public key(s) | You add them before installing ([step 4](#4-add-your-ssh-public-key)) |
-| `/etc/nixos/hosts/media-server/hardware-configuration.nix` | Host hardware config | Generated on the host by `nixos-generate-config` ([step 7](#7-generate-hardware-config)); gitignored |
-| `/etc/nixos/secrets/tailscale-auth` | Reusable Tailscale auth key | You create it before installing ([step 5](#5-create-the-tailscale-auth-key)); gitignored |
-| `/etc/nixos/secrets/vpn-key` | WireGuard private key | You create it before enabling VPN (see [VPN confinement](#vpn-confinement)); gitignored |
-| `/etc/nixos/secrets/gotify-token` | Gotify app token for notifications | Created automatically on first boot — do not add it |
-
-The clone must leave the repo at `/etc/nixos` and tracking `origin/main`: the auto-update service pulls that branch on the server, so changes made on your workstation are pushed and then applied automatically.
-
 ## Quick Start
 
 ### 1. Boot the NixOS ISO
@@ -86,29 +70,7 @@ sudo nixos-install --flake /mnt/etc/nixos#media-server
 
 Set the root password when prompted.
 
-### Terminal sessions with tuios
-
-The server ships [tuios](https://tuios.dev) (v0.9.3). You can run it on the server after logging in, or attach to sessions on the server from tuios running on your own machine — over Tailscale, with nothing nested. Run these on your **local** machine (tuios ≥ 0.8.0):
-
-```bash
-# Add the server once. `media-server` is its MagicDNS name.
-tuios hosts add media-server media-server@media-server
-# or let tuios fill the address from the tailnet:
-tuios hosts add media-server --tailnet
-
-# Start the server's tuios daemon if it is not running (on demand; no systemd service).
-tuios hosts test media-server --start
-
-# Draw a session running on the server in your local client, or create one.
-tuios attach --host media-server
-tuios new --host media-server work
-```
-
-tuios reaches the server over ssh on the tailnet; there is no extra port to open. The server's Tailscale SSH (`--ssh`, already enabled) authenticates the link, and its default `[hosts]` policy already allows listing, opening sessions, and writing. If your tailnet's SSH rules use check mode, approve the login once when prompted.
-
-Running `tuios` directly on the server after `ssh` also works and starts the same per-user daemon; sessions survive an SSH drop and reattach with `tuios attach`. See `tuios --help` and the [tuios docs](https://tuios.dev) for keybindings and hosts.
-
-## HTTPS Access
+### 9. Reboot
 
 ```bash
 sudo reboot
@@ -237,13 +199,13 @@ The command lists every hard link it found, asks for confirmation, deletes them 
 
 ### Plex — hardware transcoding
 
-The server hardware-transcodes with the host CPU's integrated GPU (Intel Quick Sync) instead of falling back to software encoding. Turn it on in the dashboard:
+The server hardware-transcodes with the host CPU's integrated GPU (Intel Quick Sync). Turn it on in the dashboard:
 
 1. Open **Settings → Transcoder** in the Plex web UI
 2. Enable **Use hardware-accelerated video**
 3. Under **Transcoder quality**, pick **Custom** and choose the **Intel (QSV)** setting
 
-**If you move the server to a different computer, re-check the driver config.** The graphics driver is pinned to the specific CPU the box shipped with, and the wrong one means Plex silently drops back to software transcoding. Check the new host with `lspci | grep -i vga`, then update `modules/graphics.nix`:
+**If you move the server to a different computer, re-check the driver config.** The graphics driver in `modules/graphics.nix` is pinned to the CPU the box shipped with, and the wrong one means Plex silently drops back to software transcoding. Check the new host with `lspci | grep -i vga`, then update `modules/graphics.nix`:
 
 | New host GPU | Change in `modules/graphics.nix` |
 | --- | --- |
@@ -257,7 +219,7 @@ To confirm the driver loaded after any change:
 nix shell nixpkgs#vainfo -c vainfo
 ```
 
-`Driver version: Intel iHD` in the output means Plex can use the GPU. If that command reports no driver at all, the config is wrong for the host. Note that Tiger Lake and newer provide hardware *encode* for H.264, H.265 and VP9, plus AV1 *decode* — but not AV1 *encode*, which needs an Intel Arc or newer GPU. Plex falls back to software automatically for anything the hardware cannot handle.
+`Driver version: Intel iHD` in the output means Plex can use the GPU. If that command reports no driver at all, the config is wrong for the host. Plex falls back to software automatically for anything the hardware cannot handle.
 
 ### Seerr — media request portal
 
