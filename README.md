@@ -1,20 +1,6 @@
 # Media Server — NixOS Flake
 
-NixOS configuration for a media server running Plex, Deluge, and the *arr suite with security hardening and fully automated service configuration.
-
-## Headless Server
-
-The following are configured automatically:
-
-| Setting | Behavior |
-|---------|----------|
-| **SSH** | OpenSSH with key-only auth (`PasswordAuthentication=false`, `KbdInteractiveAuthentication=false`), `PermitRootLogin=no`, socket-activated. `media-server` user keys are set declaratively — see [SSH key setup](#ssh-key-setup) |
-| **Console** | Auto-login to `media-server` user on tty1 — no password needed |
-| **Lid close** | Ignored — system stays running |
-| **Suspend / Hibernate** | Disabled entirely — all sleep targets masked |
-| **Power/Sleep keys** | Ignored |
-| **CPU governor** | `performance` (always plugged in) |
-| **Sudo** | Disabled entirely — no user has sudo access |
+NixOS configuration for a media server running Plex, Deluge, and the *arr suite.
 
 ## Quick Start
 
@@ -33,35 +19,28 @@ git clone <repo-url> /mnt/etc/nixos
 
 Edit `hosts/media-server/disko.nix` and change the `device` path to match your disk (e.g. `/dev/nvme0n1` or `/dev/sda`).
 
-### 4. Partition and format
+### 4. Add your SSH public key
+
+Public keys are committed to the repo and baked into the system at build time, so add yours before installing:
 
 ```bash
-sudo nix run --extra-experimental-features nix-command --extra-experimental-features flakes github:nix-community/disko -- --mode disko /mnt/etc/nixos/hosts/media-server/disko.nix
+ssh-keygen -t ed25519 -f ~/.ssh/media-server
+cat ~/.ssh/media-server.pub
 ```
 
-### 5. Generate hardware config
+Add the output to `hosts/media-server/default.nix`:
 
-```bash
-nixos-generate-config --root /mnt --dir hosts/media-server --no-filesystems
+```nix
+media-server.headless.authorizedKeys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL4J... user@laptop"
+];
 ```
 
-### 6. Install
+The private key (`~/.ssh/media-server`) is yours alone — never commit it. To add a key after installation, edit the same list and run `nixos-rebuild switch`.
 
-```bash
-sudo nixos-install --flake /mnt/etc/nixos#media-server
-```
+### 5. Create the Tailscale auth key
 
-Set the root password when prompted.
-
-### 7. Reboot
-
-```bash
-sudo reboot
-```
-
-### 8. Create Tailscale auth key
-
-Before `nixos-install`, place a reusable Tailscale auth key on the install media:
+Place a reusable Tailscale auth key on the install media before installing:
 
 ```bash
 mkdir -p /mnt/etc/nixos/secrets
@@ -71,37 +50,43 @@ chmod 600 /mnt/etc/nixos/secrets/tailscale-auth
 
 Generate the auth key from the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys) — use a **reusable** key so it persists across rebuilds. The `secrets/` directory is gitignored and never committed to the repository.
 
-### SSH key setup
+### 6. Partition and format
 
-Public keys are committed to the repo and baked into the system at build time.
+```bash
+sudo nix run --extra-experimental-features nix-command --extra-experimental-features flakes github:nix-community/disko -- --mode disko /mnt/etc/nixos/hosts/media-server/disko.nix
+```
 
-1. **Generate a key pair**:
-   ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/media-server
-   ```
+### 7. Generate hardware config
 
-2. **Copy the public key** and add it to `hosts/media-server/default.nix`:
-   ```bash
-   cat ~/.ssh/media-server.pub
-   ```
-   ```nix
-   media-server.headless.authorizedKeys = [
-     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL4J... user@laptop"
-   ];
-   ```
+```bash
+nixos-generate-config --root /mnt --dir hosts/media-server --no-filesystems
+```
 
-3. **Deploy** — `nixos-rebuild switch` installs the key to `media-server`'s `authorized_keys`.
+### 8. Install
 
-4. **Connect**:
-   ```bash
-   ssh -i ~/.ssh/media-server media-server@<machine-ip>
-   ```
+```bash
+sudo nixos-install --flake /mnt/etc/nixos#media-server
+```
 
-The private key (`~/.ssh/media-server`) is yours alone — never commit it.
+Set the root password when prompted.
+
+### 9. Reboot
+
+```bash
+sudo reboot
+```
+
+## Connecting
+
+SSH is key-only (no passwords). Connect as the `media-server` user:
+
+```bash
+ssh -i ~/.ssh/media-server media-server@<machine-ip>
+```
 
 ### Terminal sessions with tuios
 
-The server ships [tuios](https://tuios.dev) (v0.9.3). You can run it on the server after logging in, or attach to sessions on the server from tuios running on your own machine — over Tailscale, with nothing nested. Run these on your **local** machine (tuios ≥ 0.8.0):
+The server ships [tuios](https://tuios.dev) (v0.9.3). You can run it on the server after logging in, or attach to sessions on the server from tuios running on your own machine — with nothing nested. Run these on your **local** machine (tuios ≥ 0.8.0):
 
 ```bash
 # Add the server once. `media-server` is its MagicDNS name.
@@ -117,37 +102,41 @@ tuios attach --host media-server
 tuios new --host media-server work
 ```
 
-tuios reaches the server over ssh on the tailnet; there is no extra port to open. The server's Tailscale SSH (`--ssh`, already enabled) authenticates the link, and its default `[hosts]` policy already allows listing, opening sessions, and writing. If your tailnet's SSH rules use check mode, approve the login once when prompted.
+tuios reaches the server over ssh on the tailnet — there is no extra port to open. If your tailnet's SSH rules use check mode, approve the login once when prompted.
 
 Running `tuios` directly on the server after `ssh` also works and starts the same per-user daemon; sessions survive an SSH drop and reattach with `tuios attach`. See `tuios --help` and the [tuios docs](https://tuios.dev) for keybindings and hosts.
 
-## HTTPS Access
+### Service access
 
-The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encrypt certificates via **Tailscale Serve**. Tailscale terminates TLS and proxies to a local Caddy instance, which routes by path prefix to each service.
-
-| URL | Service |
-|-----|---------|
-| `https://media-server.tailbac0df.ts.net` | Seerr |
-| `https://media-server.tailbac0df.ts.net/seerr` | Seerr |
-| `https://media-server.tailbac0df.ts.net/prowlarr` | Prowlarr |
-| `https://media-server.tailbac0df.ts.net/sonarr` | Sonarr |
-| `https://media-server.tailbac0df.ts.net/radarr` | Radarr |
-| `https://media-server.tailbac0df.ts.net/lidarr` | Lidarr |
-| `https://media-server.tailbac0df.ts.net/bazarr` | Bazarr |
-| `https://media-server.tailbac0df.ts.net/autobrr` | autobrr |
-| `https://media-server.tailbac0df.ts.net:6868` | Profilarr |
-| `https://media-server.tailbac0df.ts.net:28090` | Beszel (monitoring) |
-| `https://media-server.tailbac0df.ts.net:6789`  | Gotify |
+| Service | Port | Access | Auth |
+|---------|------|--------|------|
+| Prowlarr | 9696 | `https://media-server.tailbac0df.ts.net/prowlarr` | Tailscale admin |
+| Sonarr | 8989 | `https://media-server.tailbac0df.ts.net/sonarr` | Tailscale admin |
+| Radarr | 7878 | `https://media-server.tailbac0df.ts.net/radarr` | Tailscale admin |
+| Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` | Tailscale admin |
+| Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` | Tailscale admin |
+| autobrr | 7474 | `https://media-server.tailbac0df.ts.net/autobrr` | Tailscale admin |
+| Seerr | 5055 | `https://media-server.tailbac0df.ts.net/seerr` (also root `/`) | Plex sign-in (all Tailscale users) |
+| Profilarr | 6865 | `https://media-server.tailbac0df.ts.net:6868` | Onboarding wizard |
+| Beszel | 8090 | `https://media-server.tailbac0df.ts.net:28090` | Beszel login |
+| Gotify | 6789 | `https://media-server.tailbac0df.ts.net:6789` | Gotify login |
+| Plex | 32400 | `http://<lan-ip>:32400/web` or the Plex app | Plex.tv account |
+| Deluge | 58846 | `media-server:58846` (thin client RPC) | Deluge auth file |
+| Unpackerr | — | internal only | — |
 
 The hostname is the machine's MagicDNS name (check `tailscale status` for yours).
 
-> **Prerequisite:** Enable **HTTPS Certificates** in the Tailscale admin console (DNS → HTTPS Certificates). Without this, Tailscale Serve cannot provision TLS certificates.
+> **Prerequisite:** Enable **HTTPS Certificates** in the Tailscale admin console (DNS → HTTPS Certificates). Without this, the HTTPS URLs above cannot provision TLS certificates.
 
 **Admin-only access:** Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, and autobrr are restricted to Tailscale users listed in `media-server.administrators` (defaults to `["ruddickmg@gmail.com"]`). Seerr is open to all Tailscale users so family members can make requests. To change the admin list:
 
 ```nix
 media-server.administrators = [ "your@email.com" ];
 ```
+
+**Plex** is reachable directly (LAN or public IP) because it is designed to be shared; Plex.tv account auth applies. To expose any other service on the LAN as well, see [Firewall](#firewall).
+
+> **DLNA note:** Plex also opens UDP ports 1900 (DLNA) and 5353 (mDNS) for local device discovery, which broadcasts your library to any device on the LAN without authentication. Turn off DLNA in Plex's settings to stop this.
 
 ## Post-Deploy Steps
 
@@ -156,20 +145,14 @@ media-server.administrators = [ "your@email.com" ];
 1. Open `https://media-server.tailbac0df.ts.net/prowlarr`
 2. Add your torrent indexers (requires your account credentials for each indexer)
 
-Indexers added in Prowlarr are automatically synced to Sonarr, Radarr, and Lidarr via the pre-configured application connections.
-
 ### autobrr — add IRC indexers
 
-The automation pipeline (filters, download clients, lists) is created automatically on deploy. What cannot be automated is the announce source: each indexer needs its own IRC server, channel, and account credentials.
-
 1. Open `https://media-server.tailbac0df.ts.net/autobrr`
-2. Go to **Settings → Indexers → Add New Indexer** and add your trackers' IRC announce channels
+2. Go to **Settings → Indexers → Add New Indexer** and add your trackers' IRC announce channels and account credentials
 
 ### Seeding and ratio management
 
-By default, Deluge has **no seeding limits** — *arr-managed torrents are removed by per-indexer goals in Prowlarr, and manually-added torrents seed indefinitely.
-
-To set a global safety net, configure the optional limits in your host config:
+Deluge has no seeding limits by default. To set a global safety net, configure the optional limits in your host config:
 
 ```nix
 media-server.deluge.seedRatioLimit = 3.0;   # stop at 3.0 share ratio
@@ -178,9 +161,11 @@ media-server.deluge.seedTimeLimit = 86400;   # stop after 60 days (in minutes)
 
 Either or both can be set independently. When unset, there is no limit.
 
+For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**).
+
 ### Disk-space download guard
 
-Deluge automatically halts downloads when free disk space runs low (prevents the disk-full failure that can corrupt the system). By default it stops downloads when free space on `/media` drops below **5 GB** and resumes when it recovers above **10 GB**, checking every minute.
+Deluge halts downloads when free disk space runs low (preventing the disk-full failure that can corrupt the system). By default it stops downloads when free space on `/media` drops below **5 GB** and resumes when it recovers above **10 GB**, checking every minute.
 
 To adjust, configure in your host config:
 
@@ -191,11 +176,9 @@ media-server.deluge.diskGuard.intervalMins = 5;   # check every 5 minutes
 media-server.deluge.diskGuard.notify = false;     # disable Gotify alerts
 ```
 
-For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**). Prowlarr syncs these to all connected *arrs automatically. The *arr will remove the torrent from Deluge when the goal is met.
-
 ### Deleting media completely
 
-Deleting a file from the library leaves its hard links behind — the copy in `/media/downloads/completed` (and the cross-seed link in `/media/downloads/xseeds`), so disk space is never freed. To remove a file or a whole movie/show folder together with every hard link:
+Deleting a file from the library leaves its hard links behind — the copy in `/media/downloads/completed` (and the cross-seed link in `/media/downloads/xseeds`) — so disk space is never freed. To remove a file or a whole movie/show folder together with every hard link:
 
 ```bash
 delete-media /media/movies/Some\ Movie\ (2020)
@@ -203,7 +186,7 @@ delete-media /media/movies/Some\ Movie\ (2020)
 
 The command lists every hard link it found, asks for confirmation, deletes them all, and prunes the emptied folders. Remove the torrent from Deluge first if it is still seeding.
 
-**Deleting from the Plex UI** cleans up all hard links automatically: a background watcher (`delete-media-watch`) watches `/media/movies`, `/media/tv`, and `/media/music`, and on any deletion there also removes the hard-linked copies in `/media/downloads/completed` and `/media/downloads/xseeds`, prunes emptied folders, and removes the matching torrents from Deluge. "Allow media deletion" is enforced automatically in the server config, so no Plex settings are needed for this to work — deleting a movie or show from Plex unlinks the files itself. Verify with `journalctl -u delete-media-watch` after a deletion.
+**Deleting from the Plex UI** also removes every hard link, so no Plex settings are needed for this to work. Verify with `journalctl -u delete-media-watch` after a deletion.
 
 ### Plex — add libraries
 
@@ -216,13 +199,13 @@ The command lists every hard link it found, asks for confirmation, deletes them 
 
 ### Plex — hardware transcoding
 
-The server hardware-transcodes with the host CPU's integrated GPU (Intel Quick Sync) instead of falling back to software encoding. Turn it on in the dashboard:
+The server hardware-transcodes with the host CPU's integrated GPU (Intel Quick Sync). Turn it on in the dashboard:
 
 1. Open **Settings → Transcoder** in the Plex web UI
 2. Enable **Use hardware-accelerated video**
 3. Under **Transcoder quality**, pick **Custom** and choose the **Intel (QSV)** setting
 
-**If you move the server to a different computer, re-check the driver config.** The graphics driver is pinned to the specific CPU the box shipped with, and the wrong one means Plex silently drops back to software transcoding. Check the new host with `lspci | grep -i vga`, then update `modules/graphics.nix`:
+**If you move the server to a different computer, re-check the driver config.** The graphics driver in `modules/graphics.nix` is pinned to the CPU the box shipped with, and the wrong one means Plex silently drops back to software transcoding. Check the new host with `lspci | grep -i vga`, then update `modules/graphics.nix`:
 
 | New host GPU | Change in `modules/graphics.nix` |
 | --- | --- |
@@ -236,7 +219,7 @@ To confirm the driver loaded after any change:
 nix shell nixpkgs#vainfo -c vainfo
 ```
 
-`Driver version: Intel iHD` in the output means Plex can use the GPU. If that command reports no driver at all, the config is wrong for the host. Note that Tiger Lake and newer provide hardware *encode* for H.264, H.265 and VP9, plus AV1 *decode* — but not AV1 *encode*, which needs an Intel Arc or newer GPU. Plex falls back to software automatically for anything the hardware cannot handle.
+`Driver version: Intel iHD` in the output means Plex can use the GPU. If that command reports no driver at all, the config is wrong for the host. Plex falls back to software automatically for anything the hardware cannot handle.
 
 ### Seerr — media request portal
 
@@ -250,21 +233,20 @@ Seerr provides a clean UI for friends and family to request movies and TV shows,
 
 ### Beszel — monitoring hub
 
-Beszel is a lightweight server monitoring hub with historical data, Docker stats, and alerts.
-
-You can access the dashboard at `https://media-server.tailbac0df.ts.net:28090`.
+Access the dashboard at `https://media-server.tailbac0df.ts.net:28090`.
 
 **Admin credentials** (configurable, simple defaults):
 - Email: `ruddickmg@gmail.com` (default — change via `media-server.beszel.adminEmail`)
 - Password: `admin` (default — change via `media-server.beszel.adminPassword`)
 
-> **Note:** Tailscale is the access control layer. These credentials are only for the Beszel dashboard behind your tailnet. Override them in your host configuration if you want different values:
-> ```nix
-> media-server.beszel.adminEmail = "your@email.com";
-> media-server.beszel.adminPassword = "your-password";
-> ```
->
-> **Changing credentials:** These env vars are only consumed by the Beszel hub migration on first start (clean data directory). To change credentials, delete the PocketBase data directory (`/var/lib/beszel-hub/beszel_data`) and restart `beszel-hub.service`.
+Override them in your host configuration:
+
+```nix
+media-server.beszel.adminEmail = "your@email.com";
+media-server.beszel.adminPassword = "your-password";
+```
+
+> **Changing credentials:** these values are only consumed when the hub first initializes its data directory. To change them, delete `/var/lib/beszel-hub/beszel_data` and restart `beszel-hub.service`.
 
 ### Gotify — push notifications
 
@@ -283,55 +265,6 @@ Profilarr manages quality profiles and custom formats for Radarr and Sonarr via 
 5. Go to **Sync** and push profiles to both instances
 
 > **Note:** Declarr no longer manages quality profiles or custom formats. It only handles base configuration (API keys, download clients, root folders, notifications). All profile management is done through Profilarr.
-
-## Security Architecture
-
-### Access model
-
-| Tier | Services | How to access | Auth |
-|------|----------|---------------|------|
-| **Tailscale HTTPS** | Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, Seerr, autobrr (path-based) | `https://media-server.tailbac0df.ts.net/<service>` (path-based via Tailscale Serve + Caddy) | Tailscale identity |
-| **Tailscale HTTPS** | Profilarr, Beszel, Gotify (port-based) | `https://media-server.tailbac0df.ts.net:<port>` (direct via Tailscale Serve) | Tailscale identity |
-
-| **Tailscale RPC** | Deluge (daemon) | `media-server:58846` (native Deluge RPC protocol) | `localclient:deluge` (auth file) |
-| **Tailscale-only** | Unpackerr | internal only | N/A |
-| **Open port** | Plex (32400) | Direct via LAN IP or public IP; Plex app | Plex.tv account auth |
-
-**Plex** has `openFirewall = true` by default because it's designed to be shared with friends and family.
-
-> **DLNA note:** Plex also opens UDP ports 1900 (DLNA) and 5353 (mDNS) for local device discovery. DLNA broadcasts your library to any device on your LAN without authentication. If you want to disable it, turn off DLNA in Plex's settings.
-
-All *arr apps bind exclusively to `127.0.0.1` — they have no direct network listener. Web UI access goes through **Tailscale Serve** which terminates TLS, then a local Caddy reverse proxy routes by path prefix to the correct service.
-
-**Deluge** is accessed via its native RPC protocol on port 58846. The thin client (`deluge-gtk` / `deluge-console`) connects over Tailscale — fully encrypted.
-
-**Bazarr and Seerr** are routed through Caddy and Tailscale Serve — same HTTPS URLs as the *arr apps. **Unpackerr** has no web UI (internal only).
-
-To expose any service on LAN as well, set its `openFirewall = true`:
-
-```nix
-networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
-```
-
-For VPN confinement details, see [VPN confinement](#vpn-confinement).
-
-## Service Reference
-
-| Service | Port | Access |
-|---------|------|--------|
-| Plex | 32400 | `http://<lan-ip>:32400/web` or Plex app |
-| Seerr | 5055 | `https://media-server.tailbac0df.ts.net/seerr` |
-| Seerr | 5055 | `https://media-server.tailbac0df.ts.net` |
-| Deluge (daemon) | 58846 | `media-server:58846` (thin client RPC) |
-| Prowlarr | 9696 | `https://media-server.tailbac0df.ts.net/prowlarr` |
-| Sonarr | 8989 | `https://media-server.tailbac0df.ts.net/sonarr` |
-| Radarr | 7878 | `https://media-server.tailbac0df.ts.net/radarr` |
-| Lidarr | 8686 | `https://media-server.tailbac0df.ts.net/lidarr` |
-| Bazarr | 6767 | `https://media-server.tailbac0df.ts.net/bazarr` |
-| autobrr | 7474 | `https://media-server.tailbac0df.ts.net/autobrr` |
-| Profilarr | 6865 | `https://media-server.tailbac0df.ts.net:6868` |
-| Beszel | 8090 | `https://media-server.tailbac0df.ts.net:28090` |
-| Gotify | 6789 | `https://media-server.tailbac0df.ts.net:6789` |
 
 ## Customization
 
@@ -365,13 +298,15 @@ Then add `secrets/` to `.gitignore`.
 
 ### Firewall
 
-The host firewall blocks all inbound traffic on physical interfaces by default. Only the `tailscale0` and `lo` interfaces are trusted. Each service exposes its port on the tailnet only unless `openFirewall = true` is set.
+Each service exposes its port on the tailnet only unless `openFirewall = true` is set. To expose a service on the LAN as well, set `openFirewall = true` in its host config or open the port directly:
+
+```nix
+networking.firewall.interfaces."enp0s3".allowedTCPPorts = [ 8989 7878 ];
+```
 
 ### VPN confinement
 
 Deluge can be isolated in a dedicated network namespace with a WireGuard VPN to anonymize torrent traffic. This provides a built-in kill switch — if the VPN drops, Deluge has no network access.
-
-A proxy service (`proxy-deluge`) forwards the daemon port (58846) from the root namespace so the thin client can still connect.
 
 The module expects a standard WireGuard `.conf` file. This file contains a PrivateKey — **treat it as a secret and never commit it to the repository.**
 
@@ -406,24 +341,3 @@ media-server = {
   deluge.vpnConfinement = true;
 };
 ```
-
-## Auto-Updates
-
-A systemd timer runs every 5 minutes: `git fetch origin` + `git merge --ff-only` + `nixos-rebuild switch`. The service checks whether the local branch is behind the remote before pulling.
-
-## Auto-Reboot
-
-A separate systemd timer runs daily at 4:00 AM HST. It compares the running kernel/initrd against the newly built system. If either changed, the server reboots after a 1-minute grace period. This ensures kernel security updates are applied automatically.
-
-## Declarr
-
-Declarr declaratively manages the base configuration of Sonarr, Radarr, Lidarr, and Prowlarr. On each rebuild (or service restart), it syncs:
-
-- **API keys** (generated deterministically from the hostname)
-- **Download client** (Deluge connection)
-- **Root folders** (`/media/movies`, `/media/tv`, `/media/music`)
-- **Naming conventions** for downloaded media
-- **Prowlarr application sync** (full sync to Sonarr, Radarr, Lidarr)
-- **Gotify notification connections** for all *arr apps
-
-Declarr does **not** manage quality profiles or custom formats — those are handled by [Profilarr](#profilarr--quality-profiles-and-custom-formats).
