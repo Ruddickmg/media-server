@@ -20,6 +20,11 @@ in
     };
   };
 
+  # Headless appliance: the box lives plugged in and is administered remotely,
+  # so the lid, suspend/hibernate, and the power/sleep keys are all ignored,
+  # the CPU governor is pinned to performance, and sudo is disabled entirely
+  # (all changes go through nixos-rebuild over SSH). tty1 auto-logs-in as
+  # media-server so a directly attached console needs no password.
   config = {
     environment.systemPackages = [ pkgs.kitty.terminfo ];
 

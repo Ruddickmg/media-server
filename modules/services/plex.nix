@@ -29,10 +29,26 @@ in
       openFirewall = cfg.openFirewall;
     };
 
+    # Plex's bundled ffmpeg opens /dev/dri/renderD128 to reach Quick Sync. That
+    # node is mode 0660 render:render, so media-group access is not sufficient on
+    # its own.
+    #
+    # The render group needs no declaration here: nixpkgs already creates it
+    # unconditionally at a fixed ids.gids.render (303), so unlike media/dhcpcd
+    # above it is never auto-assigned and cannot drift the @media numbering.
+    users.users.plex = {
+      extraGroups = [ "render" ];
+    };
+
     # Hardware acceleration notes:
-    # - /dev/dri (Intel QuickSync / VAAPI) is accessible because PrivateDevices
-    #   is NOT set.  Do not add PrivateDevices or CapabilityBoundingSet or it
-    #   will break GPU transcoding.
+    # - /dev/dri reaches Plex for two independent reasons, and both are load
+    #   bearing. The device node is only visible in Plex's mount namespace
+    #   because PrivateDevices is NOT set -- do not add PrivateDevices or
+    #   CapabilityBoundingSet or it will break GPU transcoding. And the node is
+    #   only *openable* because the extraGroups line above puts plex in render.
+    #   The iHD driver itself comes from the graphics module; the nixpkgs Plex
+    #   module points LD_LIBRARY_PATH at /run/opengl-driver/lib, which that
+    #   module populates.
     # - ProtectSystem=true (set by the nixpkgs module) does not protect /media;
     #   ReadOnlyPaths=/media pins Plex's writable surface to its own data dir
     #   plus the two Plex library roots, keeping downloads/xseeds/music

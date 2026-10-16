@@ -12,7 +12,7 @@ in
     rebootHour = lib.mkOption {
       type = lib.types.int;
       default = 4;
-      description = "Hour of the day (UTC) to check for and apply a reboot";
+      description = "Hour of the day (local time) to check for and apply a reboot";
     };
   };
 

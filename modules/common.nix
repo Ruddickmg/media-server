@@ -1,7 +1,7 @@
 {
   lib,
   pkgs,
-  herdr,
+  tuios,
   config,
   ...
 }:
@@ -153,7 +153,7 @@ in
       eza
       bat
       btop
-      herdr.packages.${pkgs.system}.default
+      tuios.packages.${pkgs.system}.default
 
       # delete-media: delete a media file (or a whole movie/show folder) and
       # every hard link to it. The *arr library dirs, /media/downloads/completed,
