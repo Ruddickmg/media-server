@@ -2,22 +2,6 @@
 
 NixOS configuration for a media server running Plex, Deluge, and the *arr suite.
 
-## Files & secrets
-
-The system expects the flake at `/etc/nixos` and reads a few files from fixed locations. `secrets/` and `hardware-configuration.nix` are gitignored, so they live only on the server.
-
-| Path | Contents | How it gets there |
-|------|----------|-------------------|
-| `/etc/nixos` | This flake — the system rebuilds from it and auto-update pulls into it | `git clone` the repo there before installing ([step 2](#2-clone-the-flake)) |
-| `/etc/nixos/hosts/media-server/disko.nix` | Disk layout | You edit `device` before installing ([step 3](#3-set-the-target-disk)) |
-| `/etc/nixos/hosts/media-server/default.nix` | Includes your SSH public key(s) | You add them before installing ([step 4](#4-add-your-ssh-public-key)) |
-| `/etc/nixos/hosts/media-server/hardware-configuration.nix` | Host hardware config | Generated on the host by `nixos-generate-config` ([step 7](#7-generate-hardware-config)); gitignored |
-| `/etc/nixos/secrets/tailscale-auth` | Reusable Tailscale auth key | You create it before installing ([step 5](#5-create-the-tailscale-auth-key)); gitignored |
-| `/etc/nixos/secrets/vpn-key` | WireGuard private key | You create it before enabling VPN (see [VPN confinement](#vpn-confinement)); gitignored |
-| `/etc/nixos/secrets/gotify-token` | Gotify app token for notifications | Created automatically on first boot — do not add it |
-
-The clone must leave the repo at `/etc/nixos` and tracking `origin/main`: the auto-update service pulls that branch on the server, so changes made on your workstation are pushed and then applied automatically.
-
 ## Quick Start
 
 ### 1. Boot the NixOS ISO
@@ -91,6 +75,22 @@ Set the root password when prompted.
 ```bash
 sudo reboot
 ```
+
+## Files & secrets
+
+The system expects the flake at `/etc/nixos` and reads a few files from fixed locations. `secrets/` and `hardware-configuration.nix` are gitignored, so they live only on the server.
+
+| Path | Contents | How it gets there |
+|------|----------|-------------------|
+| `/etc/nixos` | This flake — the system rebuilds from it and auto-update pulls into it | `git clone` the repo there before installing ([step 2](#2-clone-the-flake)) |
+| `/etc/nixos/hosts/media-server/disko.nix` | Disk layout | You edit `device` before installing ([step 3](#3-set-the-target-disk)) |
+| `/etc/nixos/hosts/media-server/default.nix` | Includes your SSH public key(s) | You add them before installing ([step 4](#4-add-your-ssh-public-key)) |
+| `/etc/nixos/hosts/media-server/hardware-configuration.nix` | Host hardware config | Generated on the host by `nixos-generate-config` ([step 7](#7-generate-hardware-config)); gitignored |
+| `/etc/nixos/secrets/tailscale-auth` | Reusable Tailscale auth key | You create it before installing ([step 5](#5-create-the-tailscale-auth-key)); gitignored |
+| `/etc/nixos/secrets/vpn-key` | WireGuard private key | You create it before enabling VPN (see [VPN confinement](#vpn-confinement)); gitignored |
+| `/etc/nixos/secrets/gotify-token` | Gotify app token for notifications | Created automatically on first boot — do not add it |
+
+The clone must leave the repo at `/etc/nixos` and tracking `origin/main`: the auto-update service pulls that branch on the server, so changes made on your workstation are pushed and then applied automatically.
 
 ## Connecting
 
@@ -338,7 +338,10 @@ Proton VPN provides standard WireGuard `.conf` files directly from their web das
 6. Copy the private key to the server to a file in `/etc/nixos/secrets/vpn-key`
 7. set permissions for key:
 ```bash
-ssh media-server sudo chmod 600 /etc/nixos/secrets/vpn-key
+ssh media-server
+
+# with super user privileges
+chmod 600 /etc/nixos/secrets/vpn-key
 ```
 
 #### Enabling

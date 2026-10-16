@@ -19,11 +19,11 @@
     # Pinned to the upstream flake rather than nixpkgs: the nixpkgs packages in
     # this repo only ship tuios 0.7.0, which predates the remote-host / [hosts]
     # feature (added in 0.8.0) used to attach to sessions on this machine.
-    # nixpkgs is deliberately NOT followed: tuios v0.9.3 builds with
+    # nixpkgs is deliberately NOT followed: tuios v0.10.0 builds with
     # GOTOOLCHAIN=local and requires Go >= 1.26.6, while this repo's nixpkgs
     # provides Go 1.26.5. The upstream flake's own locked nixpkgs has 1.26.7.
     tuios = {
-      url = "github:Gaurav-Gosain/tuios/v0.9.3";
+      url = "github:Gaurav-Gosain/tuios/v0.10.0";
     };
   };
 
