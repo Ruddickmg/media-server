@@ -13,6 +13,11 @@ in
   services.tailscale = {
     enable = true;
     useRoutingFeatures = "both";
+    # Tailscale SSH is the transport tuios uses for its remote-host links
+    # (`tuios attach --host media-server` from another machine). tuios opens a
+    # single ssh connection to this host and talks to the tuios daemon on the
+    # other side, so there is no extra listening port to expose here; the
+    # tailnet ACL decides who may log in as media-server.
     extraSetFlags = [ "--ssh" ];
   };
 

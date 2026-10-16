@@ -99,6 +99,28 @@ Public keys are committed to the repo and baked into the system at build time.
 
 The private key (`~/.ssh/media-server`) is yours alone — never commit it.
 
+### Terminal sessions with tuios
+
+The server ships [tuios](https://tuios.dev) (v0.9.3). You can run it on the server after logging in, or attach to sessions on the server from tuios running on your own machine — over Tailscale, with nothing nested. Run these on your **local** machine (tuios ≥ 0.8.0):
+
+```bash
+# Add the server once. `media-server` is its MagicDNS name.
+tuios hosts add media-server media-server@media-server
+# or let tuios fill the address from the tailnet:
+tuios hosts add media-server --tailnet
+
+# Start the server's tuios daemon if it is not running (on demand; no systemd service).
+tuios hosts test media-server --start
+
+# Draw a session running on the server in your local client, or create one.
+tuios attach --host media-server
+tuios new --host media-server work
+```
+
+tuios reaches the server over ssh on the tailnet; there is no extra port to open. The server's Tailscale SSH (`--ssh`, already enabled) authenticates the link, and its default `[hosts]` policy already allows listing, opening sessions, and writing. If your tailnet's SSH rules use check mode, approve the login once when prompted.
+
+Running `tuios` directly on the server after `ssh` also works and starts the same per-user daemon; sessions survive an SSH drop and reattach with `tuios attach`. See `tuios --help` and the [tuios docs](https://tuios.dev) for keybindings and hosts.
+
 ## HTTPS Access
 
 The *arr web UIs are served over HTTPS with automatically-provisioned Let's Encrypt certificates via **Tailscale Serve**. Tailscale terminates TLS and proxies to a local Caddy instance, which routes by path prefix to each service.
