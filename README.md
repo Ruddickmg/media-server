@@ -338,8 +338,10 @@ Proton VPN provides standard WireGuard `.conf` files directly from their web das
 6. Copy the private key to the server to a file in `/etc/nixos/secrets/vpn-key`
 7. set permissions for key:
 ```bash
+ssh media-server
+
 # with super user privileges
-media-server sudo chmod 600 /etc/nixos/secrets/vpn-key
+chmod 600 /etc/nixos/secrets/vpn-key
 ```
 
 #### Enabling
