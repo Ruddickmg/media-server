@@ -104,7 +104,7 @@
                     mount = pkgs-unstable.fetchFromGitHub {
                       owner = "PHONE1X";
                       repo = "lsblk-mount.yazi";
-                      rev = "master";
+                      rev = "73e863ff4f0102e0ef6950f14163f0a4963f1cb4";
                       hash = "sha256-HjIDBe2lG9w+tRalfdYIwOK2kRuVPFDPq37HqEdM7UQ=";
                     };
                     whoosh = {
