@@ -257,7 +257,7 @@
                         for = "linux";
                       }
                     ];
-                    manager = {
+                    mgr = {
                       ratio = [
                         1
                         4
