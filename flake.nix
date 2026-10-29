@@ -77,11 +77,10 @@
               };
             };
             keymap = {
-              manager.prepend_keymap = [
+              mgr.prepend_keymap = [
                 {
                   on = "M";
                   run = "plugin mount";
-                  block = true; # Required for interactive FZF execution over SSH!
                   desc = "Mount partitions";
                 }
               ];
