@@ -64,11 +64,6 @@
           programs.yazi = {
             enable = true;
             shellWrapperName = "yy";
-            extraPackages = [
-              pkgs-unstable.fzf
-              pkgs-unstable.util-linux # Provides the 'lsblk' command needed to scan the drives
-              pkgs-unstable.udisks2 # Provides the 'udisksctl' command needed to mount them
-            ];
             plugins = {
               piper = pkgs-unstable.yaziPlugins.piper;
               mount = pkgs-unstable.fetchFromGitHub {
