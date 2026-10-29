@@ -17,7 +17,6 @@ in
       default = "media-server.tailbac0df.ts.net";
       description = "Tailscale hostname used for public-facing HTTPS URLs";
     };
-
     apiKeys = {
       sonarr = lib.mkOption {
         type = lib.types.str;
@@ -104,6 +103,8 @@ in
       "d /media/tv 2775 root media"
       "d /media/music 2775 root media"
     ];
+
+    services.udisks2.enable = true;
 
     programs.zsh = {
       enable = true;
