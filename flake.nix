@@ -49,6 +49,11 @@
         backupFileExtension = "hm-backup";
         users.media-server = {
           home.stateVersion = "24.05";
+          home.packages = [
+            pkgs-unstable.fzf
+            pkgs-unstable.util-linux  # Provides 'lsblk' for the mount plugin
+            pkgs-unstable.udisks2     # Provides 'udisksctl' for the mount plugin
+          ];
           programs.btop = {
             enable = true;
             settings = {
