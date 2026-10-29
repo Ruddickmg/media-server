@@ -148,7 +148,6 @@ in
       ripgrep
       jq
       vim
-      yazi
       zoxide
       starship
       eza
