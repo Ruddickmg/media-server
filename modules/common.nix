@@ -12,7 +12,6 @@ let
 in
 {
   options.media-server = {
-    services.udisks2.enable = true;
     tailscaleHostname = lib.mkOption {
       type = lib.types.str;
       default = "media-server.tailbac0df.ts.net";
@@ -104,6 +103,8 @@ in
       "d /media/tv 2775 root media"
       "d /media/music 2775 root media"
     ];
+
+    services.udisks2.enable = true;
 
     programs.zsh = {
       enable = true;
