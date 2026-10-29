@@ -123,16 +123,20 @@
                 {
                   on = "M";
                   run = "plugin mount";
+                  block = true; # Required for interactive FZF execution over SSH!
                   desc = "Mount partitions";
                 }
                 {
                   on = "[";
-                  run = "plugin whoosh jump_by_key";
+                  run = "plugin whoosh";
+                  args = [ "jump_by_key" ]; # 👈 Correct modern argument format
                   desc = "Jump bookmark by key";
                 }
                 {
                   on = "}";
-                  run = "plugin whoosh jump_by_fzf";
+                  run = "plugin whoosh";
+                  args = [ "jump_by_fzf" ];
+                  block = true; # Required for interactive FZF execution over SSH!
                   desc = "Fuzzy search bookmarks";
                 }
                 {
@@ -140,7 +144,8 @@
                     "]"
                     "a"
                   ];
-                  run = "plugin whoosh save";
+                  run = "plugin whoosh";
+                  args = [ "save" ];
                   desc = "Bookmark hovered file/dir";
                 }
                 {
@@ -148,7 +153,8 @@
                     "]"
                     "A"
                   ];
-                  run = "plugin whoosh save_cwd";
+                  run = "plugin whoosh";
+                  args = [ "save_cwd" ];
                   desc = "Bookmark current directory";
                 }
                 {
@@ -156,7 +162,8 @@
                     "]"
                     "t"
                   ];
-                  run = "plugin whoosh save_temp";
+                  run = "plugin whoosh";
+                  args = [ "save_temp" ];
                   desc = "Temp bookmark hovered file/dir";
                 }
                 {
@@ -164,7 +171,8 @@
                     "]"
                     "T"
                   ];
-                  run = "plugin whoosh save_cwd_temp";
+                  run = "plugin whoosh";
+                  args = [ "save_cwd_temp" ];
                   desc = "Temp bookmark current directory";
                 }
                 {
@@ -172,7 +180,9 @@
                     "]"
                     "f"
                   ];
-                  run = "plugin whoosh jump_by_fzf";
+                  run = "plugin whoosh";
+                  args = [ "jump_by_fzf" ];
+                  block = true;
                   desc = "Jump bookmark by fzf";
                 }
                 {
@@ -180,7 +190,8 @@
                     "]"
                     "d"
                   ];
-                  run = "plugin whoosh delete_by_key";
+                  run = "plugin whoosh";
+                  args = [ "delete_by_key" ];
                   desc = "Delete bookmark by key";
                 }
                 {
@@ -188,7 +199,9 @@
                     "]"
                     "D"
                   ];
-                  run = "plugin whoosh delete_by_fzf";
+                  run = "plugin whoosh";
+                  args = [ "delete_by_fzf" ];
+                  block = true;
                   desc = "Delete bookmarks by fzf";
                 }
                 {
@@ -196,7 +209,8 @@
                     "]"
                     "C"
                   ];
-                  run = "plugin whoosh delete_all";
+                  run = "plugin whoosh";
+                  args = [ "delete_all" ];
                   desc = "Delete all user bookmarks";
                 }
                 {
@@ -204,7 +218,8 @@
                     "]"
                     "r"
                   ];
-                  run = "plugin whoosh rename_by_key";
+                  run = "plugin whoosh";
+                  args = [ "rename_by_key" ];
                   desc = "Rename bookmark by key";
                 }
                 {
@@ -212,7 +227,9 @@
                     "]"
                     "R"
                   ];
-                  run = "plugin whoosh rename_by_fzf";
+                  run = "plugin whoosh";
+                  args = [ "rename_by_fzf" ];
+                  block = true;
                   desc = "Rename bookmark by fzf";
                 }
               ];
