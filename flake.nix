@@ -43,6 +43,10 @@
         inherit system;
         config.allowUnfree = true;
       };
+      pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
       home-manager-config = {
         useGlobalPkgs = true;
         useUserPackages = true;
@@ -50,9 +54,9 @@
         users.media-server = {
           home.stateVersion = "24.05";
           home.packages = [
-            pkgs-unstable.fzf
-            pkgs-unstable.util-linux # Provides 'lsblk' for the mount plugin
-            pkgs-unstable.udisks2 # Provides 'udisksctl' for the mount plugin
+            pkgs.fzf
+            pkgs.util-linux # Provides 'lsblk' for the mount plugin
+            pkgs.udisks2 # Provides 'udisksctl' for the mount plugin
           ];
           programs.btop = {
             enable = true;
@@ -65,15 +69,15 @@
             enable = true;
             shellWrapperName = "yy";
             plugins = {
-              piper = pkgs-unstable.yaziPlugins.piper;
-              mount = pkgs-unstable.fetchFromGitHub {
+              piper = pkgs.yaziPlugins.piper;
+              mount = pkgs.fetchFromGitHub {
                 owner = "PHONE1X";
                 repo = "lsblk-mount.yazi";
                 rev = "73e863ff4f0102e0ef6950f14163f0a4963f1cb4";
                 hash = "sha256-HjIDBe2lG9w+tRalfdYIwOK2kRuVPFDPq37HqEdM7UQ=";
               };
               whoosh = {
-                package = pkgs-unstable.fetchFromGitHub {
+                package = pkgs.fetchFromGitHub {
                   owner = "WhoSowSee";
                   repo = "whoosh.yazi";
                   rev = "d6ede9895a0e14b1bb1d65cd0eb783f92f2fc522";
