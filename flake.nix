@@ -150,7 +150,7 @@
                     };
                   };
                   keymap = {
-                    mgr.prepend_keymap = [
+                    manager.prepend_keymap = [
                       {
                         on = "M";
                         run = "plugin mount";
