@@ -278,6 +278,15 @@ in
         is detected, when all tiers fail, and before a reboot-tier restart.
       '';
     };
+
+    notifyGroups = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = ''
+        Supplementary groups granted to the watchdog service so `notifyScript`
+        can read a group-owned secret (for example the Gotify token).
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -337,6 +346,7 @@ in
         RestartSec = 5;
         TimeoutStopSec = 20;
         StateDirectory = "battery-recharge-watch";
+        SupplementaryGroups = cfg.notifyGroups;
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectHome = true;

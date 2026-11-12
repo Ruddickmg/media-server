@@ -518,7 +518,12 @@ tier_reboot() {
 
 # --- reset ladder -----------------------------------------------------------
 
-TIERS=(ac-rebind battery-rebind ucsi dell-modes suspend ec-rebind reboot)
+# Order matters: the two ACPI rebinds are nearly free, then UCSI (the real
+# "replug" analogue) and suspend get a chance before the heavier EC rebind.
+# The Dell SMM mode toggles are last because they have never re-armed a stopped
+# charger on this machine and each costs ~45s of verification; on a nearly empty
+# pack that time is better spent reaching a tier that might work.
+TIERS=(ac-rebind battery-rebind ucsi suspend ec-rebind dell-modes reboot)
 
 tier_enabled() {
   case $1 in
