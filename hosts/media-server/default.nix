@@ -70,7 +70,7 @@ in
     };
 
     headless.authorizedKeys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFtQlXM4BBmMjr0B35YzlQIOJRPRUdiCas6Yzk5So2w3 grant@grant-XPS-15-9530"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDpbe9bFjeQJCSYGd0FmAZ3ZlKbzHXv1CmsHzZ7sxTDd moon@nixos"
     ];
 
     vpn.enable = true;
