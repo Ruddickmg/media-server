@@ -29,9 +29,9 @@ in
     hardware.graphics = {
       enable = true;
       extraPackages = with pkgs; [
-        # iHD, the VA-API driver for the Tiger Lake iGPU (Intel Iris Xe, Xe-LP) in
-        # this host. Supports Broadwell (2014) and newer; anything older would
-        # need the mostly-unmaintained intel-vaapi-driver instead.
+        # iHD, the VA-API driver for the Raptor Lake iGPU (Intel Iris Xe, 13th
+        # gen) in this host. Supports Broadwell (2014) and newer; anything older
+        # would need the mostly-unmaintained intel-vaapi-driver instead.
         intel-media-driver
       ];
     };
