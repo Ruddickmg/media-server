@@ -39,20 +39,30 @@ in
       ];
     };
 
-    systemd.services.radarr.serviceConfig = {
-      PrivateTmp = true;
-      NoNewPrivileges = true;
-      LockPersonality = true;
-      RestrictRealtime = true;
-      SystemCallArchitectures = "native";
-      RemoveIPC = true;
-      ReadWritePaths = [
-        "/var/lib/radarr"
-        "/media/downloads/completed"
-        "/media/movies"
+    systemd.services.radarr = {
+      # The union must be mounted before imports touch the library/torrents.
+      unitConfig.RequiresMountsFor = [
+        "/media/data/torrents/complete"
+        "/media/data/library/movies"
       ];
-      KeyringMode = "private";
-      RestrictSUIDSGID = true;
+      serviceConfig = {
+        # Keep *arr-created dirs/files group-writable for media (nixpkgs sets
+        # 0022, which would break Plex/delete-media-watch unlinks).
+        UMask = lib.mkForce "0002";
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        LockPersonality = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        RemoveIPC = true;
+        ReadWritePaths = [
+          "/var/lib/radarr"
+          "/media/data/torrents/complete"
+          "/media/data/library/movies"
+        ];
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+      };
     };
   };
 }

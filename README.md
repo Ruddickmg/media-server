@@ -19,6 +19,8 @@ git clone <repo-url> /mnt/etc/nixos
 
 Edit `hosts/media-server/disko.nix` and change the `device` path to match your disk (e.g. `/dev/nvme0n1` or `/dev/sda`).
 
+Then replace the storage placeholders in `hosts/media-server/storage-paths.nix` with the real HDD mount points and `/dev/disk/by-id/...` device paths (see [Storage layout](#storage-layout)).
+
 ### 4. Add your SSH public key
 
 Public keys are committed to the repo and baked into the system at build time, so add yours before installing:
@@ -84,6 +86,7 @@ The system expects the flake at `/etc/nixos` and reads a few files from fixed lo
 |------|----------|-------------------|
 | `/etc/nixos` | This flake — the system rebuilds from it and auto-update pulls into it | `git clone` the repo there before installing ([step 2](#2-clone-the-flake)) |
 | `/etc/nixos/hosts/media-server/disko.nix` | Disk layout | You edit `device` before installing ([step 3](#3-set-the-target-disk)) |
+| `/etc/nixos/hosts/media-server/storage-paths.nix` | SSD/HDD mount points and device IDs | You replace the placeholders before the first switch ([step 3](#3-set-the-target-disk)) |
 | `/etc/nixos/hosts/media-server/default.nix` | Includes your SSH public key(s) | You add them before installing ([step 4](#4-add-your-ssh-public-key)) |
 | `/etc/nixos/hosts/media-server/hardware-configuration.nix` | Host hardware config | Generated on the host by `nixos-generate-config` ([step 7](#7-generate-hardware-config)); gitignored |
 | `/etc/nixos/secrets/tailscale-auth` | Reusable Tailscale auth key | You create it before installing ([step 5](#5-create-the-tailscale-auth-key)); gitignored |
@@ -91,6 +94,175 @@ The system expects the flake at `/etc/nixos` and reads a few files from fixed lo
 | `/etc/nixos/secrets/gotify-token` | Gotify app token for notifications | Created automatically on first boot — do not add it |
 
 The clone must leave the repo at `/etc/nixos` and tracking `origin/main`: the auto-update service pulls that branch on the server, so changes made on your workstation are pushed and then applied automatically.
+
+## Storage layout
+
+Media lives on two tiers joined into a single `/media` view:
+
+| Path | What it is |
+|------|------------|
+| `/mnt/ssd` | SSD cache (`@media` btrfs subvolume). New downloads land here. |
+| `/mnt/hdd1`, `/mnt/hdd2`, … | Data HDDs in the JBOD enclosure, one ext4 filesystem each |
+| `/mnt/hddpool` | mergerfs union of the data HDDs (backing pool) |
+| `/media` | mergerfs union of `/mnt/ssd` then `/mnt/hddpool` — the path every service uses |
+| `/mnt/parity1` | SnapRAID parity disk (not installed yet) |
+
+Everything lives under `data/` so a tree can be moved between tiers as a unit:
+
+```
+/media/data/torrents/incomplete   active downloads (SSD only)
+/media/data/torrents/complete     finished torrents (SSD, moved to the HDDs when cold)
+/media/data/torrents/xseeds       cross-seed hard links
+/media/data/library/movies
+/media/data/library/tv
+/media/data/library/music
+```
+
+`/media` fills the SSD first and only spills to the HDD pool when the SSD is nearly full. A nightly job moves the oldest completed torrents, together with every hard link, to the HDDs once the SSD reaches 85% full, and stops when it drops below 60%. Hot torrents keep seeding from the SSD; cold ones keep seeding from the HDDs indefinitely.
+
+### Set the real paths and devices
+
+`hosts/media-server/storage-paths.nix` is the single source of truth for the mounts. Replace the placeholders before the first switch on a host:
+
+```nix
+{
+  ssd = "/mnt/ssd";
+  hddPool = "/mnt/hddpool";
+  unified = "/media";
+
+  hddDisks = {
+    hdd1 = {
+      mountPoint = "/mnt/hdd1";
+      device = "/dev/disk/by-id/ata-WDC_WD240EDAZZ-...";   # ls -l /dev/disk/by-id/
+    };
+  };
+
+  parityDisks = { };
+  parityFiles = [ "/mnt/parity1/snapraid.parity" ];
+}
+```
+
+Use `/dev/disk/by-uuid/...` (the filesystem UUID from `blkid`) or `/dev/disk/by-id/...` so the disk order in the enclosure does not matter. Format a new data disk as ext4, for example:
+
+```bash
+sudo mkfs.ext4 -L hdd1 /dev/disk/by-id/ata-WDC_WD240EDAZZ-...
+```
+
+Add each additional data disk to `hddDisks`; both mergerfs pools pick it up automatically.
+
+### Migrate an existing library (one time)
+
+The old layout mounted the SSD at `/media`, with `/media/downloads/...` and `/media/{movies,tv,music}`. The new layout moves everything under `data/` on the same filesystem, which preserves hard links. Stop the services first:
+
+```bash
+sudo systemctl stop deluged deluge-web sonarr radarr lidarr bazarr plex unpackerr cross-seed delete-media-watch
+```
+
+Move the trees on the SSD while it is still mounted at `/media`:
+
+```bash
+sudo mkdir -p /media/data/torrents /media/data/library
+sudo mv /media/downloads/incomplete /media/data/torrents/incomplete
+sudo mv /media/downloads/completed  /media/data/torrents/complete
+sudo mv /media/downloads/xseeds     /media/data/torrents/xseeds
+sudo mv /media/movies /media/data/library/movies
+sudo mv /media/tv     /media/data/library/tv
+sudo mv /media/music  /media/data/library/music
+sudo rmdir /media/downloads
+```
+
+Do the same for the HDD, writing to the filesystem directly rather than through the union:
+
+```bash
+sudo mkdir -p /mnt/hdd1
+sudo mount /dev/disk/by-id/<hdd-id> /mnt/hdd1
+sudo mkdir -p /mnt/hdd1/data/torrents /mnt/hdd1/data/library
+sudo mv /mnt/hdd1/downloads/incomplete /mnt/hdd1/data/torrents/incomplete
+sudo mv /mnt/hdd1/downloads/completed  /mnt/hdd1/data/torrents/complete
+sudo mv /mnt/hdd1/downloads/xseeds     /mnt/hdd1/data/torrents/xseeds
+sudo mv /mnt/hdd1/movies /mnt/hdd1/data/library/movies
+sudo mv /mnt/hdd1/tv     /mnt/hdd1/data/library/tv
+sudo mv /mnt/hdd1/music  /mnt/hdd1/data/library/music
+sudo rmdir /mnt/hdd1/downloads 2>/dev/null || true
+sudo umount /mnt/hdd1
+```
+
+If the HDD already holds a copy of the library (for example an rsync of the SSD), keep only one copy: mergerfs does not merge duplicate directory trees, it shows the first branch's copy.
+
+Then unmount the old `/media` mount so the mergerfs union can take over, apply the configuration, and reboot:
+
+```bash
+sudo umount /media
+sudo nixos-rebuild switch --flake /etc/nixos#media-server
+sudo reboot
+```
+
+### Nightly SSD-to-HDD mover
+
+The mover runs at 02:00. To change the thresholds or schedule, set them in your host config:
+
+```nix
+media-server.storage.tiering = {
+  enable = true;
+  highPercent = 85;   # start moving at or above this SSD usage
+  lowPercent = 50;    # stop once the SSD is below this usage
+  minFreeGiB = 150;   # never fill an HDD past this reserve
+  time = "02:00";     # OnCalendar time for the timer
+};
+```
+
+Preview what it would move without changing anything:
+
+```bash
+sudo media-tier --dry-run
+```
+
+Run it now instead of waiting for the timer:
+
+```bash
+sudo systemctl start media-tier
+journalctl -u media-tier -f
+```
+
+The mover pauses Deluge for the duration and resumes it afterwards. Because it resumes every torrent, torrents you paused manually will also resume.
+
+### SnapRAID parity (add later)
+
+SnapRAID is preconfigured but disabled. It protects the HDD data disks against a disk failure; the SSD is not covered. To enable it once a parity disk is installed:
+
+1. Add the parity disk to `hosts/media-server/storage-paths.nix`:
+
+   ```nix
+   parityDisks = {
+     parity1 = {
+       mountPoint = "/mnt/parity1";
+       device = "/dev/disk/by-id/ata-WDC_WD240EDAZZ-...";
+     };
+   };
+   ```
+
+   The parity disk must be at least as large as the largest data disk.
+
+2. Format it:
+
+   ```bash
+   sudo mkfs.ext4 -L parity1 /dev/disk/by-id/ata-WDC_WD240EDAZZ-...
+   ```
+
+3. Enable it in `hosts/media-server/default.nix`:
+
+   ```nix
+   media-server.storage.snapraid.enable = true;
+   ```
+
+4. Apply the configuration, then create the initial parity:
+
+   ```bash
+   sudo nixos-rebuild switch --flake /etc/nixos#media-server
+   sudo snapraid sync
+   ```
+
+After that, sync runs nightly at 04:00 and scrub runs weekly (8% of the array, only blocks older than 10 days). Sync and scrub skip a run when a disk is missing, and never run while the mover is active.
 
 ## Connecting
 
@@ -181,11 +353,12 @@ For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers
 
 ### Disk-space download guard
 
-Deluge halts downloads when free disk space runs low (preventing the disk-full failure that can corrupt the system). By default it stops downloads when free space on `/media` drops below **5 GB** and resumes when it recovers above **10 GB**, checking every minute.
+Deluge halts downloads when free disk space runs low (preventing the disk-full failure that can corrupt the system). By default it stops downloads when free space on the SSD cache mount (`/mnt/ssd`) drops below **5 GB** and resumes when it recovers above **10 GB**, checking every minute. The guard watches the SSD, not the `/media` union, because downloads land on the SSD first.
 
 To adjust, configure in your host config:
 
 ```nix
+media-server.deluge.diskGuard.checkPath = "/mnt/ssd";  # mount whose free space is monitored
 media-server.deluge.diskGuard.thresholdGiB = 8;   # halt below 8 GB free
 media-server.deluge.diskGuard.resumeGiB = 15;     # resume above 15 GB free
 media-server.deluge.diskGuard.intervalMins = 5;   # check every 5 minutes
@@ -194,10 +367,10 @@ media-server.deluge.diskGuard.notify = false;     # disable Gotify alerts
 
 ### Deleting media completely
 
-Deleting a file from the library leaves its hard links behind — the copy in `/media/downloads/completed` (and the cross-seed link in `/media/downloads/xseeds`) — so disk space is never freed. To remove a file or a whole movie/show folder together with every hard link:
+Deleting a file from the library leaves its hard links behind — the copy in `/media/data/torrents/complete` (and the cross-seed link in `/media/data/torrents/xseeds`) — so disk space is never freed. To remove a file or a whole movie/show folder together with every hard link:
 
 ```bash
-delete-media /media/movies/Some\ Movie\ (2020)
+delete-media /media/data/library/movies/Some\ Movie\ (2020)
 ```
 
 The command lists every hard link it found, asks for confirmation, deletes them all, and prunes the emptied folders. Remove the torrent from Deluge first if it is still seeding.
@@ -209,9 +382,9 @@ The command lists every hard link it found, asks for confirmation, deletes them 
 1. Open `http://<machine-ip>:32400/web`
 2. Claim your server
 3. Add libraries:
-   - **Movies** → `/media/movies`
-   - **TV Shows** → `/media/tv`
-   - **Music** → `/media/music`
+   - **Movies** → `/media/data/library/movies`
+   - **TV Shows** → `/media/data/library/tv`
+   - **Music** → `/media/data/library/music`
 
 ### Plex — hardware transcoding
 

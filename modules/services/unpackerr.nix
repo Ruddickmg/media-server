@@ -38,6 +38,7 @@ in
         "lidarr.service"
       ];
       wantedBy = [ "multi-user.target" ];
+      unitConfig.RequiresMountsFor = [ "/media/data/torrents/complete" ];
 
       serviceConfig = {
         EnvironmentFile = [
@@ -50,7 +51,7 @@ in
               UN_LIDARR_0_URL=http://localhost:8686
               UN_LIDARR_0_API_KEY=${apiKeys.lidarr}
               UN_FOLDER_0_ENABLE=true
-              UN_FOLDER_0_PATH=/media/downloads/completed
+              UN_FOLDER_0_PATH=/media/data/torrents/complete
               UN_FOLDER_0_INTERVAL=1s
               UN_EXTRACTOR_DELETE_AFTER=true
             ''
@@ -83,7 +84,7 @@ in
         RemoveIPC = true;
         ReadWritePaths = [
           "/var/lib/unpackerr"
-          "/media/downloads/completed"
+          "/media/data/torrents/complete"
         ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;
