@@ -24,6 +24,7 @@
     ../../modules/services/profilarr.nix
     ../../modules/services/cross-seed.nix
     ../../modules/services/delete-media-watch.nix
+    ../../modules/battery-recharge-watch.nix
     ../../modules/services/media-acl.nix
     ../../modules/services/autobrr
     ../../modules/declarr.nix
