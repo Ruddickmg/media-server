@@ -133,10 +133,10 @@ in
       package = crossSeedCli;
       settings = {
         dataDirs = [
-          "/media/downloads/completed"
+          "/media/data/torrents/complete"
         ];
         linkDirs = [
-          "/media/downloads/xseeds"
+          "/media/data/torrents/xseeds"
         ];
         outputDir = null;
         port = 2468;
@@ -202,6 +202,11 @@ in
       after = [
         "deluged.service"
         "prowlarr.service"
+      ];
+      # dataDirs/linkDirs live on the /media union.
+      unitConfig.RequiresMountsFor = [
+        "/media/data/torrents/complete"
+        "/media/data/torrents/xseeds"
       ];
       serviceConfig = {
         SupplementaryGroups = [
@@ -403,10 +408,10 @@ in
     systemd.services.rdfind-sweep = {
       description = "Deduplicate hard links across media and torrent trees";
       unitConfig.RequiresMountsFor = [
-        "/media/downloads/completed"
-        "/media/downloads/xseeds"
-        "/media/movies"
-        "/media/tv"
+        "/media/data/torrents/complete"
+        "/media/data/torrents/xseeds"
+        "/media/data/library/movies"
+        "/media/data/library/tv"
       ];
       after = [
         "cross-seed-search.service"
@@ -416,10 +421,10 @@ in
         # ProtectSystem=strict makes everything read-only except these (the
         # trees rdfind must unlink and re-hardlink within).
         ReadWritePaths = [
-          "/media/downloads/completed"
-          "/media/downloads/xseeds"
-          "/media/movies"
-          "/media/tv"
+          "/media/data/torrents/complete"
+          "/media/data/torrents/xseeds"
+          "/media/data/library/movies"
+          "/media/data/library/tv"
         ];
         NoNewPrivileges = true;
         PrivateTmp = true;
@@ -444,7 +449,7 @@ in
         TimeoutStartSec = 0;
         Nice = 19;
         IOSchedulingClass = "idle";
-        ExecStart = "${pkgs.rdfind}/bin/rdfind -makeresultsfile false -makehardlinks true /media/downloads/completed /media/downloads/xseeds /media/movies /media/tv";
+        ExecStart = "${pkgs.rdfind}/bin/rdfind -makeresultsfile false -makehardlinks true /media/data/torrents/complete /media/data/torrents/xseeds /media/data/library/movies /media/data/library/tv";
       };
     };
 

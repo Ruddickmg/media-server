@@ -1,8 +1,15 @@
+let
+  # Mount points/devices for the tiered storage layout. Shared with the
+  # standalone disko module so the installer and the running system agree.
+  paths = import ./storage-paths.nix;
+in
 { lib, ... }:
 {
   imports = [
     ./hardware-configuration.nix
     ../../modules/common.nix
+    ../../modules/storage.nix
+    ../../modules/media-tier.nix
     ../../modules/gotify.nix
     ../../modules/headless-server.nix
     ../../modules/auto-update.nix
@@ -43,6 +50,25 @@
   time.timeZone = "Pacific/Honolulu";
 
   media-server = {
+    # SSD-first tiered storage: @media (SSD) + the HDD pool behind a single
+    # /media union. Paths/devices live in storage-paths.nix so the standalone
+    # disko module can read the same values.
+    storage = {
+      enable = true;
+      ssdPath = paths.ssd;
+      hddPoolPath = paths.hddPool;
+      unifiedPath = paths.unified;
+      inherit (paths)
+        hddDisks
+        parityDisks
+        parityFiles
+        ;
+      # Keep SnapRAID off until a parity disk is installed. The array is already
+      # described in storage.nix, so enabling it later is a one-line change.
+      # TODO: set to true once a parity disk is added to storage-paths.nix.
+      snapraid.enable = false;
+    };
+
     headless.authorizedKeys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFtQlXM4BBmMjr0B35YzlQIOJRPRUdiCas6Yzk5So2w3 grant@grant-XPS-15-9530"
     ];

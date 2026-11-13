@@ -30,8 +30,8 @@ let
     activeProfileName = "Any";
     activeAnimeProfileId = 1;
     activeAnimeProfileName = "Any";
-    activeDirectory = "/media/tv";
-    activeAnimeDirectory = "/media/tv";
+    activeDirectory = "/media/data/library/tv";
+    activeAnimeDirectory = "/media/data/library/tv";
     id = 0;
     is4k = false;
     isDefault = true;
@@ -55,7 +55,7 @@ let
     baseUrl = "/radarr";
     activeProfileId = 1;
     activeProfileName = "Any";
-    activeDirectory = "/media/movies";
+    activeDirectory = "/media/data/library/movies";
     id = 0;
     is4k = false;
     isDefault = true;
@@ -162,7 +162,7 @@ in
         RemoveIPC = true;
         ReadWritePaths = [
           "/var/lib/seerr"
-          "/media"
+          "/media/data"
         ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;

@@ -14,22 +14,24 @@ let
   # delete-media-watch can never drift.
   roots = config.media-server.deleteMedia.rootPaths;
 
-  # Deletion sources: a file unlinked in /media/{movies,tv,music} triggers this
-  # process. A deletion in completed/ or xseeds/ is a cleanup TARGET, never a
-  # trigger — those roots are only scanned for sibling hard links to remove.
+  # Deletion sources: a file unlinked in /media/data/library/{movies,tv,music}
+  # triggers this process. A deletion in complete/ or xseeds/ is a cleanup
+  # TARGET, never a trigger — those roots are only scanned for sibling hard
+  # links to remove.
   watchRoots = builtins.filter (
     p:
     builtins.elem p [
-      "/media/movies"
-      "/media/tv"
-      "/media/music"
+      "/media/data/library/movies"
+      "/media/data/library/tv"
+      "/media/data/library/music"
     ]
   ) roots;
 
   guardRoots = [
     "/media"
-    "/media/downloads"
-    "/media/downloads/incomplete"
+    "/media/data"
+    "/media/data/torrents"
+    "/media/data/torrents/incomplete"
   ]
   ++ roots;
 
@@ -118,8 +120,8 @@ let
       fi
     }
 
-    # rmdir empty dirs left behind by the deletion, never the well-known /media
-    # roots — the same guard logic as delete-media (common.nix).
+    # rmdir empty dirs left behind by the deletion, never the well-known
+    # /media/data roots — the same guard logic as delete-media (common.nix).
     prune_empty_dirs() {
       find /media -depth -type d -empty 2>/dev/null | while IFS= read -r d; do
         for g in "''${GUARD_ROOTS[@]}"; do
@@ -163,9 +165,9 @@ let
     }
 
     # Handle an IN_DELETE event for path $1 (file or directory). A deleted
-    # directory (e.g. `rm -rf /media/movies/Foo`, or Plex clearing a folder)
-    # removes every file under it — covered by the subtree branch, which also
-    # backstops missed per-file events.
+    # directory (e.g. `rm -rf /media/data/library/movies/Foo`, or Plex clearing a
+    # folder) removes every file under it — covered by the subtree branch, which
+    # also backstops missed per-file events.
     handle_delete() {
       local P="$1" ino count q
       ino=$(ino_for "$P")
@@ -202,7 +204,7 @@ let
             [ -n "$P" ] || continue
             # Never treat the watched roots themselves as deletions (delete_self).
             case "$P" in
-              /media/movies|/media/tv|/media/music) : ;;
+              /media/data/library/movies|/media/data/library/tv|/media/data/library/music) : ;;
               *) handle_delete "$P" ;;
             esac
           done
@@ -215,7 +217,7 @@ in
     enable = mkOption {
       type = types.bool;
       default = false;
-      description = "Delete all hard links when media is removed from /media/{movies,tv,music}";
+      description = "Delete all hard links when media is removed from /media/data/library/{movies,tv,music}";
     };
   };
 
@@ -226,6 +228,8 @@ in
 
     systemd.services.delete-media-watch = {
       description = "Delete hard links when media is removed from the Plex library dirs";
+      # The union must be mounted before inotifywait opens the watch roots.
+      unitConfig.RequiresMountsFor = watchRoots;
       # Deluge torrent removal is best-effort via the proxy-deluge-web socket;
       # wants only (soft deps) so the watcher starts independently at boot.
       wants = [

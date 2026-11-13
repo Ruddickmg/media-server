@@ -69,6 +69,12 @@ in
     };
 
     systemd.services.bazarr = {
+      # The union must be mounted before Bazarr scans/writes subtitles.
+      unitConfig.RequiresMountsFor = [
+        "/media/data/torrents/complete"
+        "/media/data/library/movies"
+        "/media/data/library/tv"
+      ];
       preStart = ''
         CONFIG_FILE="/var/lib/bazarr/config/config.ini"
         mkdir -p "$(dirname "$CONFIG_FILE")"
@@ -101,9 +107,9 @@ in
         RemoveIPC = true;
         ReadWritePaths = [
           "/var/lib/bazarr"
-          "/media/downloads/completed"
-          "/media/movies"
-          "/media/tv"
+          "/media/data/torrents/complete"
+          "/media/data/library/movies"
+          "/media/data/library/tv"
         ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;

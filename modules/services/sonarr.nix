@@ -31,7 +31,8 @@ in
         server.bindaddress = "127.0.0.1";
         server.urlbase = "/sonarr";
       };
-      apiKeyFile = "${pkgs.writeText "sonarr-api-key" config.media-server.apiKeys.sonarr}";
+      # The API key is injected via the environment file below. (nixpkgs
+      # removed services.sonarr.apiKeyFile.)
       environmentFiles = [
         (pkgs.writeText "sonarr-env" ''
           SONARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.sonarr}
@@ -39,20 +40,30 @@ in
       ];
     };
 
-    systemd.services.sonarr.serviceConfig = {
-      PrivateTmp = true;
-      NoNewPrivileges = true;
-      LockPersonality = true;
-      RestrictRealtime = true;
-      SystemCallArchitectures = "native";
-      RemoveIPC = true;
-      ReadWritePaths = [
-        "/var/lib/sonarr"
-        "/media/downloads/completed"
-        "/media/tv"
+    systemd.services.sonarr = {
+      # The union must be mounted before imports touch the library/torrents.
+      unitConfig.RequiresMountsFor = [
+        "/media/data/torrents/complete"
+        "/media/data/library/tv"
       ];
-      KeyringMode = "private";
-      RestrictSUIDSGID = true;
+      serviceConfig = {
+        # Keep *arr-created dirs/files group-writable for media (nixpkgs sets
+        # 0022, which would break Plex/delete-media-watch unlinks).
+        UMask = lib.mkForce "0002";
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        LockPersonality = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        RemoveIPC = true;
+        ReadWritePaths = [
+          "/var/lib/sonarr"
+          "/media/data/torrents/complete"
+          "/media/data/library/tv"
+        ];
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+      };
     };
   };
 }

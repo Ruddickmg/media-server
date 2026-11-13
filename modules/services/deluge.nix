@@ -155,7 +155,10 @@ in
       };
       checkPath = mkOption {
         type = types.str;
-        default = "/media";
+        # Downloads land on the SSD first (the union's first branch), so guard
+        # the SSD, not the union: mergerfs statfs reports one branch's free
+        # space and would hide a full cache disk behind a nearly empty HDD.
+        default = (config.media-server.storage or { ssdPath = "/media"; }).ssdPath;
         description = "Filesystem path whose free space is monitored";
       };
       thresholdGiB = mkOption {
@@ -195,9 +198,9 @@ in
           "ltConfig"
           "Execute"
         ];
-        download_location = "/media/downloads/incomplete";
+        download_location = "/media/data/torrents/incomplete";
         move_completed = true;
-        move_completed_path = "/media/downloads/completed";
+        move_completed_path = "/media/data/torrents/complete";
         copy_torrent_file = false;
         del_copy_torrent_file = false;
         prioritize_first_last_pieces = false;
@@ -298,7 +301,14 @@ in
           cp -f ${ltconfigPkg}/share/deluge/plugins/*.egg "$configDir/plugins/"
           cp ${ltconfigConf} "$configDir/ltconfig.conf"
         '';
+        # The union (and therefore the torrent trees) must be mounted first.
+        unitConfig.RequiresMountsFor = [
+          "/media/data/torrents/incomplete"
+          "/media/data/torrents/complete"
+        ];
         serviceConfig = {
+          # nixpkgs already sets UMask=0002, keeping files group-writable so
+          # the *arr apps can hardlink and delete them.
           ProtectHome = true;
           PrivateTmp = true;
           NoNewPrivileges = true;
@@ -312,7 +322,7 @@ in
           TimeoutStopSec = 180;
           ReadWritePaths = [
             "/var/lib/deluge"
-            "/media/downloads"
+            "/media/data/torrents"
             # Allow the Execute plugin's subprocess to connect to the cross-seed
             # webhook UNIX socket. ProtectSystem=strict remounts /run read-only;
             # the kernel rejects connect() to a socket on a read-only mount, so

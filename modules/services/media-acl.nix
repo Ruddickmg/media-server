@@ -24,25 +24,25 @@ in
     # them, so deleting from the Plex UI would fail and the delete-media-watch
     # trigger would never fire. ACLs are the declarative-ish fix: they cannot
     # be expressed as a NixOS option, so this is the allowed script carve-out.
-    # Grants are limited to the Plex-writable library roots; /media/downloads
-    # and /media/xseeds stay untouched, matching the ReadOnlyPaths restriction
+    # Grants are limited to the Plex-writable library roots; the torrent and
+    # cross-seed trees stay untouched, matching the ReadOnlyPaths restriction
     # on the Plex service. Existing dirs are fixed in place, future ones inherit
     # the default ACL automatically (POSIX propagates it through new dirs).
     systemd.services.media-acl = {
       description = "Ensure media-group ACLs on Plex library roots";
-      # Wait for /media (disko @media subvolume -> media.mount) before touching
-      # ACLs. RequiresMountsFor emits Requires= + After= on the mount unit backing
-      # each path; it is a freeform [Unit] key, which is why it goes under
-      # unitConfig - nixpkgs has no camelCase unit option named requiresMountsFor.
+      # Wait for the /media union before touching ACLs. RequiresMountsFor emits
+      # Requires= + After= on the mount unit backing each path; it is a freeform
+      # [Unit] key, which is why it goes under unitConfig - nixpkgs has no
+      # camelCase unit option named requiresMountsFor.
       unitConfig.RequiresMountsFor = [
-        "/media/movies"
-        "/media/tv"
+        "/media/data/library/movies"
+        "/media/data/library/tv"
       ];
       wantedBy = [ "multi-user.target" ];
       path = [ pkgs.acl ];
 
       script = ''
-        for root in /media/movies /media/tv; do
+        for root in /media/data/library/movies /media/data/library/tv; do
           [ -d "$root" ] || continue
           # dirs: group read+write+execute (execute = pass into / delete entries)
           find "$root" -type d -exec setfacl -m g:media:rwx -m m::rwx -- {} + 2>/dev/null

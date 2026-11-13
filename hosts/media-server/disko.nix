@@ -1,8 +1,14 @@
+let
+  # Kept in a separate file because this module is also evaluated standalone by
+  # the disko installer.
+  paths = import ./storage-paths.nix;
+in
 {
   disko.devices = {
     disk = {
       main = {
         type = "disk";
+        # TODO: set to the target disk before running disko (lsblk).
         device = "/dev/nvme0n1";
         content = {
           type = "gpt";
@@ -57,9 +63,12 @@
                       "noatime"
                     ];
                   };
+                  # The SSD is the fast tier, not the union mountpoint. relatime
+                  # (not noatime) gives the media-tier mover an LRU signal for
+                  # choosing which files to evict.
                   "@media" = {
-                    mountpoint = "/media";
-                    mountOptions = [ "noatime" ];
+                    mountpoint = paths.ssd;
+                    mountOptions = [ "relatime" ];
                   };
                 };
               };

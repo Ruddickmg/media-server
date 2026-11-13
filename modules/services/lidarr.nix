@@ -31,7 +31,8 @@ in
         server.bindaddress = "127.0.0.1";
         server.urlbase = "/lidarr";
       };
-      apiKeyFile = "${pkgs.writeText "lidarr-api-key" config.media-server.apiKeys.lidarr}";
+      # The API key is injected via the environment file below. (nixpkgs
+      # removed services.lidarr.apiKeyFile.)
       environmentFiles = [
         (pkgs.writeText "lidarr-env" ''
           LIDARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.lidarr}
@@ -39,33 +40,43 @@ in
       ];
     };
 
-    systemd.services.lidarr.serviceConfig = {
-      ProtectHome = true;
-      PrivateTmp = true;
-      NoNewPrivileges = true;
-      CapabilityBoundingSet = [ "" ];
-      ProtectKernelTunables = true;
-      ProtectKernelModules = true;
-      ProtectControlGroups = true;
-      RestrictRealtime = true;
-      SystemCallArchitectures = "native";
-      PrivateDevices = true;
-      LockPersonality = true;
-      RestrictNamespaces = true;
-      ProtectSystem = "strict";
-      ProtectClock = true;
-      PrivateMounts = true;
-      RemoveIPC = true;
-      ReadWritePaths = [
-        "/var/lib/lidarr"
-        "/media/downloads/completed"
-        "/media/music"
+    systemd.services.lidarr = {
+      # The union must be mounted before imports touch the library/torrents.
+      unitConfig.RequiresMountsFor = [
+        "/media/data/torrents/complete"
+        "/media/data/library/music"
       ];
-      KeyringMode = "private";
-      RestrictSUIDSGID = true;
-      ProtectHostname = true;
-      ProtectProc = "invisible";
-      ProcSubset = "pid";
+      serviceConfig = {
+        # Keep *arr-created dirs/files group-writable for media (systemd's
+        # default 0022 would break Plex/delete-media-watch unlinks).
+        UMask = lib.mkForce "0002";
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = [ "" ];
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        PrivateDevices = true;
+        LockPersonality = true;
+        RestrictNamespaces = true;
+        ProtectSystem = "strict";
+        ProtectClock = true;
+        PrivateMounts = true;
+        RemoveIPC = true;
+        ReadWritePaths = [
+          "/var/lib/lidarr"
+          "/media/data/torrents/complete"
+          "/media/data/library/music"
+        ];
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+      };
     };
   };
 }

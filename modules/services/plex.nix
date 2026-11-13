@@ -51,10 +51,15 @@ in
     #   module populates.
     # - ProtectSystem=true (set by the nixpkgs module) does not protect /media;
     #   ReadOnlyPaths=/media pins Plex's writable surface to its own data dir
-    #   plus the two Plex library roots, keeping downloads/xseeds/music
+    #   plus the two Plex library roots, keeping torrents/xseeds/music
     #   read-only to the Plex process (the media-group ACLs would otherwise let
     #   it modify the whole tree).
     systemd.services.plex = {
+      # The /media union must be mounted before Plex scans the library.
+      unitConfig.RequiresMountsFor = [
+        "/media/data/library/movies"
+        "/media/data/library/tv"
+      ];
       # Plex has no NixOS option for its own preferences. PMS persists them as
       # attributes on Preferences.xml and rewrites that file on shutdown, so the
       # keys are re-enforced on every boot. preStart (no "+" prefix) runs as
@@ -107,8 +112,8 @@ in
         ];
         ReadWritePaths = [
           "/var/lib/plex"
-          "/media/movies"
-          "/media/tv"
+          "/media/data/library/movies"
+          "/media/data/library/tv"
         ];
       };
     };

@@ -31,7 +31,8 @@ in
         server.bindaddress = "127.0.0.1";
         server.urlbase = "/radarr";
       };
-      apiKeyFile = "${pkgs.writeText "radarr-api-key" config.media-server.apiKeys.radarr}";
+      # The API key is injected via the environment file below. (nixpkgs
+      # removed services.radarr.apiKeyFile.)
       environmentFiles = [
         (pkgs.writeText "radarr-env" ''
           RADARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.radarr}
@@ -39,20 +40,30 @@ in
       ];
     };
 
-    systemd.services.radarr.serviceConfig = {
-      PrivateTmp = true;
-      NoNewPrivileges = true;
-      LockPersonality = true;
-      RestrictRealtime = true;
-      SystemCallArchitectures = "native";
-      RemoveIPC = true;
-      ReadWritePaths = [
-        "/var/lib/radarr"
-        "/media/downloads/completed"
-        "/media/movies"
+    systemd.services.radarr = {
+      # The union must be mounted before imports touch the library/torrents.
+      unitConfig.RequiresMountsFor = [
+        "/media/data/torrents/complete"
+        "/media/data/library/movies"
       ];
-      KeyringMode = "private";
-      RestrictSUIDSGID = true;
+      serviceConfig = {
+        # Keep *arr-created dirs/files group-writable for media (nixpkgs sets
+        # 0022, which would break Plex/delete-media-watch unlinks).
+        UMask = lib.mkForce "0002";
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        LockPersonality = true;
+        RestrictRealtime = true;
+        SystemCallArchitectures = "native";
+        RemoveIPC = true;
+        ReadWritePaths = [
+          "/var/lib/radarr"
+          "/media/data/torrents/complete"
+          "/media/data/library/movies"
+        ];
+        KeyringMode = "private";
+        RestrictSUIDSGID = true;
+      };
     };
   };
 }

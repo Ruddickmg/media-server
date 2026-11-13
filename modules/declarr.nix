@@ -71,7 +71,7 @@ let
 
       notification = mkGotifyNotification 5;
 
-      rootFolder = [ "/media/tv" ];
+      rootFolder = [ "/media/data/library/tv" ];
     };
   };
 
@@ -114,7 +114,7 @@ let
 
       notification = mkGotifyNotification 5;
 
-      rootFolder = [ "/media/movies" ];
+      rootFolder = [ "/media/data/library/movies" ];
     };
   };
 
@@ -156,7 +156,7 @@ let
       notification = mkGotifyNotification 5;
 
       rootFolder.main = {
-        path = "/media/music";
+        path = "/media/data/library/music";
         defaultMetadataProfileId = "Standard";
         defaultMonitorOption = "all";
         defaultNewItemMonitorOption = "all";
