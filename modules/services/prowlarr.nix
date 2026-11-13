@@ -37,8 +37,7 @@ in
         server.bindaddress = "127.0.0.1";
         server.urlbase = "/prowlarr";
       };
-      # The API key is injected via the environment file below. (nixpkgs
-      # removed services.prowlarr.apiKeyFile.)
+      apiKeyFile = "${pkgs.writeText "prowlarr-api-key" config.media-server.apiKeys.prowlarr}";
       environmentFiles = [
         (pkgs.writeText "prowlarr-env" ''
           PROWLARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.prowlarr}

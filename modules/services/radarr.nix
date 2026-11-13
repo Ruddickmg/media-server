@@ -31,8 +31,7 @@ in
         server.bindaddress = "127.0.0.1";
         server.urlbase = "/radarr";
       };
-      # The API key is injected via the environment file below. (nixpkgs
-      # removed services.radarr.apiKeyFile.)
+      apiKeyFile = "${pkgs.writeText "radarr-api-key" config.media-server.apiKeys.radarr}";
       environmentFiles = [
         (pkgs.writeText "radarr-env" ''
           RADARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.radarr}

@@ -31,8 +31,7 @@ in
         server.bindaddress = "127.0.0.1";
         server.urlbase = "/sonarr";
       };
-      # The API key is injected via the environment file below. (nixpkgs
-      # removed services.sonarr.apiKeyFile.)
+      apiKeyFile = "${pkgs.writeText "sonarr-api-key" config.media-server.apiKeys.sonarr}";
       environmentFiles = [
         (pkgs.writeText "sonarr-env" ''
           SONARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.sonarr}

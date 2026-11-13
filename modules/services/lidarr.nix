@@ -31,8 +31,7 @@ in
         server.bindaddress = "127.0.0.1";
         server.urlbase = "/lidarr";
       };
-      # The API key is injected via the environment file below. (nixpkgs
-      # removed services.lidarr.apiKeyFile.)
+      apiKeyFile = "${pkgs.writeText "lidarr-api-key" config.media-server.apiKeys.lidarr}";
       environmentFiles = [
         (pkgs.writeText "lidarr-env" ''
           LIDARR__CONFIG__HOST__APIKEY=${config.media-server.apiKeys.lidarr}
