@@ -19,12 +19,10 @@
 
   # Data disks in the Sabrent JBOD enclosure. Use /dev/disk/by-id/... so the
   # device order in the enclosure does not matter.
-  # TODO: replace the placeholder with the real device (ls -l /dev/disk/by-id/)
-  # and add one entry per HDD (hdd2, hdd3, ...) as they are installed.
   hddDisks = {
     hdd1 = {
       mountPoint = "/mnt/hdd1";
-      device = "/dev/disk/by-id/REPLACE-ME-HDD1";
+      device = "/dev/disk/by-id/c31873b0-2cc3-40bc-b4ab-ef31945d68f1";
     };
   };
 
