@@ -142,7 +142,7 @@ Everything lives under `data/` so a tree can be moved between tiers as a unit:
 }
 ```
 
-Use `/dev/disk/by-id/...` so the disk order in the enclosure does not matter. Format a new data disk as ext4, for example:
+Use `/dev/disk/by-uuid/...` (the filesystem UUID from `blkid`) or `/dev/disk/by-id/...` so the disk order in the enclosure does not matter. Format a new data disk as ext4, for example:
 
 ```bash
 sudo mkfs.ext4 -L hdd1 /dev/disk/by-id/ata-WDC_WD240EDAZZ-...

@@ -17,12 +17,13 @@
   # Unified pool. Services use /media/data/... through this path.
   unified = "/media";
 
-  # Data disks in the Sabrent JBOD enclosure. Use /dev/disk/by-id/... so the
-  # device order in the enclosure does not matter.
+  # Data disks in the Sabrent JBOD enclosure. Use /dev/disk/by-uuid/... (the
+  # filesystem UUID from `blkid`) or /dev/disk/by-id/... so the device order in
+  # the enclosure does not matter. Add one entry per HDD as they are installed.
   hddDisks = {
     hdd1 = {
       mountPoint = "/mnt/hdd1";
-      device = "/dev/disk/by-id/c31873b0-2cc3-40bc-b4ab-ef31945d68f1";
+      device = "/dev/disk/by-uuid/c31873b0-2cc3-40bc-b4ab-ef31945d68f1";
     };
   };
 
