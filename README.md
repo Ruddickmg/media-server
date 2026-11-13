@@ -118,7 +118,7 @@ Everything lives under `data/` so a tree can be moved between tiers as a unit:
 /media/data/library/music
 ```
 
-`/media` fills the SSD first and only spills to the HDD pool when the SSD is nearly full. A nightly job moves the oldest completed torrents, together with every hard link, to the HDDs once the SSD reaches 85% full, and stops when it drops below 70%. Hot torrents keep seeding from the SSD; cold ones keep seeding from the HDDs indefinitely.
+`/media` fills the SSD first and only spills to the HDD pool when the SSD is nearly full. A nightly job moves the oldest completed torrents, together with every hard link, to the HDDs once the SSD reaches 85% full, and stops when it drops below 60%. Hot torrents keep seeding from the SSD; cold ones keep seeding from the HDDs indefinitely.
 
 ### Set the real paths and devices
 
@@ -205,7 +205,7 @@ The mover runs at 02:00. To change the thresholds or schedule, set them in your 
 media-server.storage.tiering = {
   enable = true;
   highPercent = 85;   # start moving at or above this SSD usage
-  lowPercent = 70;    # stop once the SSD is below this usage
+  lowPercent = 50;    # stop once the SSD is below this usage
   minFreeGiB = 150;   # never fill an HDD past this reserve
   time = "02:00";     # OnCalendar time for the timer
 };

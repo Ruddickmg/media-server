@@ -146,7 +146,7 @@ in
       };
       lowPercent = mkOption {
         type = types.ints.between 1 99;
-        default = 70;
+        default = 60;
         description = "Stop moving once the SSD is below this full.";
       };
       minFreeGiB = mkOption {
