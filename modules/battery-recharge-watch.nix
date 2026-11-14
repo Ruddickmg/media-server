@@ -141,8 +141,7 @@ in
         # Only trigger if the charger is physically plugged in (AC/online == 1)
         if [ "$AC_ONLINE" = "1" ] && [[ "$CAPACITY" =~ ^[0-9]+$ ]] && [[ "$CURR_UA" =~ ^-?[0-9]+$ ]] && [[ "$VOLT_UV" =~ ^[0-9]+$ ]]; then
           if [ "$CAPACITY" -lt 95 ]; then
-            POWER_MW=$(( (CURR_UA * VOLT_UV) / 1000000000 ))
-
+            POWER_MW=$(( (''${CURR_UA#-} * VOLT_UV) / 1000000000 ))
             if [ "$POWER_MW" -lt 1000 ]; then
               echo "Charger plugged in, but stalled at $CAPACITY% ($POWER_MW mW < 1000 mW). Running reset-charger..."
               ${resetChargerCmd}/bin/reset-charger
