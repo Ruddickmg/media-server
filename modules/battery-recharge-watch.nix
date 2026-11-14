@@ -45,10 +45,21 @@ let
       '';
 in
 {
-  # 1. Local Matter Controller
+
+  # Point matter-server to your active network interface
   services.matter-server = {
     enable = true;
     port = 5580;
+    extraArgs = {
+      primary-interface = "wlp0s20f3";
+      bluetooth-adapter = 0;
+    };
+  };
+
+  # Allow the sandboxed matter-server service to talk to BlueZ over D-Bus
+  systemd.services.matter-server.serviceConfig = {
+    SupplementaryGroups = [ "lp" ];
+    DeviceAllow = [ "char-usb_device rwm" ];
   };
 
   # 2. Watchdog to power-cycle the GE Cync plug when plugged in but drops below 1W
