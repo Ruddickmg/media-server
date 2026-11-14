@@ -50,22 +50,26 @@ in
   services.matter-server = {
     enable = true;
     port = 5580;
-    extraArgs = {
-      primary-interface = "wlp0s20f3";
-      bluetooth-adapter = 0;
-    };
+    # For pairing, uncomment and refactor as necessary if needing to pair
+    # extraArgs = {
+    #   primary-interface = "wlp0s20f3";
+    #   bluetooth-adapter = 0;
+    # };
   };
 
-  # Allow the sandboxed matter-server service to talk to BlueZ over D-Bus
-  systemd.services.matter-server.serviceConfig = {
-    SupplementaryGroups = [ "lp" ];
-    DeviceAllow = [ "char-usb_device rwm" ];
-  };
+  # Allow the sandboxed matter-server service to talk to BlueZ over D-Bus (for pairing)
+  # systemd.services.matter-server.serviceConfig = {
+  #   SupplementaryGroups = [ "lp" ];
+  #   DeviceAllow = [ "char-usb_device rwm" ];
+  # };
 
-  # 2. Watchdog to power-cycle the GE Cync plug when plugged in but drops below 1W
+  # 2. Watchdog to power-cycle the GE Cync plug (Node 4) when plugged in but drops below 1W
   systemd.services.xps-pd-watchdog = {
-    description = "Power-cycle GE Cync Matter plug when Dell XPS 9530 is plugged in but drops below 1W";
+    description = "Power-cycle GE Cync Matter plug (Node 4) when Dell XPS 9530 is plugged in but drops below 1W";
+    wantedBy = [ "multi-user.target" ];
     after = [ "matter-server.service" ];
+    wants = [ "matter-server.service" ];
+    path = [ pkgs.coreutils ];
     serviceConfig = {
       Type = "simple";
       Restart = "always";
@@ -76,7 +80,7 @@ in
       ProtectHome = true;
     };
     script = ''
-      NODE_ID=1  # Update if your plug was assigned a different Node ID
+      NODE_ID=4
 
       while true; do
         AC_ONLINE=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
