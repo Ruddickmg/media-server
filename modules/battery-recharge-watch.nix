@@ -79,7 +79,7 @@ in
       while true; do
         AC_ONLINE=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
         CAPACITY=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || true)
-        CURR_UA=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || true)
+        CURR_UA=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || echo "0")
         VOLT_UV=$(cat /sys/class/power_supply/BAT0/voltage_now 2>/dev/null || true)
 
         # Only trigger if the charger is physically plugged in (AC/online == 1)
@@ -113,7 +113,7 @@ in
                 sleep 3
                 SETTLED=$((SETTLED + 3))
                 NEW_AC=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
-                NEW_CURR=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || true)
+                NEW_CURR=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || echo "0")
                 NEW_VOLT=$(cat /sys/class/power_supply/BAT0/voltage_now 2>/dev/null || true)
                 if [ "$NEW_AC" = "1" ] && [[ "$NEW_CURR" =~ ^-?[0-9]+$ ]] && [[ "$NEW_VOLT" =~ ^[0-9]+$ ]]; then
                   NEW_MW=$(( (NEW_CURR * NEW_VOLT) / 1000000000 ))
