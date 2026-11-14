@@ -112,7 +112,9 @@ in
 
     beszel.enable = true;
   };
+    # Enable Bluetooth (required for Matter initial pairing)
   hardware.bluetooth.enable = true;
+  hardware.bluetooth.powerOnBoot = true;
   services.gotify = {
     enable = true;
     environment = {
