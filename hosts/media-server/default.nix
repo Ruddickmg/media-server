@@ -45,6 +45,10 @@ in
     efi.canTouchEfiVariables = true;
   };
 
+  # disable monitor, no need for headless server
+  boot.kernelParams = [
+    "video=eDP-1:d"
+  ];
   networking.hostName = "media-server";
 
   time.timeZone = "Pacific/Honolulu";
@@ -108,7 +112,7 @@ in
 
     beszel.enable = true;
   };
-
+  hardware.bluetooth.enable = true;
   services.gotify = {
     enable = true;
     environment = {
@@ -117,58 +121,6 @@ in
       # Gotify 2.x parses env vars as YAML; corsalloworigins is a []string
       GOTIFY_SERVER_CORS_ALLOWORIGINS = ''[".*"]'';
     };
-  };
-
-  # The XPS 15 EC stops charging while AC is still connected, typically after
-  # gaining ~3% of charge, and keeps reporting "Charging" while the pack drains.
-  # Only physically replugging the charger reliably re-arms it, so this service
-  # reproduces that in software as a ladder of escalating tiers, verifying each
-  # one against the charge_now trend. See system/battery-recharge-watch.nix.
-  services.batteryRechargeWatch = {
-    enable = true;
-    dryRun = false;
-
-    # Detection is over a 3 minute window; at the observed 0.8-2.1A charge
-    # rates that is tens of mAh, well above gauge noise.
-    window = 180;
-
-    # The fault recurs roughly every 20-30 minutes of charging, so recover fast
-    # and retry quickly instead of backing off into a dead battery.
-    cooldown = 60;
-    maxCooldown = 300;
-    verifyWait = 25;
-
-    # Tiers 1-2: rebind the ACPI AC and battery drivers (cheap, re-runs _PSR
-    # and _BST so the EC is asked to re-detect the adapter).
-    enableAcRebind = true;
-    enableBatteryRebind = true;
-
-    # Tier 3: UCSI PPM_RESET via ucsi_acpi rebind, then a full typec/ucsi
-    # stack reload. /sys/class/typec/port0..2 appears when the machine is
-    # healthy; during some faults the ports disappear entirely.
-    enableUcsiReset = true;
-
-    # Tier 4: the Dell SMM charge-mode knobs. Harmless, but they have never
-    # been observed to re-arm a stopped charger on this machine.
-    enableDellModes = true;
-
-    # Tier 5: suspend/resume with rtcwake reinitializes EC state. Allowed here
-    # because this is a desktop session; a headless appliance that sets
-    # AllowSuspend=no must leave this off.
-    enableSuspendReset = true;
-    suspendAfterFailures = 0;
-    suspendSeconds = 8;
-
-    # Tier 6: rebind the ACPI EC driver itself, the closest software analogue
-    # of Dell's "drain flea power" reset.
-    enableEcReset = true;
-
-    # Tier 7: only as a very last resort, and only once the pack is nearly
-    # empty, reboot to re-run the firmware's EC init. This is what a headless
-    # media server relies on, since it cannot be replugged remotely.
-    enableRebootReset = true;
-    rebootBelowCapacity = 10;
-    rebootCooldown = 1800;
   };
 
   services.resolved.enable = true;
