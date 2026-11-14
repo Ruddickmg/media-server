@@ -135,6 +135,7 @@ in
     allowedTCPPorts = [
       # Deluge, Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Plex
       # opened conditionally per-service via openFirewall option
+      5580
     ];
     allowedUDPPorts = [
       # Opened conditionally per-service
