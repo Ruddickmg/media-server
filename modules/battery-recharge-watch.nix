@@ -50,10 +50,10 @@ in
   services.matter-server = {
     enable = true;
     port = 5580;
-    extraArgs = [
-      "--primary-interface" "wlp0s20f3"
-      "--bluetooth-adapter" "0"
-    ];
+    extraArgs = {
+      primary-interface = "wlp0s20f3";
+      bluetooth-adapter = 0;
+    };
   };
 
   # Allow the sandboxed matter-server service to talk to BlueZ over D-Bus
