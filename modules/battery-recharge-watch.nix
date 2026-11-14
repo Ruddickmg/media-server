@@ -56,6 +56,12 @@ in
     ];
   };
 
+  # Allow the sandboxed matter-server service to talk to BlueZ over D-Bus
+  systemd.services.matter-server.serviceConfig = {
+    SupplementaryGroups = [ "lp" ];
+    DeviceAllow = [ "char-usb_device rwm" ];
+  };
+
   # 2. Watchdog to power-cycle the GE Cync plug when plugged in but drops below 1W
   systemd.services.xps-pd-watchdog = {
     description = "Power-cycle GE Cync Matter plug when Dell XPS 9530 is plugged in but drops below 1W";
