@@ -45,6 +45,10 @@ in
     efi.canTouchEfiVariables = true;
   };
 
+  # disable monitor, no need for headless server
+  boot.kernelParams = [
+    "video=eDP-1:d"
+  ];
   networking.hostName = "media-server";
 
   time.timeZone = "Pacific/Honolulu";
