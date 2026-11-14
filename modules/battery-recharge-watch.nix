@@ -97,7 +97,12 @@ in
                 sleep 1
                 WAITED=$((WAITED + 1))
               done
-              echo "AC disconnected after ''${WAITED}s. Waiting 2s for CC pins to settle before turning On..."
+              AC_ONLINE_POST=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
+              if [ "$AC_ONLINE_POST" = "1" ]; then
+                echo "AC still reports online after ''${WAITED}s; proceeding anyway. Waiting 2s for CC pins to settle before turning On..."
+              else
+                echo "AC disconnected after ''${WAITED}s. Waiting 2s for CC pins to settle before turning On..."
+              fi
               sleep 2
 
               ${matterToggleScript} "$NODE_ID" On || true
