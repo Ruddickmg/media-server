@@ -54,17 +54,15 @@ in
   # 2. Watchdog to power-cycle the GE Cync plug when plugged in but drops below 1W
   systemd.services.xps-pd-watchdog = {
     description = "Power-cycle GE Cync Matter plug when Dell XPS 9530 is plugged in but drops below 1W";
-    wantedBy = [ "multi-user.target" ];
-    after = [
-      "multi-user.target"
-      "matter-server.service"
-    ];
-    wants = [ "matter-server.service" ];
-    path = [ pkgs.coreutils ];
+    after = [ "matter-server.service" ];
     serviceConfig = {
       Type = "simple";
       Restart = "always";
       RestartSec = "15s";
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      ProtectSystem = "strict";
+      ProtectHome = true;
     };
     script = ''
       NODE_ID=1  # Update if your plug was assigned a different Node ID
