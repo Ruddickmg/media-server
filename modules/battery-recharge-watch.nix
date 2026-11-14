@@ -135,6 +135,7 @@ in
         AC_ONLINE=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
         CAPACITY=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || true)
         CURR_UA=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || echo "0")
+        CURR_UA=''${CURR_UA:-0}
         VOLT_UV=$(cat /sys/class/power_supply/BAT0/voltage_now 2>/dev/null || true)
 
         # Only trigger if the charger is physically plugged in (AC/online == 1)
