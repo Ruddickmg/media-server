@@ -112,7 +112,7 @@ in
 
     beszel.enable = true;
   };
-
+  hardware.bluetooth.enable = true;
   services.gotify = {
     enable = true;
     environment = {
