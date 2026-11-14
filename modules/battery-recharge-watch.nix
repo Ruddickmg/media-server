@@ -2,39 +2,42 @@
 
 let
   # Python helper to send Matter On/Off commands to the local matter-server WebSocket
-  matterToggleScript = pkgs.writers.writePython3 "matter-toggle" {
-    libraries = [ pkgs.python3Packages.websockets ];
-  } ''
-    import asyncio
-    import json
-    import sys
-    import websockets
+  matterToggleScript =
+    pkgs.writers.writePython3 "matter-toggle"
+      {
+        libraries = [ pkgs.python3Packages.websockets ];
+      }
+      ''
+        import asyncio
+        import json
+        import sys
+        import websockets
 
-    node_id = int(sys.argv[1])
-    command = sys.argv[2]  # "Off" or "On"
+        node_id = int(sys.argv[1])
+        command = sys.argv[2]  # "Off" or "On"
 
-    async def main():
-        uri = "ws://127.0.0.1:5580/ws"
-        async with websockets.connect(uri) as ws:
-            # Read initial server_info message
-            await ws.recv()
-            payload = {
-                "message_id": "1",
-                "command": "device_command",
-                "args": {
-                    "endpoint_id": 1,
-                    "node_id": node_id,
-                    "cluster_id": 6,        # Matter OnOff Cluster (0x0006)
-                    "command_name": command,
-                    "payload": {}
+        async def main():
+            uri = "ws://127.0.0.1:5580/ws"
+            async with websockets.connect(uri) as ws:
+                # Read initial server_info message
+                await ws.recv()
+                payload = {
+                    "message_id": "1",
+                    "command": "device_command",
+                    "args": {
+                        "endpoint_id": 1,
+                        "node_id": node_id,
+                        "cluster_id": 6,        # Matter OnOff Cluster (0x0006)
+                        "command_name": command,
+                        "payload": {}
+                    }
                 }
-            }
-            await ws.send(json.dumps(payload))
-            resp = await ws.recv()
-            print(f"Matter {command} response: {resp}")
+                await ws.send(json.dumps(payload))
+                resp = await ws.recv()
+                print(f"Matter {command} response: {resp}")
 
-    asyncio.run(main())
-  '';
+        asyncio.run(main())
+      '';
 in
 {
   # 1. Local Matter Controller
@@ -47,7 +50,10 @@ in
   systemd.services.xps-pd-watchdog = {
     description = "Power-cycle GE Cync Matter plug when Dell XPS 9530 is plugged in but drops below 1W";
     wantedBy = [ "multi-user.target" ];
-    after = [ "multi-user.target" "matter-server.service" ];
+    after = [
+      "multi-user.target"
+      "matter-server.service"
+    ];
     wants = [ "matter-server.service" ];
     path = [ pkgs.coreutils ];
     serviceConfig = {
