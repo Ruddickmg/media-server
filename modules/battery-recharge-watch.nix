@@ -57,13 +57,7 @@ in
     # };
   };
 
-  # Allow the sandboxed matter-server service to talk to BlueZ over D-Bus (for pairing)
-  # systemd.services.matter-server.serviceConfig = {
-  #   SupplementaryGroups = [ "lp" ];
-  #   DeviceAllow = [ "char-usb_device rwm" ];
-  # };
-
-  # 2. Watchdog to power-cycle the GE Cync plug (Node 4) when plugged in but drops below 1W
+  # Watchdog to power-cycle the GE Cync plug (Node 4) when plugged in but drops below 1W
   systemd.services.xps-pd-watchdog = {
     description = "Power-cycle GE Cync Matter plug (Node 4) when Dell XPS 9530 is plugged in but drops below 1W";
     wantedBy = [ "multi-user.target" ];
@@ -94,14 +88,36 @@ in
             POWER_MW=$(( (CURR_UA * VOLT_UV) / 1000000000 ))
 
             if [ "$POWER_MW" -lt 1000 ]; then
-              echo "Charger plugged in, but stalled at $CAPACITY% ($POWER_MW mW < 1000 mW). Power-cycling GE Cync plug..."
+              echo "Charger plugged in, but stalled at $CAPACITY% ($POWER_MW mW < 1000 mW). Turning Node $NODE_ID Off..."
               ${matterToggleScript} "$NODE_ID" Off || true
-              # Wait 12s so the Dell 130W brick capacitors drain and USB-C CC pins reset to 0V
-              sleep 12
+
+              # Poll until AC/online actually drops to 0 (brick capacitors bled down), up to 60s max
+              WAITED=0
+              while [ "$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)" = "1" ] && [ "$WAITED" -lt 60 ]; do
+                sleep 1
+                WAITED=$((WAITED + 1))
+              done
+              echo "AC disconnected after ''${WAITED}s. Waiting 2s for CC pins to settle before turning On..."
+              sleep 2
+
               ${matterToggleScript} "$NODE_ID" On || true
 
-              # Wait 30s for the brick to boot and renegotiate 130W PD before checking again
-              sleep 30
+              # Wait up to 45s for AC/online to return and charge power to climb above 1W
+              SETTLED=0
+              while [ "$SETTLED" -lt 45 ]; do
+                sleep 3
+                SETTLED=$((SETTLED + 3))
+                NEW_AC=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
+                NEW_CURR=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || true)
+                NEW_VOLT=$(cat /sys/class/power_supply/BAT0/voltage_now 2>/dev/null || true)
+                if [ "$NEW_AC" = "1" ] && [[ "$NEW_CURR" =~ ^-?[0-9]+$ ]] && [[ "$NEW_VOLT" =~ ^[0-9]+$ ]]; then
+                  NEW_MW=$(( (NEW_CURR * NEW_VOLT) / 1000000000 ))
+                  if [ "$NEW_MW" -ge 1000 ]; then
+                    echo "Charging restored ($NEW_MW mW) after ''${SETTLED}s."
+                    break
+                  fi
+                fi
+              done
             fi
           fi
         fi
