@@ -50,7 +50,7 @@ let
     exec ${matterToggleScript} ${nodeId} Off
   '';
 
-  pluginCmd = pkgs.writeShellScriptBin "plugin" ''
+  pluginCmd = pkgs.writeShellScriptBin "plug-in" ''
     exec ${matterToggleScript} ${nodeId} On
   '';
 
@@ -84,7 +84,7 @@ let
       NEW_CURR=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || echo "0")
       NEW_VOLT=$(cat /sys/class/power_supply/BAT0/voltage_now 2>/dev/null || true)
       if [ "$NEW_AC" = "1" ] && [[ "$NEW_CURR" =~ ^-?[0-9]+$ ]] && [[ "$NEW_VOLT" =~ ^[0-9]+$ ]]; then
-        NEW_MW=$(( (NEW_CURR * NEW_VOLT) / 1000000000 ))
+        NEW_MW=$(( (''${NEW_CURR#-} * NEW_VOLT) / 1000000000 ))
         if [ "$NEW_MW" -ge 1000 ]; then
           echo "Charging restored ($NEW_MW mW) after ''${SETTLED}s."
           exit 0
