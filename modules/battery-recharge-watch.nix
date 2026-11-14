@@ -6,6 +6,10 @@ let
     pkgs.writers.writePython3 "matter-toggle"
       {
         libraries = [ pkgs.python3Packages.websockets ];
+        flakeIgnore = [
+          "E302"
+          "E501"
+        ];
       }
       ''
         import asyncio
@@ -35,6 +39,7 @@ let
                 await ws.send(json.dumps(payload))
                 resp = await ws.recv()
                 print(f"Matter {command} response: {resp}")
+
 
         asyncio.run(main())
       '';
