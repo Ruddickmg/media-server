@@ -1,6 +1,8 @@
 { pkgs, ... }:
 
 let
+  nodeId = "4";
+
   # Python helper to send Matter On/Off commands to the local matter-server WebSocket
   matterToggleScript =
     pkgs.writers.writePython3 "matter-toggle"
@@ -43,8 +45,63 @@ let
 
         asyncio.run(main())
       '';
+
+  unplugCmd = pkgs.writeShellScriptBin "unplug" ''
+    exec ${matterToggleScript} ${nodeId} Off
+  '';
+
+  pluginCmd = pkgs.writeShellScriptBin "plugin" ''
+    exec ${matterToggleScript} ${nodeId} On
+  '';
+
+  resetChargerCmd = pkgs.writeShellScriptBin "reset-charger" ''
+    echo "Turning Node ${nodeId} Off..."
+    ${matterToggleScript} ${nodeId} Off || true
+
+    # Poll until AC/online actually drops to 0 (brick capacitors bled down), up to 60s max
+    WAITED=0
+    while [ "$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)" = "1" ] && [ "$WAITED" -lt 60 ]; do
+      sleep 1
+      WAITED=$((WAITED + 1))
+    done
+
+    AC_ONLINE_POST=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
+    if [ "$AC_ONLINE_POST" = "1" ]; then
+      echo "AC still reports online after ''${WAITED}s; proceeding anyway. Waiting 2s for CC pins to settle before turning On..."
+    else
+      echo "AC disconnected after ''${WAITED}s. Waiting 2s for CC pins to settle before turning On..."
+    fi
+    sleep 2
+
+    ${matterToggleScript} ${nodeId} On || true
+
+    # Wait up to 45s for AC/online to return and charge power to climb above 1W
+    SETTLED=0
+    while [ "$SETTLED" -lt 45 ]; do
+      sleep 3
+      SETTLED=$((SETTLED + 3))
+      NEW_AC=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
+      NEW_CURR=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || echo "0")
+      NEW_VOLT=$(cat /sys/class/power_supply/BAT0/voltage_now 2>/dev/null || true)
+      if [ "$NEW_AC" = "1" ] && [[ "$NEW_CURR" =~ ^-?[0-9]+$ ]] && [[ "$NEW_VOLT" =~ ^[0-9]+$ ]]; then
+        NEW_MW=$(( (NEW_CURR * NEW_VOLT) / 1000000000 ))
+        if [ "$NEW_MW" -ge 1000 ]; then
+          echo "Charging restored ($NEW_MW mW) after ''${SETTLED}s."
+          exit 0
+        fi
+      fi
+    done
+
+    echo "Finished reset cycle (charging did not exceed 1W within 45s)."
+  '';
 in
 {
+  # Install unplug, plugin, and reset-charger globally into PATH
+  environment.systemPackages = [
+    unplugCmd
+    pluginCmd
+    resetChargerCmd
+  ];
 
   # Point matter-server to your active network interface
   services.matter-server = {
@@ -74,8 +131,6 @@ in
       ProtectHome = true;
     };
     script = ''
-      NODE_ID=4
-
       while true; do
         AC_ONLINE=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
         CAPACITY=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || true)
@@ -88,41 +143,8 @@ in
             POWER_MW=$(( (CURR_UA * VOLT_UV) / 1000000000 ))
 
             if [ "$POWER_MW" -lt 1000 ]; then
-              echo "Charger plugged in, but stalled at $CAPACITY% ($POWER_MW mW < 1000 mW). Turning Node $NODE_ID Off..."
-              ${matterToggleScript} "$NODE_ID" Off || true
-
-              # Poll until AC/online actually drops to 0 (brick capacitors bled down), up to 60s max
-              WAITED=0
-              while [ "$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)" = "1" ] && [ "$WAITED" -lt 60 ]; do
-                sleep 1
-                WAITED=$((WAITED + 1))
-              done
-              AC_ONLINE_POST=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
-              if [ "$AC_ONLINE_POST" = "1" ]; then
-                echo "AC still reports online after ''${WAITED}s; proceeding anyway. Waiting 2s for CC pins to settle before turning On..."
-              else
-                echo "AC disconnected after ''${WAITED}s. Waiting 2s for CC pins to settle before turning On..."
-              fi
-              sleep 2
-
-              ${matterToggleScript} "$NODE_ID" On || true
-
-              # Wait up to 45s for AC/online to return and charge power to climb above 1W
-              SETTLED=0
-              while [ "$SETTLED" -lt 45 ]; do
-                sleep 3
-                SETTLED=$((SETTLED + 3))
-                NEW_AC=$(cat /sys/class/power_supply/AC/online 2>/dev/null || true)
-                NEW_CURR=$(cat /sys/class/power_supply/BAT0/current_now 2>/dev/null || echo "0")
-                NEW_VOLT=$(cat /sys/class/power_supply/BAT0/voltage_now 2>/dev/null || true)
-                if [ "$NEW_AC" = "1" ] && [[ "$NEW_CURR" =~ ^-?[0-9]+$ ]] && [[ "$NEW_VOLT" =~ ^[0-9]+$ ]]; then
-                  NEW_MW=$(( (NEW_CURR * NEW_VOLT) / 1000000000 ))
-                  if [ "$NEW_MW" -ge 1000 ]; then
-                    echo "Charging restored ($NEW_MW mW) after ''${SETTLED}s."
-                    break
-                  fi
-                fi
-              done
+              echo "Charger plugged in, but stalled at $CAPACITY% ($POWER_MW mW < 1000 mW). Running reset-charger..."
+              ${resetChargerCmd}/bin/reset-charger
             fi
           fi
         fi
