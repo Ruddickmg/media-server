@@ -264,6 +264,11 @@ in
         {
           declarr = {
             stateDir = "/var/lib/declarr";
+            # Profilarr-format DB, cloned to <stateDir>/format_data at startup.
+            # Required even with empty qualityProfile/customFormat: declarr
+            # compiles formats for sonarr/radarr unconditionally and crashes
+            # (FileNotFoundError on format_data/regex_patterns) without it.
+            formatDbRepo = "https://github.com/Dictionarry-Hub/Database";
           };
         }
         sonarrCfg
@@ -274,6 +279,10 @@ in
     };
 
     systemd.services.declarr = {
+      # FormatCompiler shells out to `git clone` to populate/refresh
+      # /var/lib/declarr/format_data; upstream's wrapper doesn't provide git.
+      path = [ pkgs.git ];
+
       environment = {
         DECLARR_SECRET_FILE_GOTIFY_TOKEN = cfg.declarr.gotifyTokenFile;
       };
