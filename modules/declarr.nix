@@ -279,9 +279,7 @@ in
     };
 
     systemd.services.declarr = {
-      # FormatCompiler shells out to `git clone` to populate/refresh
-      # /var/lib/declarr/format_data; upstream's wrapper doesn't provide git.
-      path = [ pkgs.git ];
+      path = [ pkgs.gitMinimal ];
 
       environment = {
         DECLARR_SECRET_FILE_GOTIFY_TOKEN = cfg.declarr.gotifyTokenFile;
