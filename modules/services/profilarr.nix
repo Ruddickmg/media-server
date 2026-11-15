@@ -64,7 +64,7 @@ in
 
     virtualisation.oci-containers.containers.profilarr = {
       autoStart = true;
-      image = "ghcr.io/dictionarry-hub/profilarr:latest";
+      image = "ghcr.io/dictionarry-hub/profilarr:2.3.1";
       environment = {
         PORT = "6865";
         AUTH = "off";

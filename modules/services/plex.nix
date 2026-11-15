@@ -1,6 +1,7 @@
 {
   lib,
   pkgs,
+  pkgs-unstable,
   config,
   ...
 }:
@@ -25,6 +26,7 @@ in
   config = mkIf cfg.enable {
     services.plex = {
       enable = true;
+      package = pkgs-unstable.plex;
       group = "media";
       openFirewall = cfg.openFirewall;
     };

@@ -1,11 +1,15 @@
 {
   lib,
   pkgs,
+  pkgs-unstable,
   config,
   ...
 }:
 let
   cfg = config.media-server.beszel;
+
+  # Local package bump to 0.21.2; built with the unstable toolchain.
+  beszelPkg = pkgs-unstable.callPackage ../../pkgs/beszel { };
 in
 {
   options.media-server.beszel = {
@@ -28,6 +32,7 @@ in
     # Beszel hub — PocketBase-backed web dashboard
     services.beszel.hub = {
       enable = true;
+      package = beszelPkg;
       host = "127.0.0.1";
       port = 8090;
       # Beszel migration auto-creates user + superuser on first start:
@@ -43,6 +48,7 @@ in
     # Beszel agent — runs on the same host, hub connects via SSH
     services.beszel.agent = {
       enable = true;
+      package = beszelPkg;
       openFirewall = false;
       environment = {
         PORT = "45876";
@@ -193,13 +199,9 @@ in
       '';
     };
 
-    # Override upstream ExecStartPre: beszel 0.18.7 doesn't have the history-sync
-    # subcommand, causing a non-fatal error in the logs.
-    # Also add hardening to supplement upstream defaults.
+    # Beszel 0.21 supports `history-sync`, so keep upstream's ExecStartPre intact.
+    # Only add hardening on top of upstream defaults.
     systemd.services.beszel-hub.serviceConfig = {
-      ExecStartPre = lib.mkForce [
-        "${config.services.beszel.hub.package}/bin/beszel-hub migrate up"
-      ];
       NoNewPrivileges = true;
       PrivateTmp = true;
       ProtectSystem = "strict";

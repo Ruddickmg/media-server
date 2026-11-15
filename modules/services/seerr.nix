@@ -19,6 +19,9 @@ let
   radarrEnabled = config.media-server.radarr.enable or false;
   tailscaleHostname = config.media-server.tailscaleHostname;
 
+  # Local package bump to 3.5.2 (security release); built with the unstable toolchain.
+  seerrPkg = pkgs-unstable.callPackage ../../pkgs/seerr { };
+
   mkSonarr = {
     name = "Sonarr";
     hostname = "localhost";
@@ -140,13 +143,13 @@ in
     services.seerr = {
       enable = true;
       openFirewall = cfg.openFirewall;
-      package = pkgs-unstable.seerr;
+      package = seerrPkg;
     };
 
     systemd.services.seerr = {
       environment.HOST = "127.0.0.1";
       serviceConfig = {
-        ExecStart = mkOverride 40 (lib.getExe pkgs-unstable.seerr);
+        ExecStart = mkOverride 40 (lib.getExe seerrPkg);
         EnvironmentFile = [
           (toString (
             pkgs.writeText "seerr-env" ''

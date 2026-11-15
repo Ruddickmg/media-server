@@ -97,8 +97,8 @@
 
     systemd.services.gotify-provision = {
       description = "Provision Gotify app and save token for system notifications";
-      after = [ "gotify.service" ];
-      wants = [ "gotify.service" ];
+      after = [ "gotify-server.service" ];
+      wants = [ "gotify-server.service" ];
       before = [
         "declarr.service"
         "nixos-auto-update.service"
@@ -141,6 +141,7 @@
 
         GOTIFY_URL="http://127.0.0.1:6789"
         TOKEN_FILE="${config.media-server.gotifyTokenFile}"
+        APP_NAME="${config.media-server.gotifyAppName}"
 
         # Wait for Gotify to be ready
         for i in $(seq 1 30); do
@@ -156,20 +157,31 @@
           exit 1
         fi
 
-        # Check if the app already exists using Basic Auth (admin:admin)
-        APP_DATA=$(curl -sf -u "admin:admin" "$GOTIFY_URL/application" 2>/dev/null | \
-          jq -r '.[] | select(.name == "${config.media-server.gotifyAppName}")')
+        # Gotify 3 no longer returns application tokens from GET /application,
+        # and existing app tokens remain valid across the upgrade. Reuse the
+        # token we already provisioned so restarts stay idempotent.
+        if [ -s "$TOKEN_FILE" ]; then
+          echo "Existing token found at $TOKEN_FILE, keeping it"
+          exit 0
+        fi
 
-        if [ -n "$APP_DATA" ]; then
-          echo "App exists, extracting token..."
-          TOKEN=$(jq -r '.token' <<<"$APP_DATA")
+        # Look up the app by name. GET /application omits tokens in v3.
+        APP_ID=$(curl -sf -u "admin:admin" "$GOTIFY_URL/application" 2>/dev/null | \
+          jq -r --arg name "$APP_NAME" '.[] | select(.name == $name) | .id' | head -n1)
+
+        if [ -n "$APP_ID" ]; then
+          echo "App exists, rotating its token..."
+          TOKEN=$(curl -sf -X PUT -u "admin:admin" \
+            -H "Content-Type: application/json" \
+            "$GOTIFY_URL/application/$APP_ID/security" \
+            -d '{"regenerateToken":true}' | jq -r '.regenerateToken.token // empty')
         else
-          echo "Creating Gotify app '${config.media-server.gotifyAppName}'..."
+          echo "Creating Gotify app '$APP_NAME'..."
           TOKEN=$(curl -sf -X POST -u "admin:admin" \
             -H "Content-Type: application/json" \
             "$GOTIFY_URL/application" \
-            -d '{"name":"${config.media-server.gotifyAppName}","description":"NixOS media server notifications"}' 2>/dev/null | \
-            jq -r '.token')
+            -d "$(jq -nc --arg name "$APP_NAME" '{name:$name,description:"NixOS media server notifications"}')" | \
+            jq -r '.token // empty')
         fi
 
         if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then

@@ -3,7 +3,7 @@ let
   # standalone disko module so the installer and the running system agree.
   paths = import ./storage-paths.nix;
 in
-{ lib, ... }:
+{ lib, pkgs-unstable, ... }:
 {
   imports = [
     ./hardware-configuration.nix
@@ -117,11 +117,12 @@ in
   # hardware.bluetooth.powerOnBoot = true;
   services.gotify = {
     enable = true;
+    package = pkgs-unstable.gotify-server;
     environment = {
       GOTIFY_SERVER_PORT = 6789;
       GOTIFY_SERVER_LISTENADDR = "127.0.0.1";
-      # Gotify 2.x parses env vars as YAML; corsalloworigins is a []string
-      GOTIFY_SERVER_CORS_ALLOWORIGINS = ''[".*"]'';
+      # Gotify 3.x parses list env vars as comma-separated CSV, not YAML.
+      GOTIFY_SERVER_CORS_ALLOWORIGINS = ".*";
     };
   };
 

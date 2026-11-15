@@ -1,6 +1,7 @@
 {
   lib,
   pkgs,
+  pkgs-unstable,
   config,
   ...
 }:
@@ -64,6 +65,7 @@ in
   config = mkIf cfg.enable {
     services.bazarr = {
       enable = true;
+      package = pkgs-unstable.bazarr;
       group = "media";
       openFirewall = cfg.openFirewall;
     };
