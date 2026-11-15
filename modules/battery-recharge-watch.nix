@@ -114,9 +114,13 @@ in
     # };
   };
 
-  # Watchdog to power-cycle the GE Cync plug (Node 4) when plugged in but drops below 1W
+  # Watchdog to power-cycle the GE Cync plug (Node 4) when plugged in but drops
+  # below 1W with the battery under 50%. The box runs 24/7 on AC, so the battery
+  # is kept near 50% — the low-stress point for Li-ion calendar aging — instead
+  # of topped up: above 50% a stalled charger is left alone and the battery
+  # discharges, below 50% the stall gets power-cycled.
   systemd.services.xps-pd-watchdog = {
-    description = "Power-cycle GE Cync Matter plug (Node 4) when Dell XPS 9530 is plugged in but drops below 1W";
+    description = "Power-cycle GE Cync Matter plug (Node 4) when Dell XPS 9530 is plugged in, battery below 50%, but drops below 1W";
     wantedBy = [ "multi-user.target" ];
     after = [ "matter-server.service" ];
     wants = [ "matter-server.service" ];
@@ -140,7 +144,8 @@ in
 
         # Only trigger if the charger is physically plugged in (AC/online == 1)
         if [ "$AC_ONLINE" = "1" ] && [[ "$CAPACITY" =~ ^[0-9]+$ ]] && [[ "$CURR_UA" =~ ^-?[0-9]+$ ]] && [[ "$VOLT_UV" =~ ^[0-9]+$ ]]; then
-          if [ "$CAPACITY" -lt 95 ]; then
+          # Only rescue a stalled charge when the battery actually needs it.
+          if [ "$CAPACITY" -lt 50 ]; then
             POWER_MW=$(( (''${CURR_UA#-} * VOLT_UV) / 1000000000 ))
             if [ "$POWER_MW" -lt 1000 ]; then
               echo "Charger plugged in, but stalled at $CAPACITY% ($POWER_MW mW < 1000 mW). Running reset-charger..."
