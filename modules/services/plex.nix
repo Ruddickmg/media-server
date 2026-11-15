@@ -48,7 +48,7 @@ in
     # missing (fresh system, wiped state), the unit dies with 226/NAMESPACE.
     # tmpfiles runs before services, guaranteeing it exists.
     systemd.tmpfiles.rules = [
-      "d /var/lib/plex 0755 plex media -"
+      "d /var/lib/plex 0750 plex media -"
     ];
 
     # Hardware acceleration notes:
