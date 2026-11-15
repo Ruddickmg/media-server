@@ -1,6 +1,7 @@
 {
   lib,
   pkgs,
+  pkgs-unstable,
   config,
   ...
 }:
@@ -25,6 +26,7 @@ in
   config = mkIf cfg.enable {
     services.sonarr = {
       enable = true;
+      package = pkgs-unstable.sonarr;
       group = "media";
       openFirewall = cfg.openFirewall;
       settings = {

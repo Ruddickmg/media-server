@@ -1,6 +1,7 @@
 {
   lib,
   pkgs,
+  pkgs-unstable,
   config,
   ...
 }:
@@ -25,6 +26,7 @@ in
   config = mkIf cfg.enable {
     services.lidarr = {
       enable = true;
+      package = pkgs-unstable.lidarr;
       group = "media";
       openFirewall = cfg.openFirewall;
       settings = {

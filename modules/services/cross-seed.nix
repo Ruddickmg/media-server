@@ -1,6 +1,7 @@
 {
   lib,
   pkgs,
+  pkgs-unstable,
   config,
   ...
 }:
@@ -8,6 +9,9 @@ let
   inherit (lib) mkIf mkOption types;
   cfg = config.media-server.cross-seed;
   apiKeys = config.media-server.apiKeys;
+
+  # Local package bump to 6.13.9; built with the unstable toolchain.
+  crossSeedPkg = pkgs-unstable.callPackage ../../pkgs/cross-seed { };
 
   # Prowlarr assigns indexers sequential numeric IDs: /1/api, /2/api, etc.
   # List up to 10 — unused IDs 404 gracefully.
@@ -64,7 +68,7 @@ let
     fi
     umask 002
     exec env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
-      ${pkgs.cross-seed}/bin/cross-seed "$@"
+      ${crossSeedPkg}/bin/cross-seed "$@"
   '';
 
   # setuid root wrapper for the shell: `cross-seed` on a user's PATH is this
@@ -78,7 +82,7 @@ let
     if [ "$(${pkgs.coreutils}/bin/id -u)" -eq "$target_uid" ]; then
       umask 002
       exec env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
-        ${pkgs.cross-seed}/bin/cross-seed "$@"
+        ${crossSeedPkg}/bin/cross-seed "$@"
     fi
     if [ "$(${pkgs.coreutils}/bin/id -u)" -ne 0 ]; then
       echo "cross-seed: refusing to run as $(${pkgs.coreutils}/bin/id -un); use the setuid wrapper" >&2
@@ -88,7 +92,7 @@ let
     exec ${pkgs.util-linux}/bin/setpriv \
       --reuid=cross-seed --regid=cross-seed --init-groups \
       ${pkgs.coreutils}/bin/env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
-      ${pkgs.cross-seed}/bin/cross-seed "$@"
+      ${crossSeedPkg}/bin/cross-seed "$@"
   '';
 
 in

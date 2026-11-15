@@ -1,6 +1,7 @@
 {
   lib,
   pkgs,
+  pkgs-unstable,
   config,
   ...
 }:
@@ -8,6 +9,9 @@ let
   inherit (lib) mkIf mkOption types;
   cfg = config.media-server.unpackerr;
   apiKeys = config.media-server.apiKeys;
+
+  # Local package bump to 1.0.1; built with the unstable toolchain.
+  unpackerrPkg = pkgs-unstable.callPackage ../../pkgs/unpackerr { };
 in
 {
   options.media-server.unpackerr = {
@@ -54,13 +58,16 @@ in
               UN_FOLDER_0_PATH=/media/data/torrents/complete
               UN_FOLDER_0_INTERVAL=1s
               UN_EXTRACTOR_DELETE_AFTER=true
+              # v1 enables its web UI/API whenever listen_addr is set, defaulting
+              # to 0.0.0.0:5656. Keep it on loopback-only.
+              UN_WEBSERVER_LISTEN_ADDR=127.0.0.1:5656
             ''
           ))
         ];
         Type = "simple";
         User = "unpackerr";
         Group = "media";
-        ExecStart = "${pkgs.unpackerr}/bin/unpackerr";
+        ExecStart = "${unpackerrPkg}/bin/unpackerr";
         Restart = "on-failure";
         RestartSec = "10";
         StateDirectory = "unpackerr";

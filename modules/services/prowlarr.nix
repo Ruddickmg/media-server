@@ -1,6 +1,7 @@
 {
   lib,
   pkgs,
+  pkgs-unstable,
   config,
   ...
 }:
@@ -32,6 +33,7 @@ in
   config = mkIf cfg.enable {
     services.prowlarr = {
       enable = true;
+      package = pkgs-unstable.prowlarr;
       openFirewall = cfg.openFirewall;
       settings = {
         server.bindaddress = "127.0.0.1";
