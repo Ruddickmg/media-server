@@ -42,6 +42,15 @@ in
       extraGroups = [ "render" ];
     };
 
+    # ReadWritePaths (in the hardening block below) makes systemd resolve
+    # /var/lib/plex during mount-namespace setup, which runs BEFORE the nixpkgs
+    # module's ExecStartPre gets a chance to `install -d` it. If the dir is
+    # missing (fresh system, wiped state), the unit dies with 226/NAMESPACE.
+    # tmpfiles runs before services, guaranteeing it exists.
+    systemd.tmpfiles.rules = [
+      "d /var/lib/plex 0750 plex media -"
+    ];
+
     # Hardware acceleration notes:
     # - /dev/dri reaches Plex for two independent reasons, and both are load
     #   bearing. The device node is only visible in Plex's mount namespace
