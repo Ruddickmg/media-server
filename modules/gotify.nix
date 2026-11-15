@@ -213,7 +213,7 @@
       # exists before gotify-provision's mount-namespace setup — its
       # ReadWritePaths entry would fail with 226/NAMESPACE on a fresh system
       # before the script's own mkdir -p could run.
-      "d /etc/nixos/secrets 0755 root root -"
+      "d /etc/nixos/secrets 0711 root root -"
       "d /var/lib/gotify-notify 0755 root gotify-readers -"
     ];
 
