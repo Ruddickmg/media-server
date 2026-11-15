@@ -132,8 +132,6 @@ in
     "1.1.1.1"
     "8.8.8.8"
   ];
-  # for pairing, TODO: remove when finished
-  networking.networkmanager.enable = true;
   networking.firewall = {
     enable = true;
     allowedTCPPorts = [
