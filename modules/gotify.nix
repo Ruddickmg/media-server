@@ -165,8 +165,8 @@
           # (declarr, notify-gotify@) read it via the gotify-readers group, so
           # a manually created/inherited root:root 0600 file would break them
           # permanently if we left it untouched.
-          chown root:gotify-readers "$TOKEN_FILE"
-          chmod 640 "$TOKEN_FILE"
+          chown root:gotify-readers "$TOKEN_FILE" || { echo "ERROR: Failed to chown $TOKEN_FILE" >&2; exit 1; }
+          chmod 640 "$TOKEN_FILE" || { echo "ERROR: Failed to chmod $TOKEN_FILE" >&2; exit 1; }
           echo "Existing token found at $TOKEN_FILE, keeping it"
           exit 0
         fi
