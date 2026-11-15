@@ -161,6 +161,12 @@
         # and existing app tokens remain valid across the upgrade. Reuse the
         # token we already provisioned so restarts stay idempotent.
         if [ -s "$TOKEN_FILE" ]; then
+          # Normalize access even when keeping an existing token: consumers
+          # (declarr, notify-gotify@) read it via the gotify-readers group, so
+          # a manually created/inherited root:root 0600 file would break them
+          # permanently if we left it untouched.
+          chown root:gotify-readers "$TOKEN_FILE" || { echo "ERROR: Failed to chown $TOKEN_FILE" >&2; exit 1; }
+          chmod 640 "$TOKEN_FILE" || { echo "ERROR: Failed to chmod $TOKEN_FILE" >&2; exit 1; }
           echo "Existing token found at $TOKEN_FILE, keeping it"
           exit 0
         fi
@@ -201,6 +207,13 @@
     };
 
     systemd.tmpfiles.rules = [
+      # The secrets dir is created by hand at install time. This rule keeps it
+      # traversable (0700 root:root would lock gotify-readers members like
+      # declarr and notify-gotify@ out of gotify-token) and guarantees it
+      # exists before gotify-provision's mount-namespace setup — its
+      # ReadWritePaths entry would fail with 226/NAMESPACE on a fresh system
+      # before the script's own mkdir -p could run.
+      "d /etc/nixos/secrets 0711 root root -"
       "d /var/lib/gotify-notify 0755 root gotify-readers -"
     ];
 

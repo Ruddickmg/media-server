@@ -45,9 +45,13 @@ in
     efi.canTouchEfiVariables = true;
   };
 
-  # disable monitor, no need for headless server
   boot.kernelParams = [
+    # disable monitor, no need for headless server
     "video=eDP-1:d"
+    # fix issues with sabrent external drive bay
+    "usb-storage.quirks=174c:55aa:u"
+    # don't put drive/ethernet hub to sleep
+    "usbcore.autosuspend=-1"
   ];
   networking.hostName = "media-server";
 
@@ -132,8 +136,6 @@ in
     "1.1.1.1"
     "8.8.8.8"
   ];
-  # for pairing, TODO: remove when finished
-  networking.networkmanager.enable = true;
   networking.firewall = {
     enable = true;
     allowedTCPPorts = [

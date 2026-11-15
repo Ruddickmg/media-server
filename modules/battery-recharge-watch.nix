@@ -103,6 +103,9 @@ in
     resetChargerCmd
   ];
 
+  # for pairing matter server (smart outlet)
+  # networking.networkmanager.enable = true;
+
   # Point matter-server to your active network interface
   services.matter-server = {
     enable = true;

@@ -39,6 +39,16 @@ let
     "data/library/music"
   ];
 
+  # Configurations for hdd disks
+  hddOptions = [
+    "noatime"
+    "nofail"
+    "noauto"
+    "x-systemd.automount"
+    "x-systemd.device-timeout=60s"
+    "x-systemd.mount-timeout=60s"
+  ];
+
   mkDataDirs = root: map (d: "d ${root}/${d} 2775 root media") dataDirs;
 
   # The nixpkgs snapraid module flattens parityFiles incorrectly when it builds
@@ -188,22 +198,14 @@ in
         "${d.mountPoint}" = {
           device = d.device;
           fsType = "ext4";
-          options = [
-            "noatime"
-            "nofail"
-            "x-systemd.device-timeout=15s"
-          ];
+          options = hddOptions;
         };
       }) hddDisks
       ++ map (d: {
         "${d.mountPoint}" = {
           device = d.device;
           fsType = "ext4";
-          options = [
-            "noatime"
-            "nofail"
-            "x-systemd.device-timeout=15s"
-          ];
+          options = hddOptions;
         };
       }) parityDisks
       ++ [
