@@ -533,3 +533,16 @@ media-server = {
   deluge.vpnConfinement = true;
 };
 ```
+
+## CI binary cache (Cachix, optional)
+
+The local packages in `pkgs/` pin versions ahead of nixpkgs, so CI compiles them from source on every run unless you provide a binary cache. To set one up:
+
+1. Create a free cache at [cachix.org](https://www.cachix.org) and note its **name** and **public key** (cache settings → Public Key).
+2. Create an API token with push permission (cachix.org → tokens).
+3. In CircleCI → Project Settings → Environment Variables, add:
+   - `CACHIX_CACHE` — the cache name
+   - `CACHIX_PUBLIC_KEY` — the cache's public key
+   - `CACHIX_AUTH_TOKEN` — the API token
+
+Without these, CI simply builds everything from source (slower, but nothing breaks).
