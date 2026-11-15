@@ -96,7 +96,7 @@ let
   '';
 in
 {
-  # Install unplug, plugin, and reset-charger globally into PATH
+  # Install unplug, plug-in, and reset-charger globally into PATH
   environment.systemPackages = [
     unplugCmd
     pluginCmd
