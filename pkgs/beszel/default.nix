@@ -67,6 +67,8 @@ buildGoModule (finalAttrs: {
         "TestIoctlDeviceSizeFailure"
         # This subtest assumes enough host CPUs for an 8s CPU delta over 1s to stay below 100%.
         "TestServiceUpdateCPUPercent/subsequent_call_calculates_CPU_percentage"
+        # The Nix sandbox has no IPv6 loopback; this subtest binds [::1]:0.
+        "TestStartServer/tcp_with_ipv6"
       ]
       ++ lib.optionals stdenv.hostPlatform.isDarwin [
         "TestCollectorStartHelpers/nvidia-smi_collector"
