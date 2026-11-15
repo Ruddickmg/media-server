@@ -274,7 +274,7 @@ ssh -i ~/.ssh/media-server media-server@<machine-ip>
 
 ### Terminal sessions with tuios
 
-The server ships [tuios](https://tuios.dev) (v0.9.3). You can run it on the server after logging in, or attach to sessions on the server from tuios running on your own machine — with nothing nested. Run these on your **local** machine (tuios ≥ 0.8.0):
+The server ships [tuios](https://tuios.dev). You can run it on the server after logging in, or attach to sessions on the server from tuios running on your own machine — with nothing nested. Run these on your **local** machine (tuios ≥ 0.8.0):
 
 ```bash
 # Add the server once. `media-server` is its MagicDNS name.

@@ -1,7 +1,7 @@
 {
   lib,
   pkgs,
-  tuios,
+  pkgs-unstable,
   config,
   ...
 }:
@@ -149,7 +149,10 @@ in
       eza
       bat
       btop
-      tuios.packages.${pkgs.system}.default
+      # From nixpkgs-unstable: stable ships 0.7.0, which predates the
+      # remote-host / [hosts] feature (added in 0.8.0) used to attach to
+      # sessions on this machine.
+      pkgs-unstable.tuios
 
       # delete-media: delete a media file (or a whole movie/show folder) and
       # every hard link to it. The *arr library dirs, the completed download

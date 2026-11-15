@@ -16,15 +16,6 @@
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Pinned to the upstream flake rather than nixpkgs: the nixpkgs packages in
-    # this repo only ship tuios 0.7.0, which predates the remote-host / [hosts]
-    # feature (added in 0.8.0) used to attach to sessions on this machine.
-    # nixpkgs is deliberately NOT followed: tuios v0.10.0 builds with
-    # GOTOOLCHAIN=local and requires Go >= 1.26.6, while this repo's nixpkgs
-    # provides Go 1.26.5. The upstream flake's own locked nixpkgs has 1.26.7.
-    tuios = {
-      url = "github:Gaurav-Gosain/tuios/v0.10.0";
-    };
   };
 
   outputs =
@@ -34,7 +25,6 @@
       home-manager,
       disko,
       declarr,
-      tuios,
       ...
     }:
     let
@@ -128,7 +118,7 @@
     in
     {
       nixosConfigurations.media-server = nixpkgs.lib.nixosSystem {
-        specialArgs = { inherit pkgs-unstable declarr tuios; };
+        specialArgs = { inherit pkgs-unstable declarr; };
         modules = [
           { nixpkgs.hostPlatform = system; }
           disko.nixosModules.disko
@@ -143,7 +133,7 @@
       };
 
       nixosConfigurations.media-server-ci = nixpkgs.lib.nixosSystem {
-        specialArgs = { inherit pkgs-unstable declarr tuios; };
+        specialArgs = { inherit pkgs-unstable declarr; };
         modules = [
           { nixpkgs.hostPlatform = system; }
           disko.nixosModules.disko
