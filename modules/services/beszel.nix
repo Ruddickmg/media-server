@@ -199,8 +199,9 @@ in
       '';
     };
 
-    # Beszel 0.21 supports `history-sync`, so keep upstream's ExecStartPre intact.
-    # Only add hardening on top of upstream defaults.
+    # Hardening on top of upstream defaults, plus an ExecStartPre workaround:
+    # the nixos-26.05 module runs `beszel-hub history-sync`, but beszel 0.21 moved
+    # that subcommand under `migrate`, causing an "unknown command" failure.
     systemd.services.beszel-hub.serviceConfig = {
       NoNewPrivileges = true;
       PrivateTmp = true;
@@ -223,6 +224,9 @@ in
       LockPersonality = true;
       MemoryDenyWriteExecute = true;
       ReadWritePaths = [ "/var/lib/beszel-hub" ];
+      # Workaround for the nixpkgs module typo (`history-sync` -> `migrate history-sync`).
+      # Fixed on nixpkgs master/unstable by https://github.com/NixOS/nixpkgs/pull/539583
+      # but not yet backported to nixos-26.05 — remove once it lands there.
       ExecStartPre = lib.mkForce [
         "${config.services.beszel.hub.package}/bin/beszel-hub migrate up --dir /var/lib/beszel-hub/beszel_data"
         "${config.services.beszel.hub.package}/bin/beszel-hub migrate history-sync --dir /var/lib/beszel-hub/beszel_data"
