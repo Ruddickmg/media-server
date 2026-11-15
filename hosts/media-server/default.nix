@@ -40,15 +40,6 @@ in
   # we don't use jellyseerr, it is causing issues when attempting to start seerr so disabling it here
   disabledModules = [ "jellyseerr.nix" ];
 
-  # Merge resilient mount options with disko's generated /mnt/hdd1 mount
-  fileSystems."/mnt/hdd1".options = [
-    "nofail"
-    "noauto"
-    "x-systemd.automount"
-    "x-systemd.device-timeout=60s"
-    "x-systemd.mount-timeout=60s"
-  ];
-
   boot.loader = {
     systemd-boot.enable = true;
     efi.canTouchEfiVariables = true;
