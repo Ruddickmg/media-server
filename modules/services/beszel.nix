@@ -223,6 +223,10 @@ in
       LockPersonality = true;
       MemoryDenyWriteExecute = true;
       ReadWritePaths = [ "/var/lib/beszel-hub" ];
+      ExecStartPre = lib.mkForce [
+        "${config.services.beszel.hub.package}/bin/beszel-hub migrate up --dir /var/lib/beszel-hub/beszel_data"
+        "${config.services.beszel.hub.package}/bin/beszel-hub migrate history-sync --dir /var/lib/beszel-hub/beszel_data"
+      ];
     };
 
     # Skip agent start until init writes the env file (first boot).
