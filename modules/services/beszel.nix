@@ -23,7 +23,7 @@ in
 
     adminPassword = lib.mkOption {
       type = lib.types.str;
-      default = "admin";
+      default = "administrator";
       description = "Password for the Beszel admin account. Only used on first setup. Tailscale is the access control layer.";
     };
   };
