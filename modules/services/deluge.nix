@@ -185,6 +185,17 @@ in
   };
 
   config = mkIf cfg.enable {
+    assertions = [
+      {
+        # Deluge must never run with a route to the WAN. `useVpn` is
+        # vpnConfinement && vpn.enable, so without this assertion either flag
+        # being off would silently run the daemon (and deluge-web) in the root
+        # namespace, where it would leak torrent traffic.
+        assertion = cfg.vpnConfinement && config.media-server.vpn.enable;
+        message = "media-server.deluge requires media-server.deluge.vpnConfinement = true and media-server.vpn.enable = true; refusing to run Deluge outside the VPN namespace.";
+      }
+    ];
+
     services.deluge = {
       enable = true;
       declarative = true;
@@ -260,7 +271,11 @@ in
         ${cfg.authUsername}:deluge:10
       '';
       user = "deluge";
-      group = "deluge";
+      # Primary group media, not deluge: it is the group a new inode gets, and
+      # the *arrs (Group=media) must be able to read what Deluge writes. Relying
+      # on the destination directory's setgid bit only covers directories the
+      # tmpfiles skeleton already created.
+      group = "media";
       dataDir = "/var/lib/deluge";
     };
 
@@ -332,8 +347,17 @@ in
         };
       }
       (mkIf useVpn {
-        after = [ "create-netns-${vpnNs}.service" ];
+        after = [
+          "create-netns-${vpnNs}.service"
+          # Order after the tunnel so the namespace has a default route before
+          # the daemon starts shuffling torrents. Deliberately only `wants`:
+          # deluged has Restart=on-success, so Requires/BindsTo/PartOf on the
+          # wireguard unit would stop it on a tunnel restart and leave it dead.
+          # The namespace itself is the kill switch (lo + wg only, no veth).
+          "wireguard-wg-${vpnNs}.service"
+        ];
         requires = [ "create-netns-${vpnNs}.service" ];
+        wants = [ "wireguard-wg-${vpnNs}.service" ];
         serviceConfig = {
           NetworkNamespacePath = "/var/run/netns/${vpnNs}";
           BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
@@ -440,12 +464,65 @@ in
       };
     };
 
-    # Run deluge-web inside the VPN namespace so it can talk to deluged
-    # directly, then proxy it back to the root namespace for the *arr apps.
+    # deluge-web does not connect to deluged unless told to: WebApi.enable()
+    # only calls web.connect() when web.conf's `default_daemon` is set, and a
+    # dropped connection is never retried (`_on_client_disconnect` just stops
+    # components). Nothing ever writes `default_daemon`, so on every boot the
+    # frontend sits at connected:false with torrents:null until someone clicks
+    # Connect in the UI. The *arrs read that as an empty Deluge, drop the
+    # completed downloads from their queue, and never import them.
+    #
+    # Seed `default_daemon` from the host list so each start connects by itself,
+    # and make the frontend follow the daemon's lifecycle so a deluged restart
+    # cannot leave it holding a dead connection.
+    #
+    # The frontend runs in the VPN namespace alongside the daemon, then is
+    # proxied back to the root namespace for the *arr apps.
     systemd.services.delugeweb = mkIf useVpn {
+      partOf = [ "deluged.service" ];
       after = [ "create-netns-${vpnNs}.service" ];
       requires = [ "create-netns-${vpnNs}.service" ];
+      preStart = ''
+        configDir="${config.services.deluge.dataDir}/.config/deluge"
+        hostlist="$configDir/hostlist.conf"
+        webconf="$configDir/web.conf"
+
+        # deluge-web generates hostlist.conf on first run with a random host id.
+        # Seed the local daemon entry when it is missing so the id below exists
+        # on the very first start too.
+        if [ ! -f "$hostlist" ]; then
+          printf '%s\n' '{"hosts": [["localdaemon", "127.0.0.1", 58846, "localclient", "deluge"]]}' > "$hostlist"
+        fi
+
+        # Merge instead of replacing: web.conf also holds the UI settings,
+        # session store and password hash that deluge-web rewrites at runtime.
+        # Deluge stores its config as two consecutive JSON objects (version
+        # then data); jq's filter runs over both and keeps that layout.
+        hostId=$(${pkgs.jq}/bin/jq -r '.hosts[0][0] // empty' "$hostlist" 2>/dev/null || true)
+        if [ -n "$hostId" ]; then
+          if [ -f "$webconf" ]; then
+            if ${pkgs.jq}/bin/jq --arg id "$hostId" '.default_daemon = $id' "$webconf" > "$webconf.new" 2>/dev/null; then
+              mv -f "$webconf.new" "$webconf"
+            else
+              rm -f "$webconf.new"
+            fi
+          else
+            ${pkgs.jq}/bin/jq -n --arg id "$hostId" '{default_daemon: $id}' > "$webconf"
+          fi
+        fi
+
+        # deluged is Type=simple, so `after` only guarantees the process was
+        # spawned, not that its RPC port is bound. A connect failure at startup
+        # is permanent (no retry), so wait for the port before starting.
+        for _ in $(${pkgs.coreutils}/bin/seq 60); do
+          if (exec 3<>/dev/tcp/127.0.0.1/58846) 2>/dev/null; then break; fi
+          sleep 1
+        done
+      '';
       serviceConfig = {
+        Restart = "always";
+        RestartSec = 5;
+
         NetworkNamespacePath = "/var/run/netns/${vpnNs}";
         BindReadOnlyPaths = [ "/etc/netns/${vpnNs}/resolv.conf:/etc/resolv.conf" ];
         ProtectHome = true;

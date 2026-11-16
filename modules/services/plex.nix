@@ -63,8 +63,8 @@ in
     # - ProtectSystem=true (set by the nixpkgs module) does not protect /media;
     #   ReadOnlyPaths=/media pins Plex's writable surface to its own data dir
     #   plus the two Plex library roots, keeping torrents/xseeds/music
-    #   read-only to the Plex process (the media-group ACLs would otherwise let
-    #   it modify the whole tree).
+    #   read-only to the Plex process (group media write access would otherwise
+    #   let it modify the whole tree).
     systemd.services.plex = {
       # The /media union must be mounted before Plex scans the library.
       unitConfig.RequiresMountsFor = [
