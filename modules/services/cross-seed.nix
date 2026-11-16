@@ -325,7 +325,13 @@ in
             ProtectSystem = "strict";
             ProtectHome = true;
             PrivateDevices = true;
-            CapabilityBoundingSet = [ "" ];
+            # fs.protected_hardlinks (=1 via systemd defaults) lets a process
+            # hardlink a file only if it owns it, has read+write on it, or
+            # holds CAP_FOWNER. cross-seed hardlinks Deluge-owned files, and
+            # not every source file is guaranteed group-writable, so grant
+            # CAP_FOWNER to make linking independent of source file modes.
+            CapabilityBoundingSet = [ "CAP_FOWNER" ];
+            AmbientCapabilities = [ "CAP_FOWNER" ];
             # One entry spanning dataDir+linkDir, not one per directory: under
             # ProtectSystem=strict each ReadWritePaths entry becomes a separate
             # bind mount in the unit's namespace, and link(2) fails with EXDEV
