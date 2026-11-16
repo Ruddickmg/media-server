@@ -37,6 +37,16 @@
         inherit system;
         config.allowUnfree = true;
       };
+      # Local version pins ahead of nixpkgs (see pkgs/*/default.nix for why).
+      # Exposed as flake packages so CI can push just these to the binary
+      # cache — same pkgs-unstable.callPackage the service modules use, so
+      # the store paths match what the system closure builds.
+      localPkgs = {
+        beszel = pkgs-unstable.callPackage ./pkgs/beszel { };
+        cross-seed = pkgs-unstable.callPackage ./pkgs/cross-seed { };
+        seerr = pkgs-unstable.callPackage ./pkgs/seerr { };
+        unpackerr = pkgs-unstable.callPackage ./pkgs/unpackerr { };
+      };
       home-manager-config = {
         useGlobalPkgs = true;
         useUserPackages = true;
@@ -117,6 +127,8 @@
       };
     in
     {
+      packages.${system} = localPkgs;
+
       nixosConfigurations.media-server = nixpkgs.lib.nixosSystem {
         specialArgs = { inherit pkgs-unstable declarr; };
         modules = [

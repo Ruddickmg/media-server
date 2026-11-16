@@ -31,8 +31,37 @@ jobs:
               > hosts/media-server/hardware-configuration.nix
             git add -f hosts/media-server/hardware-configuration.nix
       - run:
+          # The local packages in pkgs/ pin versions ahead of nixpkgs, so
+          # cache.nixos.org can't serve them and every CI run would compile
+          # them from source (~15 extra minutes; seerr is a full Next.js
+          # build). A Cachix cache lets repeat runs substitute them instead.
+          # Configured via CircleCI env vars — see README "CI binary cache".
+          name: Configure Cachix binary cache (if set up)
+          command: |
+            if [ -n "${CACHIX_CACHE:-}" ] && [ -n "${CACHIX_PUBLIC_KEY:-}" ]; then
+              printf '%s\n' \
+                "extra-substituters = https://${CACHIX_CACHE}.cachix.org" \
+                "extra-trusted-public-keys = ${CACHIX_CACHE}.cachix.org-1:${CACHIX_PUBLIC_KEY}" \
+                >> /etc/nix/nix.conf
+            else
+              echo "CACHIX_CACHE/CACHIX_PUBLIC_KEY not set — building without extra cache"
+            fi
+      - run:
           name: Build
           command: nix build --show-trace .#nixosConfigurations.media-server-ci.config.system.build.toplevel
+      - run:
+          # Push the four local packages (and their closures) so later runs
+          # can substitute them. These are already built/downloaded as inputs
+          # of the toplevel above, so this step only uploads. No-op when the
+          # token isn't configured (e.g. fork PRs) or paths are cached.
+          name: Push local packages to Cachix (if configured)
+          command: |
+            if [ -z "${CACHIX_AUTH_TOKEN:-}" ] || [ -z "${CACHIX_CACHE:-}" ]; then
+              echo "CACHIX_AUTH_TOKEN/CACHIX_CACHE not set — skipping push"
+              exit 0
+            fi
+            nix run nixpkgs#cachix -- push "$CACHIX_CACHE" \
+              $(nix build --no-link --print-out-paths .#beszel .#cross-seed .#seerr .#unpackerr)
 
 workflows:
   version: 2
