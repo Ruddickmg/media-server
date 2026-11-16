@@ -154,10 +154,13 @@ let
   # Deluge Execute plugin script: triggers a webhook when a torrent finishes.
   # Deluge (VPN netns) reaches the root namespace via a filesystem UNIX socket
   # bridged by systemd-socket-proxyd to the primary instance.
+  #
+  # Deluge runs this synchronously on every completion, so the timeout is
+  # mandatory: a hung curl would stall the daemon's execute thread.
   onCompleteScript = pkgs.writeShellScriptBin "cross-seed-on-complete" ''
     # Arguments from Deluge Execute plugin: $1 = infoHash, $2 = name, $3 = path
     if [ -n "$1" ]; then
-      ${pkgs.curl}/bin/curl -sf -XPOST \
+      ${pkgs.curl}/bin/curl -sf -m 10 -XPOST \
         --unix-socket /run/cross-seed/webhook.sock \
         -H "Content-Type: application/json" \
         --data "{\"infoHash\":\"$1\",\"includeSingleEpisodes\":true}" \
@@ -258,14 +261,16 @@ in
       }) instances)
       ++ [
         {
-          # Webhook bridge socket dir: 0770 root:deluge so the Deluge Execute
-          # subprocess can traverse it. Deluged needs this in ReadWritePaths
-          # because ProtectSystem=strict remounts /run read-only.
+          # Webhook bridge socket dir: 0770 root:media so the Deluge Execute
+          # subprocess can traverse it. Deluged runs with primary group media;
+          # giving the dir group deluge here would lock the hook out. Deluged
+          # needs this in ReadWritePaths because ProtectSystem=strict remounts
+          # /run read-only.
           "/run/cross-seed" = {
             d = {
               mode = "0770";
               user = "root";
-              group = "deluge";
+              group = "media";
             };
           };
         }
@@ -430,7 +435,9 @@ in
       description = "Socket for cross-seed webhook from Deluge Execute plugin";
       listenStreams = [ "/run/cross-seed/webhook.sock" ];
       socketConfig = {
-        SocketGroup = "deluge";
+        # Deluged's primary group is media; group deluge here would leave the
+        # Execute hook unable to open its own webhook socket.
+        SocketGroup = "media";
         SocketMode = "0660";
       };
       wantedBy = [ "sockets.target" ];
