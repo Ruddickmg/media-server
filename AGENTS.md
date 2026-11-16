@@ -50,3 +50,10 @@ DO NOT touch `hosts/media-server/hardware-configuration.nix`. It is generated on
 ## NixOS configuration declaration
 
 Prefer declarative NixOS options over scripts whenever possible. Use `networking.nftables.tables` instead of shelling out to `nft`, and `boot.kernel.sysctl` instead of writing sysctl config files via `writeText`/`environment.etc`. Prefer `networking.firewall` options over ad-hoc firewall scripting. Reserve scripts (`writeShellScript`, `ExecStartPre/Post`) only for bugs and mitigation that cannot be expressed declaratively (e.g. netavark cleanup workaround).
+
+## /media union hardlink invariants
+
+Everything that hardlinks or renames media files goes through the `/media` mergerfs union (never the raw `/mnt/ssd` / `/mnt/hdd*` branch mounts — those are two different filesystem views and `link(2)` between them is EXDEV). mergerfs places the link on the source file's branch itself. Two rules keep this working:
+
+- **Primary group `media`, not supplementary.** A FUSE request header carries only the caller's primary gid, and mergerfs (< 2.42) switches fsuid/fsgid to it for branch-side operations — supplementary groups and capabilities (e.g. CAP_FOWNER) do not cross. With `fs.protected_hardlinks=1`, hardlinking a file you don't own then requires the file to be group-writable by that primary gid. Every media-touching service (sonarr, radarr, lidarr, bazarr, unpackerr, deluge, plex, cross-seed) runs with primary group `media` for this reason.
+- **One `ReadWritePaths` bind per link/rename scope.** Under `ProtectSystem=strict` (or any mount-namespacing option), each `ReadWritePaths` entry becomes a separate bind mount, and `link(2)`/`rename(2)` fail with EXDEV across different bind mounts even on the same filesystem (the kernel compares vfsmounts, not st_dev). List a single common ancestor (e.g. `/media/data`) instead of per-tree entries.
