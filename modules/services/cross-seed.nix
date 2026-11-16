@@ -319,7 +319,11 @@ in
             ProtectHome = true;
             PrivateDevices = true;
             CapabilityBoundingSet = [ "" ];
-            ReadWritePaths = [ i.stateDir i.dataDir i.linkDir ];
+            ReadWritePaths = [
+              i.stateDir
+              i.dataDir
+              i.linkDir
+            ];
           };
         };
       }) instances)
