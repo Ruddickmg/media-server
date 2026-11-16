@@ -89,18 +89,6 @@ let
         module.exports = ${builtins.toJSON (settings // { apiKey = apiKeys.cross-seed; })};
       '';
 
-      # Env-setting launcher for this instance. Sets CONFIG_DIR/HOME and umask 002
-      # so files are group-writable in the 2770 cross-seed:media state dir.
-      cli = pkgs.writeShellScriptBin "cross-seed" ''
-        if [ "$(${pkgs.coreutils}/bin/id -u)" -ne "$(${pkgs.coreutils}/bin/id -u cross-seed)" ]; then
-          echo "cross-seed: refusing to run as $(${pkgs.coreutils}/bin/id -un); use the shell wrapper (drops to user cross-seed)" >&2
-          exit 1
-        fi
-        umask 002
-        exec env HOME='${b.stateDir}' CONFIG_DIR='${b.stateDir}' \
-          ${crossSeedPkg}/bin/cross-seed "$@"
-      '';
-
       serviceName = "cross-seed-${b.name}";
     in
     b
@@ -110,7 +98,6 @@ let
         linkDir
         settings
         configJs
-        cli
         serviceName
         ;
     };
