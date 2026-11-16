@@ -140,7 +140,7 @@ let
       rc=0
       ${lib.concatMapStringsSep "\n      " (i: ''
         echo "cross-seed: triggering $cmd on ${i.name} (port ${toString i.port})" >&2
-        ${pkgs.curl}/bin/curl -fsS -XPOST \
+        ${pkgs.curl}/bin/curl -q --noproxy '*' -fsS -XPOST \
           'http://127.0.0.1:${toString i.port}/api/job?apikey=${apiKeys.cross-seed}' \
           -H 'Content-Type: application/json' --data "$data" || rc=$?
       '') instances}
@@ -325,6 +325,14 @@ in
               "CONFIG_DIR=${i.stateDir}"
             ];
             UMask = "0002";
+
+            NoNewPrivileges = true;
+            PrivateTmp = true;
+            ProtectSystem = "strict";
+            ProtectHome = true;
+            PrivateDevices = true;
+            CapabilityBoundingSet = [ "" ];
+            ReadWritePaths = [ i.stateDir i.dataDir i.linkDir ];
           };
         };
       }) instances)
