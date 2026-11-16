@@ -8,6 +8,7 @@
 let
   inherit (lib) mkIf mkOption types;
   cfg = config.media-server.cross-seed;
+  storage = config.media-server.storage;
   apiKeys = config.media-server.apiKeys;
 
   # Local package bump to 6.13.9; built with the unstable toolchain.
@@ -19,131 +20,39 @@ let
     i: "http://127.0.0.1:9696/prowlarr/${toString (i + 1)}/api?apikey=${apiKeys.prowlarr}"
   ) 10;
 
-  # Deluge Execute plugin script: triggers a cross-seed search when a torrent
-  # finishes downloading. Deluge runs inside the VPN netns while cross-seed
-  # listens on 127.0.0.1:2468 in the root namespace. A filesystem UNIX socket
-  # (visible across network namespaces) bridged by the cross-seed-webhook proxy
-  # carries the request: curl -> /run/cross-seed/webhook.sock -> socket-proxyd
-  # -> 127.0.0.1:2468. The API key (apiKeys.cross-seed) is embedded directly in
-  # config.js (see configJs below) and used for webhook auth; cross-seed's
-  # getApiKey() reads it before its SQLite settings table, so no DB sync.
-  onCompleteScript = pkgs.writeShellScriptBin "cross-seed-on-complete" ''
-    # Arguments from Deluge Execute plugin: $1 = infoHash, $2 = name, $3 = path
-    if [ -n "$1" ]; then
-      ${pkgs.curl}/bin/curl -sf -XPOST \
-        --unix-socket /run/cross-seed/webhook.sock \
-        -H "Content-Type: application/json" \
-        --data "{\"infoHash\":\"$1\",\"includeSingleEpisodes\":true}" \
-        "http://cross-seed/api/webhook?apikey=${apiKeys.cross-seed}" \
-        >/dev/null 2>&1
-    fi
-  '';
-
-  # Declared API key, embedded directly into config.js at build time. Deliberately
-  # NOT via the nixpkgs module's settingsFile/LoadCredential: that makes config.js
-  # read process.env.CREDENTIALS_DIRECTORY (systemd-only), which breaks `cross-seed`
-  # from a shell. The key is derived deterministically from hostname+prefix (see
-  # common.nix) and already appears in the store via onCompleteScript, so embedding
-  # it here is not a security regression.
-  configJs = pkgs.writeText "cross-seed-config.js" ''
-    module.exports = ${
-      builtins.toJSON (config.services.cross-seed.settings // { apiKey = apiKeys.cross-seed; })
-    };
-  '';
-
-  # Daemon launcher: sets CONFIG_DIR/HOME so cross-seed finds the data dir
-  # (appDir() is $CONFIG_DIR, else $HOME/.cross-seed) and umask 002 so files are
-  # group-writable in the 2770 cross-seed:media data dir. This is only reached by
-  # the systemd service (User=cross-seed) — the shell resolves `cross-seed` to the
-  # setuid wrapper (crossSeedDrop, see security.wrappers below). Refusing
-  # non-cross-seed callers is defense in depth: a direct hit as any other user
-  # (e.g. via /run/current-system/sw/bin/cross-seed) would create files the
-  # daemon can't own, reproducing the utime EPERM. cross-seed is single-process
-  # (CLI and daemon share one config dir/DB), so the caller becomes the file owner
-  # — the wrapper makes the daemon's user the owner always.
-  crossSeedCli = pkgs.writeShellScriptBin "cross-seed" ''
-    if [ "$(${pkgs.coreutils}/bin/id -u)" -ne "$(${pkgs.coreutils}/bin/id -u cross-seed)" ]; then
-      echo "cross-seed: refusing to run as $(${pkgs.coreutils}/bin/id -un); use the shell wrapper (drops to user cross-seed)" >&2
-      exit 1
-    fi
-    umask 002
-    exec env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
-      ${crossSeedPkg}/bin/cross-seed "$@"
-  '';
-
-  # setuid root wrapper for the shell: `cross-seed` on a user's PATH is this
-  # (security.wrappers installs it to /run/wrappers/bin, which environment.extraInit
-  # prepends to PATH). It permanently drops to the cross-seed user before exec, so
-  # interactive searches create cross-seed-owned files the daemon can manage. The
-  # root euid lasts only until setpriv; absolute paths avoid PATH spoofing, and the
-  # NixOS wrapper harness (wrapper.c) clears LD_PRELOAD and friends.
-  crossSeedDrop = pkgs.writeShellScriptBin "cross-seed" ''
-    target_uid=$(${pkgs.coreutils}/bin/id -u cross-seed)
-    if [ "$(${pkgs.coreutils}/bin/id -u)" -eq "$target_uid" ]; then
-      umask 002
-      exec env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
-        ${crossSeedPkg}/bin/cross-seed "$@"
-    fi
-    if [ "$(${pkgs.coreutils}/bin/id -u)" -ne 0 ]; then
-      echo "cross-seed: refusing to run as $(${pkgs.coreutils}/bin/id -un); use the setuid wrapper" >&2
-      exit 1
-    fi
-    umask 002
-    exec ${pkgs.util-linux}/bin/setpriv \
-      --reuid=cross-seed --regid=cross-seed --init-groups \
-      ${pkgs.coreutils}/bin/env HOME='${cfg.dataDir}' CONFIG_DIR='${cfg.dataDir}' \
-      ${crossSeedPkg}/bin/cross-seed "$@"
-  '';
-
-in
-{
-  options.media-server.cross-seed = {
-    enable = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Enable cross-seed automatic cross-seeding";
-    };
-    dataDir = mkOption {
-      type = types.str;
-      default = "/var/lib/cross-seed";
-      description = "Data directory for cross-seed";
-    };
+  # Per-storage-branch cross-seed instances. Hardlinks cannot cross filesystems,
+  # and the /media mergerfs union routes new creates to the SSD first
+  # (category.create=ff), so a link created through /media for HDD-resident data
+  # would land on the wrong filesystem and fail. Each instance therefore targets
+  # one underlying branch's data/torrents/{complete,xseeds} so source and linkDir
+  # are always on the same filesystem. The SSD instance keeps the legacy
+  # /var/lib/cross-seed state dir and port 2468 for continuity (existing DB,
+  # webhook/timer).
+  ssdBranch = {
+    name = "ssd";
+    root = storage.ssdPath;
+    stateDir = cfg.dataDir;
+    port = 2468;
   };
+  hddBranches = lib.imap0 (i: name: {
+    inherit name;
+    root = storage.hddDisks.${name}.mountPoint;
+    stateDir = "/var/lib/cross-seed-${name}";
+    port = 2469 + i;
+  }) (lib.sort (a: b: a < b) (builtins.attrNames storage.hddDisks));
+  branches = [ ssdBranch ] ++ hddBranches;
 
-  # Integration notes (post-deploy manual steps):
-  #
-  # 1. API key (no step needed):
-  #    The declared key (apiKeys.cross-seed, derived deterministically from
-  #    hostname+prefix — see common.nix) is embedded into config.js at build
-  #    time and serves both webhook and CLI auth. v6 getApiKey() (src/auth.ts)
-  #    reads the config.js apiKey before the SQLite settings table, so no DB
-  #    sync is needed. Embedding (instead of the module's settingsFile /
-  #    LoadCredential) keeps config.js free of systemd's CREDENTIALS_DIRECTORY
-  #    so `cross-seed` also works from a shell.
-  #
-  # 2. Deluge on-completion webhook:
-  #    The Execute plugin is enabled and the "Torrent Complete" command is
-  #    pre-seeded into execute.conf by the deluge module, so no Web UI step is
-  #    needed. The cross-seed-on-complete script is installed system-wide.
-  #    No need to tag/filter cross-seed-injected torrents: /api/webhook defaults
-  #    to ignoreCrossSeeds=true, so cross-seed skips torrents it injected itself.
+  mkBranch =
+    b:
+    let
+      dataDir = "${b.root}/data/torrents/complete";
+      linkDir = "${b.root}/data/torrents/xseeds";
 
-  config = mkIf cfg.enable {
-    services.cross-seed = {
-      enable = true;
-      configDir = cfg.dataDir;
-      # PATH cross-seed is the env-setting launcher (see crossSeedCli); the
-      # daemon and CLI share it, so the config dir and umask are always right.
-      package = crossSeedCli;
       settings = {
-        dataDirs = [
-          "/media/data/torrents/complete"
-        ];
-        linkDirs = [
-          "/media/data/torrents/xseeds"
-        ];
+        dataDirs = [ dataDir ];
+        linkDirs = [ linkDir ];
         outputDir = null;
-        port = 2468;
+        port = b.port;
         host = "127.0.0.1";
         action = "inject";
         useClientTorrents = true;
@@ -171,12 +80,148 @@ in
           "deluge:http://localclient:deluge@127.0.0.1:8112/json"
         ];
       };
+
+      # Declared API key embedded directly into config.js. Not via LoadCredential:
+      # that bakes CREDENTIALS_DIRECTORY (systemd-only) into config.js and breaks
+      # shell use. The key is derived deterministically (common.nix) and already
+      # in the store via the webhook script, so no security regression.
+      configJs = pkgs.writeText "cross-seed-config-${b.name}.js" ''
+        module.exports = ${builtins.toJSON (settings // { apiKey = apiKeys.cross-seed; })};
+      '';
+
+      serviceName = "cross-seed-${b.name}";
+    in
+    b
+    // {
+      inherit
+        dataDir
+        linkDir
+        settings
+        configJs
+        serviceName
+        ;
     };
 
-    # cross-seed user is a member of the media group, which owns the /media
-    # data and link dirs (2775 root:media), so both the daemon and the CLI
-    # launcher can read dataDirs and hardlink into linkDirs.
+  instances = map mkBranch branches;
+  primary = builtins.head instances;
+
+  # Dispatcher: `cross-seed search` (and `rss`) triggers the job via the daemon
+  # HTTP API on every branch instance so all branches are searched/cross-seeded.
+  # v6 forbids running `cross-seed search` as a separate CLI process while the
+  # daemon runs ("creates errors with the sqlite database"), so we use /api/job
+  # (same as the daily timer). For search we mirror the full-library sweep flags
+  # (ignore exclude windows). Other subcommands run against the primary instance.
+  crossSeedDrop = pkgs.writeShellScriptBin "cross-seed" ''
+    set -euo pipefail
+    target_uid=$(${pkgs.coreutils}/bin/id -u cross-seed)
+
+    cmd="''${1:-}"
+    if [ "$cmd" = "search" ] || [ "$cmd" = "rss" ]; then
+      shift || true
+      data="{}"
+      if [ "$cmd" = "search" ]; then
+        data='{"name":"search","ignoreExcludeRecentSearch":true,"ignoreExcludeOlder":true}'
+      elif [ "$cmd" = "rss" ]; then
+        data='{"name":"rss"}'
+      fi
+      rc=0
+      ${lib.concatMapStringsSep "\n      " (i: ''
+        echo "cross-seed: triggering $cmd on ${i.name} (port ${toString i.port})" >&2
+        ${pkgs.curl}/bin/curl -q --noproxy '*' -fsS -XPOST \
+          'http://127.0.0.1:${toString i.port}/api/job?apikey=${apiKeys.cross-seed}' \
+          -H 'Content-Type: application/json' --data "$data" || rc=$?
+      '') instances}
+      exit $rc
+    fi
+
+    primary_home='${primary.stateDir}'
+    if [ "$(${pkgs.coreutils}/bin/id -u)" -eq "$target_uid" ]; then
+      umask 002
+      exec env HOME="$primary_home" CONFIG_DIR="$primary_home" \
+        ${crossSeedPkg}/bin/cross-seed "$@"
+    fi
+    if [ "$(${pkgs.coreutils}/bin/id -u)" -ne 0 ]; then
+      echo "cross-seed: refusing to run as $(${pkgs.coreutils}/bin/id -un); use the setuid wrapper" >&2
+      exit 1
+    fi
+    umask 002
+    exec ${pkgs.util-linux}/bin/setpriv \
+      --reuid=cross-seed --regid=cross-seed --init-groups \
+      ${pkgs.coreutils}/bin/env HOME="$primary_home" CONFIG_DIR="$primary_home" \
+      ${crossSeedPkg}/bin/cross-seed "$@"
+  '';
+
+  # Deluge Execute plugin script: triggers a webhook when a torrent finishes.
+  # Deluge (VPN netns) reaches the root namespace via a filesystem UNIX socket
+  # bridged by systemd-socket-proxyd to the primary instance.
+  onCompleteScript = pkgs.writeShellScriptBin "cross-seed-on-complete" ''
+    # Arguments from Deluge Execute plugin: $1 = infoHash, $2 = name, $3 = path
+    if [ -n "$1" ]; then
+      ${pkgs.curl}/bin/curl -sf -XPOST \
+        --unix-socket /run/cross-seed/webhook.sock \
+        -H "Content-Type: application/json" \
+        --data "{\"infoHash\":\"$1\",\"includeSingleEpisodes\":true}" \
+        "http://cross-seed/api/webhook?apikey=${apiKeys.cross-seed}" \
+        >/dev/null 2>&1
+    fi
+  '';
+
+  # Shared hardening for helper services that only need loopback HTTP to the
+  # daemons (no filesystem access).
+  loopbackServiceHardening = {
+    NoNewPrivileges = true;
+    PrivateTmp = true;
+    ProtectSystem = "strict";
+    CapabilityBoundingSet = [ "" ];
+    ProtectHome = true;
+    RemoveIPC = true;
+    KeyringMode = "private";
+    RestrictSUIDSGID = true;
+    ProtectHostname = true;
+    ProtectProc = "invisible";
+    ProcSubset = "pid";
+    ProtectKernelTunables = true;
+    ProtectKernelModules = true;
+    ProtectControlGroups = true;
+    RestrictRealtime = true;
+    SystemCallArchitectures = "native";
+    LockPersonality = true;
+    RestrictNamespaces = true;
+    ProtectClock = true;
+    PrivateMounts = true;
+    PrivateDevices = true;
+  };
+
+in
+{
+  options.media-server.cross-seed = {
+    enable = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Enable cross-seed automatic cross-seeding";
+    };
+    dataDir = mkOption {
+      type = types.str;
+      default = "/var/lib/cross-seed";
+      description = "State directory for the primary (SSD) cross-seed instance";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = storage.enable && storage.hddDisks != { };
+        message = "media-server.cross-seed requires media-server.storage.enable with at least one HDD (per-branch instances).";
+      }
+    ];
+
+    # One cross-seed daemon per storage branch (SSD + each HDD) so hardlinks are
+    # always created on the same underlying filesystem as the source data. We do
+    # not use the singular upstream services.cross-seed module; instances are
+    # defined explicitly below.
     users.users.cross-seed = {
+      isSystemUser = true;
+      group = "cross-seed";
       extraGroups = [ "media" ];
     };
 
@@ -184,13 +229,9 @@ in
       gid = 997;
     };
 
-    # setuid root wrapper: interactive `cross-seed` (as any user) runs as the
-    # cross-seed user via crossSeedDrop. Required because the Nix store can't
-    # carry setuid bits (/nix/store is mounted nosuid) — this is the declarative
-    # way to grant it. Only the euid is elevated; crossSeedDrop drops it (uid and
-    # gid) via setpriv before the real binary starts (see comment above
-    # crossSeedDrop). No setgid bit: the setuid root euid already supplies the
-    # CAP_SETGID that setpriv needs, and the transient egid is never used.
+    # setuid root dispatcher: `search`/`rss` fan out to all instances via the
+    # daemon API; other commands target the primary instance. Nix store cannot
+    # carry setuid bits, so the declarative wrapper is required.
     security.wrappers.cross-seed = {
       owner = "root";
       group = "root";
@@ -198,77 +239,192 @@ in
       source = "${crossSeedDrop}/bin/cross-seed";
     };
 
-    systemd.services.cross-seed = {
-      wants = [
-        "deluged.service"
-        "prowlarr.service"
-      ];
-      after = [
-        "deluged.service"
-        "prowlarr.service"
-      ];
-      # dataDirs/linkDirs live on the /media union.
-      unitConfig.RequiresMountsFor = [
-        "/media/data/torrents/complete"
-        "/media/data/torrents/xseeds"
-      ];
-      serviceConfig = {
-        SupplementaryGroups = [
-          "media"
-        ];
-        # Clear the module's StateDirectory="cross-seed", which makes systemd
-        # re-chown the data dir to cross-seed:cross-seed on every start — wiping
-        # the declared cross-seed:media group. This nixpkgs exposes StateDirectory
-        # only via the serviceConfig freeform (there is no `stateDirectory`
-        # option). The tmpfiles d rule below owns creation and mode.
-        StateDirectory = lib.mkForce [ ];
-      };
-      # Install config.js (settings + embedded apiKey) as cross-seed:media 0640 so
-      # the CLI (run as a media-group member) can read it. Replaces the nixpkgs
-      # module's preStart, which loaded the apiKey via LoadCredential and baked a
-      # systemd-only CREDENTIALS_DIRECTORY dependency into config.js that crashed
-      # `cross-seed` from a shell. Runs as the cross-seed service user (non-root).
-      preStart = lib.mkForce ''
-        ${pkgs.coreutils}/bin/install -D -m 0640 -g media ${configJs} ${cfg.dataDir}/config.js
-      '';
-    };
+    systemd.tmpfiles.settings."10-cross-seed" = lib.mkMerge (
+      # Per-instance state dirs: setgid cross-seed:media 2770. Z recursively
+      # re-owns legacy root-owned files (from pre-wrapper root CLI runs) so the
+      # daemon can utime them — declarative repair, no runtime chown.
+      (map (i: {
+        "${i.stateDir}" = {
+          d = {
+            mode = "2770";
+            user = "cross-seed";
+            group = "media";
+          };
+          Z = {
+            user = "cross-seed";
+            group = "media";
+          };
+        };
+      }) instances)
+      ++ [
+        {
+          # Webhook bridge socket dir: 0770 root:deluge so the Deluge Execute
+          # subprocess can traverse it. Deluged needs this in ReadWritePaths
+          # because ProtectSystem=strict remounts /run read-only.
+          "/run/cross-seed" = {
+            d = {
+              mode = "0770";
+              user = "root";
+              group = "deluge";
+            };
+          };
+        }
+      ]
+    );
 
-    # Webhook bridge: Deluge (VPN netns) -> UNIX socket -> cross-seed (root ns).
-    # Filesystem UNIX sockets are shared across network namespaces, so a socket
-    # in /run lets the deluge Execute plugin reach cross-seed's 127.0.0.1:2468
-    # listener through a root-namespace systemd-socket-proxyd. This is the
-    # proxy-deluge pattern from the deluge module, inverted (unix socket instead
-    # of tcp, root namespace instead of vpn namespace). The directory is 0770
-    # root:deluge so the Execute subprocess (running as the deluge user) can
-    # traverse it; deluged also needs /run/cross-seed in its ReadWritePaths
-    # because ProtectSystem=strict remounts /run read-only and the kernel
-    # rejects connect() to a socket on a read-only mount.
-    systemd.tmpfiles.settings."10-cross-seed" = {
-      # Cross-seed's data dir: setgid cross-seed:media 2770, mirroring the /media
-      # rules in common.nix — cross-seed owns it, and the media group (deluge,
-      # sonarr, radarr, unpackerr, the media-server login) can run the CLI. mkForce
-      # overrides the module's 0700 rule; Z recursively re-owns the legacy
-      # root-owned files (left by pre-module root CLI runs that broke the daemon's
-      # utime with EPERM) — declarative repair, no runtime chown.
-      "${cfg.dataDir}" = {
-        d = lib.mkForce {
-          mode = "2770";
-          user = "cross-seed";
-          group = "media";
+    systemd.services = lib.mkMerge (
+      (map (i: {
+        "${i.serviceName}" = {
+          description = "cross-seed daemon (${i.name})";
+          wants = [
+            "deluged.service"
+            "prowlarr.service"
+          ];
+          after = [
+            "network.target"
+            "deluged.service"
+            "prowlarr.service"
+          ];
+          wantedBy = [ "multi-user.target" ];
+          # Branch data/link dirs must be on the mounted underlying filesystem so
+          # hardlinks stay on the same device.
+          unitConfig.RequiresMountsFor = [
+            i.dataDir
+            i.linkDir
+          ];
+          path = [
+            crossSeedPkg
+            pkgs.coreutils
+          ];
+          preStart = ''
+            ${pkgs.coreutils}/bin/install -D -m 0640 -g media ${i.configJs} ${i.stateDir}/config.js
+          '';
+          serviceConfig = {
+            Type = "simple";
+            User = "cross-seed";
+            Group = "cross-seed";
+            SupplementaryGroups = [ "media" ];
+            ExecStart = "${crossSeedPkg}/bin/cross-seed daemon";
+            Restart = "on-failure";
+            RestartSec = 5;
+            Environment = [
+              "HOME=${i.stateDir}"
+              "CONFIG_DIR=${i.stateDir}"
+            ];
+            UMask = "0002";
+
+            NoNewPrivileges = true;
+            PrivateTmp = true;
+            ProtectSystem = "strict";
+            ProtectHome = true;
+            PrivateDevices = true;
+            CapabilityBoundingSet = [ "" ];
+            ReadWritePaths = [
+              i.stateDir
+              i.dataDir
+              i.linkDir
+            ];
+          };
         };
-        Z = {
-          user = "cross-seed";
-          group = "media";
-        };
-      };
-      "/run/cross-seed" = {
-        d = {
-          mode = "0770";
-          user = "root";
-          group = "deluge";
-        };
-      };
-    };
+      }) instances)
+      ++ [
+        {
+          # Webhook bridge: Deluge (VPN netns) -> UNIX socket -> primary instance.
+          cross-seed-webhook = {
+            description = "Proxy Deluge webhook from root namespace to cross-seed";
+            requires = [
+              "${primary.serviceName}.service"
+              "cross-seed-webhook.socket"
+            ];
+            after = [
+              "${primary.serviceName}.service"
+              "cross-seed-webhook.socket"
+            ];
+            serviceConfig = {
+              User = "cross-seed";
+              Group = "cross-seed";
+              LimitNOFILE = 65536;
+              ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:${toString primary.port}";
+            }
+            // loopbackServiceHardening;
+          };
+
+          # Daily full-library search sweep across all instances via /api/job (no
+          # second process touches a daemon's SQLite DB). ignoreExclude* flags make
+          # this a complete sweep.
+          cross-seed-search = {
+            description = "Trigger daily full-library cross-seed search (all instances)";
+            wants = [ "rdfind-sweep.service" ];
+            after = [ "network.target" ] ++ map (i: "${i.serviceName}.service") instances;
+            requires = map (i: "${i.serviceName}.service") instances;
+            serviceConfig = {
+              Type = "oneshot";
+              User = "cross-seed";
+              Group = "cross-seed";
+              ExecStart = pkgs.writeShellScript "cross-seed-search-all" ''
+                rc=0
+                ${lib.concatMapStringsSep "\n                " (i: ''
+                  echo "cross-seed-search: ${i.name} (port ${toString i.port})"
+                  ${pkgs.curl}/bin/curl -fsS -XPOST \
+                    'http://127.0.0.1:${toString i.port}/api/job?apikey=${apiKeys.cross-seed}' \
+                    -H 'Content-Type: application/json' \
+                    --data '{"name":"search","ignoreExcludeRecentSearch":true,"ignoreExcludeOlder":true}' || rc=$?
+                '') instances}
+                exit $rc
+              '';
+            }
+            // loopbackServiceHardening;
+          };
+
+          # Nightly dedup safety net across the full media/torrent trees (union
+          # paths are fine: rdfind hardlinks identical files wherever it finds
+          # them). Runs after the daily cross-seed search attempt.
+          rdfind-sweep = {
+            description = "Deduplicate hard links across media and torrent trees";
+            unitConfig.RequiresMountsFor = [
+              "/media/data/torrents/complete"
+              "/media/data/torrents/xseeds"
+              "/media/data/library/movies"
+              "/media/data/library/tv"
+            ];
+            after = [ "cross-seed-search.service" ];
+            serviceConfig = {
+              Type = "oneshot";
+              ReadWritePaths = [
+                "/media/data/torrents/complete"
+                "/media/data/torrents/xseeds"
+                "/media/data/library/movies"
+                "/media/data/library/tv"
+              ];
+              NoNewPrivileges = true;
+              PrivateTmp = true;
+              ProtectSystem = "strict";
+              ProtectHome = true;
+              RemoveIPC = true;
+              KeyringMode = "private";
+              RestrictSUIDSGID = true;
+              ProtectHostname = true;
+              ProtectProc = "invisible";
+              ProcSubset = "pid";
+              ProtectKernelTunables = true;
+              ProtectKernelModules = true;
+              ProtectControlGroups = true;
+              RestrictRealtime = true;
+              SystemCallArchitectures = "native";
+              LockPersonality = true;
+              RestrictNamespaces = true;
+              ProtectClock = true;
+              PrivateMounts = true;
+              PrivateDevices = true;
+              TimeoutStartSec = 0;
+              Nice = 19;
+              IOSchedulingClass = "idle";
+              ExecStart = "${pkgs.rdfind}/bin/rdfind -makeresultsfile false -makehardlinks true /media/data/torrents/complete /media/data/torrents/xseeds /media/data/library/movies /media/data/library/tv";
+            };
+          };
+        }
+      ]
+    );
 
     systemd.sockets.cross-seed-webhook = {
       description = "Socket for cross-seed webhook from Deluge Execute plugin";
@@ -280,62 +436,6 @@ in
       wantedBy = [ "sockets.target" ];
     };
 
-    systemd.services.cross-seed-webhook = {
-      description = "Proxy Deluge webhook from root namespace to cross-seed";
-      requires = [
-        "cross-seed.service"
-        "cross-seed-webhook.socket"
-      ];
-      after = [
-        "cross-seed.service"
-        "cross-seed-webhook.socket"
-      ];
-      serviceConfig = {
-        User = "cross-seed";
-        Group = "cross-seed";
-        LimitNOFILE = 65536;
-        ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:2468";
-        # Hardening — mirror the proxy-deluge service profile.
-        NoNewPrivileges = true;
-        PrivateTmp = true;
-        ProtectSystem = "strict";
-        CapabilityBoundingSet = [ "" ];
-        ProtectHome = true;
-        RemoveIPC = true;
-        KeyringMode = "private";
-        RestrictSUIDSGID = true;
-        ProtectHostname = true;
-        ProtectProc = "invisible";
-        ProcSubset = "pid";
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
-        RestrictRealtime = true;
-        SystemCallArchitectures = "native";
-        LockPersonality = true;
-        RestrictNamespaces = true;
-        ProtectClock = true;
-        PrivateMounts = true;
-        PrivateDevices = true;
-      };
-    };
-
-    # Daily full-library search sweep, catching torrents the daemon's own daily
-    # search skips under its excludeRecentSearch=3 days / excludeOlder=2 weeks
-    # windows (e.g. library content that pre-dates them). cross-seed v6 docs
-    # forbid `cross-seed search` while the daemon runs — "This will create
-    # errors with the sqlite database" — so the sweep triggers the daemon's
-    # search via its HTTP API instead: /api/job maps the CLI flags to
-    # ignoreExcludeRecentSearch / ignoreExcludeOlder (the exact equivalent of
-    # `--no-exclude-recent-search --no-exclude-older`), with no second process
-    # touching the daemon's DB.
-    #
-    # Two API quirks, both benign:
-    # - A successful early trigger pushes the daemon's next scheduled search run
-    #   to double its cadence — fine, since this daily sweep effectively
-    #   supersedes the searchCadence run.
-    # - If the daemon's own search is mid-run, /api/job answers 409 and curl -f
-    #   fails the unit for that night; the next day's run proceeds.
     systemd.timers.cross-seed-search = {
       description = "Daily full-library cross-seed search";
       wantedBy = [ "timers.target" ];
@@ -346,123 +446,10 @@ in
       };
     };
 
-    systemd.services.cross-seed-search = {
-      description = "Trigger daily full-library cross-seed search";
-      # Pull the rdfind dedup sweep so it runs after this finder every night
-      # (the sweep orders itself after this unit and starts regardless of
-      # whether the search succeeded).
-      wants = [
-        "rdfind-sweep.service"
-      ];
-      requires = [
-        "cross-seed.service"
-      ];
-      after = [
-        "cross-seed.service"
-      ];
-      serviceConfig = {
-        Type = "oneshot";
-        # Needs no filesystem access — only loopback HTTP to the daemon.
-        User = "cross-seed";
-        Group = "cross-seed";
-        # Declared API key (apiKeys.cross-seed), already in the store via
-        # config.js/onCompleteScript — no security regression.
-        ExecStart = "${pkgs.curl}/bin/curl -fsS -XPOST 'http://127.0.0.1:2468/api/job?apikey=${apiKeys.cross-seed}' -H 'Content-Type: application/json' --data '{\"name\":\"search\",\"ignoreExcludeRecentSearch\":true,\"ignoreExcludeOlder\":true}'";
-        # Hardening — mirror the cross-seed-webhook proxy profile; this unit must reach
-        # cross-seed via the host loopback (127.0.0.1), so PrivateNetwork can't be used.
-        NoNewPrivileges = true;
-        PrivateTmp = true;
-        # PrivateNetwork = true;
-        ProtectSystem = "strict";
-        CapabilityBoundingSet = [ "" ];
-        ProtectHome = true;
-        RemoveIPC = true;
-        KeyringMode = "private";
-        RestrictSUIDSGID = true;
-        ProtectHostname = true;
-        ProtectProc = "invisible";
-        ProcSubset = "pid";
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
-        RestrictRealtime = true;
-        SystemCallArchitectures = "native";
-        LockPersonality = true;
-        RestrictNamespaces = true;
-        ProtectClock = true;
-        PrivateMounts = true;
-        PrivateDevices = true;
-      };
-    };
-
-    # Nightly dedup safety net. cross-seed's search only hardlinks the files it
-    # matched itself; anything it missed (pre-existing data, never-matched
-    # releases, duplicates between the completed//movies//tv/ trees) stays as
-    # byte-identical copies wasting space. rdfind turns every duplicate set into
-    # hard links. Pulled by cross-seed-search (order + always-run semantics live
-    # there and here), so this fires after the 04:30 finder is attempted.
-    #
-    # - completed first = the "kept" inode: rdfind keeps the first occurrence,
-    #   so torrent save_path trees stay primary and xseeds/library link back.
-    # - Runs as root: the deluge/*arr-owned 755 subdirs under completed/ are not
-    #   group-writable, so a media-group user could not swap files inside them
-    #   (the same wall that forced CAP_DAC_OVERRIDE in delete-media-watch).
-    # - Idle priority + no timeout: whole-library hashing runs overnight and
-    #   must not compete with Plex streaming or seeding.
-    systemd.services.rdfind-sweep = {
-      description = "Deduplicate hard links across media and torrent trees";
-      unitConfig.RequiresMountsFor = [
-        "/media/data/torrents/complete"
-        "/media/data/torrents/xseeds"
-        "/media/data/library/movies"
-        "/media/data/library/tv"
-      ];
-      after = [
-        "cross-seed-search.service"
-      ];
-      serviceConfig = {
-        Type = "oneshot";
-        # ProtectSystem=strict makes everything read-only except these (the
-        # trees rdfind must unlink and re-hardlink within).
-        ReadWritePaths = [
-          "/media/data/torrents/complete"
-          "/media/data/torrents/xseeds"
-          "/media/data/library/movies"
-          "/media/data/library/tv"
-        ];
-        NoNewPrivileges = true;
-        PrivateTmp = true;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        RemoveIPC = true;
-        KeyringMode = "private";
-        RestrictSUIDSGID = true;
-        ProtectHostname = true;
-        ProtectProc = "invisible";
-        ProcSubset = "pid";
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
-        RestrictRealtime = true;
-        SystemCallArchitectures = "native";
-        LockPersonality = true;
-        RestrictNamespaces = true;
-        ProtectClock = true;
-        PrivateMounts = true;
-        PrivateDevices = true;
-        TimeoutStartSec = 0;
-        Nice = 19;
-        IOSchedulingClass = "idle";
-        ExecStart = "${pkgs.rdfind}/bin/rdfind -makeresultsfile false -makehardlinks true /media/data/torrents/complete /media/data/torrents/xseeds /media/data/library/movies /media/data/library/tv";
-      };
-    };
-
-    # Make the on-completion script and rdfind available system-wide (rdfind is
-    # also usable interactively for one-off sweeps).
+    # Make the on-completion script and rdfind available system-wide.
     environment.systemPackages = [
       onCompleteScript
       pkgs.rdfind
     ];
-
   };
 }
