@@ -67,10 +67,13 @@ in
         ProtectClock = true;
         PrivateMounts = true;
         RemoveIPC = true;
+        # /media/data as a single entry: with ProtectSystem=strict each
+        # ReadWritePaths entry becomes a separate bind mount, and link(2)
+        # fails EXDEV across binds of the same filesystem. Hardlink imports go
+        # torrents/complete -> library/music, so both must share one bind.
         ReadWritePaths = [
           "/var/lib/lidarr"
-          "/media/data/torrents/complete"
-          "/media/data/library/music"
+          "/media/data"
         ];
         KeyringMode = "private";
         RestrictSUIDSGID = true;

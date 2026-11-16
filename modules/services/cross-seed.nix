@@ -45,8 +45,9 @@ let
   mkBranch =
     b:
     let
-      dataDir = "${b.root}/data/torrents/complete";
-      linkDir = "${b.root}/data/torrents/xseeds";
+      torrentsDir = "${b.root}/data/torrents";
+      dataDir = "${torrentsDir}/complete";
+      linkDir = "${torrentsDir}/xseeds";
 
       settings = {
         dataDirs = [ dataDir ];
@@ -94,6 +95,7 @@ let
     b
     // {
       inherit
+        torrentsDir
         dataDir
         linkDir
         settings
@@ -324,10 +326,16 @@ in
             ProtectHome = true;
             PrivateDevices = true;
             CapabilityBoundingSet = [ "" ];
+            # One entry spanning dataDir+linkDir, not one per directory: under
+            # ProtectSystem=strict each ReadWritePaths entry becomes a separate
+            # bind mount in the unit's namespace, and link(2) fails with EXDEV
+            # across different bind mounts even when they are the same
+            # filesystem (the kernel compares vfsmounts, not st_dev).
+            # testLinking and every injection hardlink complete -> xseeds, so
+            # both must sit under a single bind: their shared parent.
             ReadWritePaths = [
               i.stateDir
-              i.dataDir
-              i.linkDir
+              i.torrentsDir
             ];
           };
         };
@@ -395,12 +403,12 @@ in
             after = [ "cross-seed-search.service" ];
             serviceConfig = {
               Type = "oneshot";
-              ReadWritePaths = [
-                "/media/data/torrents/complete"
-                "/media/data/torrents/xseeds"
-                "/media/data/library/movies"
-                "/media/data/library/tv"
-              ];
+              # Single entry spanning every tree rdfind hardlinks between:
+              # with ProtectSystem=strict each ReadWritePaths entry is a
+              # separate bind mount and link(2) fails EXDEV across binds even
+              # on the same filesystem, so per-tree entries would silently
+              # break the dedup.
+              ReadWritePaths = [ "/media/data" ];
               NoNewPrivileges = true;
               PrivateTmp = true;
               ProtectSystem = "strict";
