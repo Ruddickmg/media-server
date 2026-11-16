@@ -112,8 +112,11 @@ let
       exit 1
     fi
     umask 002
+    # Primary gid media for the same reason as the daemon unit: hardlinking
+    # (e.g. `cross-seed inject`) through the mergerfs union only carries the
+    # primary gid across the FUSE boundary.
     exec ${pkgs.util-linux}/bin/setpriv \
-      --reuid=cross-seed --regid=cross-seed --init-groups \
+      --reuid=cross-seed --regid=media --init-groups \
       ${pkgs.coreutils}/bin/env HOME="$state_home" CONFIG_DIR="$state_home" \
       ${crossSeedPkg}/bin/cross-seed "$@"
   '';
@@ -263,8 +266,16 @@ in
         serviceConfig = {
           Type = "simple";
           User = "cross-seed";
-          Group = "cross-seed";
-          SupplementaryGroups = [ "media" ];
+          # Primary group media, not cross-seed: a FUSE request header carries
+          # only the primary gid, and mergerfs (< 2.42) performs branch-side
+          # operations with fsuid/fsgid switched to it — supplementary groups
+          # and capabilities (CAP_FOWNER below) do not cross that switch.
+          # fs.protected_hardlinks then requires the source file to be
+          # group-writable by the primary gid, which only group media
+          # satisfies for Deluge-owned downloads. Every media-touching service
+          # here runs primary group media for the same reason.
+          Group = "media";
+          SupplementaryGroups = [ "cross-seed" ];
           ExecStart = "${crossSeedPkg}/bin/cross-seed daemon";
           Restart = "on-failure";
           RestartSec = 5;
@@ -281,9 +292,10 @@ in
           PrivateDevices = true;
           # fs.protected_hardlinks (=1 via systemd defaults) lets a process
           # hardlink a file only if it owns it, has read+write on it, or
-          # holds CAP_FOWNER. cross-seed hardlinks Deluge-owned files, and
-          # not every source file is guaranteed group-writable, so grant
-          # CAP_FOWNER to make linking independent of source file modes.
+          # holds CAP_FOWNER. Useful for any direct (non-union) filesystem
+          # access; it cannot help through the mergerfs union, where the
+          # branch-side link runs with switched fsuid/fsgid — the primary
+          # group above is what matters there.
           CapabilityBoundingSet = [ "CAP_FOWNER" ];
           AmbientCapabilities = [ "CAP_FOWNER" ];
           # One entry spanning the whole media tree, not one per directory:
