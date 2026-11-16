@@ -42,7 +42,8 @@ let
   }) (lib.sort (a: b: a < b) (builtins.attrNames storage.hddDisks));
   branches = [ ssdBranch ] ++ hddBranches;
 
-  mkBranch = b:
+  mkBranch =
+    b:
     let
       dataDir = "${b.root}/data/torrents/complete";
       linkDir = "${b.root}/data/torrents/xseeds";
@@ -288,13 +289,26 @@ in
       (map (i: {
         "${i.serviceName}" = {
           description = "cross-seed daemon (${i.name})";
-          wants = [ "deluged.service" "prowlarr.service" ];
-          after = [ "network.target" "deluged.service" "prowlarr.service" ];
+          wants = [
+            "deluged.service"
+            "prowlarr.service"
+          ];
+          after = [
+            "network.target"
+            "deluged.service"
+            "prowlarr.service"
+          ];
           wantedBy = [ "multi-user.target" ];
           # Branch data/link dirs must be on the mounted underlying filesystem so
           # hardlinks stay on the same device.
-          unitConfig.RequiresMountsFor = [ i.dataDir i.linkDir ];
-          path = [ crossSeedPkg pkgs.coreutils ];
+          unitConfig.RequiresMountsFor = [
+            i.dataDir
+            i.linkDir
+          ];
+          path = [
+            crossSeedPkg
+            pkgs.coreutils
+          ];
           preStart = ''
             ${pkgs.coreutils}/bin/install -D -m 0640 -g media ${i.configJs} ${i.stateDir}/config.js
           '';
@@ -319,14 +333,21 @@ in
           # Webhook bridge: Deluge (VPN netns) -> UNIX socket -> primary instance.
           cross-seed-webhook = {
             description = "Proxy Deluge webhook from root namespace to cross-seed";
-            requires = [ "${primary.serviceName}.service" "cross-seed-webhook.socket" ];
-            after = [ "${primary.serviceName}.service" "cross-seed-webhook.socket" ];
+            requires = [
+              "${primary.serviceName}.service"
+              "cross-seed-webhook.socket"
+            ];
+            after = [
+              "${primary.serviceName}.service"
+              "cross-seed-webhook.socket"
+            ];
             serviceConfig = {
               User = "cross-seed";
               Group = "cross-seed";
               LimitNOFILE = 65536;
               ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --connections-max=4096 --exit-idle-time=5min 127.0.0.1:${toString primary.port}";
-            } // loopbackServiceHardening;
+            }
+            // loopbackServiceHardening;
           };
 
           # Daily full-library search sweep across all instances via /api/job (no
@@ -352,7 +373,8 @@ in
                 '') instances}
                 exit $rc
               '';
-            } // loopbackServiceHardening;
+            }
+            // loopbackServiceHardening;
           };
 
           # Nightly dedup safety net across the full media/torrent trees (union
