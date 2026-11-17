@@ -104,10 +104,10 @@ Media lives on two tiers joined into a single `/media` view:
 | `/mnt/ssd` | SSD cache (`@media` btrfs subvolume). New downloads land here. |
 | `/mnt/hdd1`, `/mnt/hdd2`, … | Data HDDs in the JBOD enclosure, one ext4 filesystem each |
 | `/mnt/hddpool` | mergerfs union of the data HDDs (backing pool) |
+| `/mnt/parity1` | SnapRAID parity disk |
 | `/media` | mergerfs union of `/mnt/ssd` then `/mnt/hddpool` — the path every service uses |
 | `/nas` | bind mount of `/media/data/nas/public` — public SMB share |
 | `/nas-private` | bind mount of `/media/data/nas/private` — private SMB share |
-| `/mnt/parity1` | SnapRAID parity disk (not installed yet) |
 
 Everything lives under `data/` so a tree can be moved between tiers as a unit:
 
@@ -154,56 +154,11 @@ sudo mkfs.ext4 -L hdd1 /dev/disk/by-id/ata-WDC_WD240EDAZZ-...
 
 Add each additional data disk to `hddDisks`; both mergerfs pools pick it up automatically.
 
-### Migrate an existing library (one time)
-
-The old layout mounted the SSD at `/media`, with `/media/downloads/...` and `/media/{movies,tv,music}`. The new layout moves everything under `data/` on the same filesystem, which preserves hard links. Stop the services first:
-
-```bash
-sudo systemctl stop deluged deluge-web sonarr radarr lidarr bazarr plex unpackerr cross-seed delete-media-watch
-```
-
-Move the trees on the SSD while it is still mounted at `/media`:
-
-```bash
-sudo mkdir -p /media/data/torrents /media/data/library
-sudo mv /media/downloads/incomplete /media/data/torrents/incomplete
-sudo mv /media/downloads/completed  /media/data/torrents/complete
-sudo mv /media/downloads/xseeds     /media/data/torrents/xseeds
-sudo mv /media/movies /media/data/library/movies
-sudo mv /media/tv     /media/data/library/tv
-sudo mv /media/music  /media/data/library/music
-sudo rmdir /media/downloads
-```
-
-Do the same for the HDD, writing to the filesystem directly rather than through the union:
-
-```bash
-sudo mkdir -p /mnt/hdd1
-sudo mount /dev/disk/by-id/<hdd-id> /mnt/hdd1
-sudo mkdir -p /mnt/hdd1/data/torrents /mnt/hdd1/data/library
-sudo mv /mnt/hdd1/downloads/incomplete /mnt/hdd1/data/torrents/incomplete
-sudo mv /mnt/hdd1/downloads/completed  /mnt/hdd1/data/torrents/complete
-sudo mv /mnt/hdd1/downloads/xseeds     /mnt/hdd1/data/torrents/xseeds
-sudo mv /mnt/hdd1/movies /mnt/hdd1/data/library/movies
-sudo mv /mnt/hdd1/tv     /mnt/hdd1/data/library/tv
-sudo mv /mnt/hdd1/music  /mnt/hdd1/data/library/music
-sudo rmdir /mnt/hdd1/downloads 2>/dev/null || true
-sudo umount /mnt/hdd1
-```
-
-If the HDD already holds a copy of the library (for example an rsync of the SSD), keep only one copy: mergerfs does not merge duplicate directory trees, it shows the first branch's copy.
-
-Then unmount the old `/media` mount so the mergerfs union can take over, apply the configuration, and reboot:
-
-```bash
-sudo umount /media
-sudo nixos-rebuild switch --flake /etc/nixos#media-server
-sudo reboot
-```
-
 ### SSD-to-HDD mover
 
-The mover checks every 15 minutes and also at 02:00. To change the thresholds or schedule, set them in your host config:
+The mover checks every 15 minutes to see how much space there is on the ssd. If the usage has gone above 85%, then it will move data onto the hdd drives until the ssd usage is below 60%.
+
+To change the thresholds or schedule, set them in your host config:
 
 ```nix
 media-server.storage.ssdReserveGiB = 50; # keep this much SSD free for new writes
@@ -218,10 +173,6 @@ media-server.storage.tiering = {
   time = "02:00";              # additional full-pass OnCalendar time
 };
 ```
-
-`ssdReserveGiB` is enforced by mergerfs, so writes through `/media` (including the `/nas` and `/nas-private` SMB shares) spill to the HDDs once the SSD has less than that much free. Direct writes to the raw `/mnt/ssd` mount bypass it.
-
-Once the SSD reaches `highPercent`, the mover builds one coldest-first queue from NAS and media together. Files with a later access time than modification time are ranked purely by access time, so frequently accessed NAS files compete equally with media. Files whose access time is not later than their modification time appear never to have been read since they were written. Those files are held back for `neverAccessedGraceDays` while normal candidates are considered. A pass does not stop merely because usage drops below `highPercent`: if the normal queue is exhausted while the SSD is still at or above `lowPercent`, the mover moves the held-back files oldest-first by modification time. It stops only below `lowPercent` and pauses Deluge for the whole pass. Nothing moves while the SSD is below `highPercent`.
 
 Preview what it would move without changing anything:
 
@@ -238,9 +189,9 @@ journalctl -u media-tier -f
 
 The mover pauses Deluge for the duration and resumes it afterwards. Because it resumes every torrent, torrents you paused manually will also resume.
 
-### SnapRAID parity (add later)
+### SnapRAID parity
 
-SnapRAID is preconfigured but disabled. It protects the HDD data disks against a disk failure; the SSD is not covered. NAS data under `data/nas` is covered by the same array. To enable it once a parity disk is installed:
+SnapRAID is preconfigured but disabled. It protects the HDD data disks against a disk failure; the SSD is not covered. NAS data under `data/nas` is covered by the same array. To enable it:
 
 1. Add the parity disk to `hosts/media-server/storage-paths.nix`:
 
