@@ -283,21 +283,52 @@ SMB is reachable only over the tailnet; no SMB ports are opened on the LAN.
 
 | Share | URL | Access |
 |-------|-----|--------|
-| `public` | `smb://media-server/public` | Guests, read/write |
-| `private` | `smb://media-server/private` | Private users, read/write |
-| `library` | `smb://media-server/library` | Guests, read-only |
+| `public` | `smb://media-server/public` | Guests allowed by Tailscale ACL on TCP 445, read/write |
+| `private` | `smb://media-server:1445/private` | Guests allowed by Tailscale ACL on TCP 1445, read/write; hidden from browse lists |
+| `library` | `smb://media-server/library` | Guests allowed by Tailscale ACL on TCP 445, read-only |
 
-`moon` is the only private user for now. Set its SMB password once after the first rebuild (see [NAS — set the private SMB password](#nas--set-the-private-smb-password)).
+SMB has no passwords. `public` and `library` listen on the standard port **445**; `private` is served by a separate smbd instance on **1445**. Tailscale ACLs gate each port independently, so a peer allowed to 445 cannot mount the private share. Private connections are forced to the Unix identity `moon` on the server. The private port can be changed with `media-server.nas.privatePort`.
 
-The private share is not listed for users without access, and its contents are not inside the public share. Media is read-only over SMB for everyone, including private users.
+The private share is not advertised in share listings and is not served from port 445. Its contents are not inside the public share. Media is read-only over SMB for everyone. Clients that do not support custom ports in `smb://` URLs can use the `mount.cifs` examples below.
 
-To add another private user, add the account and a pinned UID to `hosts/media-server/default.nix`:
+#### Persistent client mounts
 
-```nix
-media-server.nas.privateUsers.alice.uid = 3003;
+For an always-available path on a Linux/systemd client, install `cifs-utils`, create local mount points, and add systemd automounts to `/etc/fstab`. Replace `1000`/`100` with your own UID and GID (`id -u` and `id -g`). If MagicDNS short names do not resolve on the client, use `media-server.tailbac0df.ts.net` instead of `media-server`.
+
+```bash
+sudo mkdir -p /mnt/nas/public /mnt/nas/private
 ```
 
-Then rebuild and set that user's SMB password with `smbpasswd -a alice`. Private users are added to the `media`, `nas`, and `nas-private` groups automatically and get no SSH access.
+Public (guest, read/write, TCP 445):
+
+```fstab
+//media-server/public /mnt/nas/public cifs vers=3.1.1,nounix,guest,uid=1000,gid=1000,file_mode=0664,dir_mode=0775,iocharset=utf8,_netdev,nofail,x-systemd.automount,x-systemd.idle-timeout=10min,x-systemd.requires=tailscaled.service 0 0
+```
+
+Private (guest, read/write, TCP 1445):
+
+```fstab
+//media-server/private /mnt/nas/private cifs vers=3.1.1,nounix,guest,port=1445,uid=1000,gid=1000,file_mode=0664,dir_mode=0775,iocharset=utf8,_netdev,nofail,x-systemd.automount,x-systemd.idle-timeout=10min,x-systemd.requires=tailscaled.service 0 0
+```
+
+Apply the mounts:
+
+```bash
+sudo systemctl daemon-reload
+sudo mount -a
+ls /mnt/nas/public
+```
+
+The paths exist immediately; the first access connects them, and later accesses retry automatically if Tailscale was down. `/mnt/nas/*` are client-side paths — `/nas` and `/nas-private` exist only on the server.
+
+All private-share clients are forced to one server-side Unix identity. To change it, add that identity with a pinned UID and select it in `hosts/media-server/default.nix`:
+
+```nix
+media-server.nas.privateUsers.moon.uid = 3001;
+media-server.nas.privateShareUser = "moon";
+```
+
+Adding another identity does not grant separate SMB access; Tailscale ACLs decide which peers can reach each port. These identities have no SSH access.
 
 > **Prerequisite:** Enable **HTTPS Certificates** in the Tailscale admin console (DNS → HTTPS Certificates). Without this, the HTTPS URLs above cannot provision TLS certificates.
 
@@ -313,15 +344,32 @@ media-server.administrators = [ "your@email.com" ];
 
 ## Post-Deploy Steps
 
-### NAS — set the private SMB password
+### Tailscale ACL for SMB access
 
-Run once after the first rebuild that enables the NAS:
+SMB has no passwords: all shares are guest-accessible at the Samba layer, and Tailscale ACLs are the only control over which peers reach each listener. In the Tailscale admin console, grant TCP **445** to everyone who should use `public`/`library`, and TCP **1445** only to peers that may mount `private`:
 
-```bash
-sudo smbpasswd -a moon
+```json
+[
+  {
+    "action": "accept",
+    "src": ["*"],
+    "dst": ["media-server:445"]
+  },
+  {
+    "action": "accept",
+    "src": ["moon@example.com"],
+    "dst": ["media-server:1445"]
+  }
+]
 ```
 
-Samba stores the password separately from the Unix account, so this survives rebuilds. Re-run it only for new private users (replace `moon` with that username).
+Replace `*` with a narrower user/group if needed, and replace `moon@example.com` with your Tailscale login or device tag. Remove any broader rule that exposes both ports to everyone.
+
+If an SMB password was set on the server previously, remove the stale Samba account:
+
+```bash
+sudo smbpasswd -x moon
+```
 
 ### Prowlarr — add indexers
 
