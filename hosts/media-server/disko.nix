@@ -65,7 +65,9 @@ in
                   };
                   # The SSD is the fast tier, not the union mountpoint. relatime
                   # (not noatime) gives the media-tier mover an LRU signal for
-                  # choosing which files to evict.
+                  # choosing which files to evict. SMB reads through /nas and
+                  # /media must advance atime for that signal to work.
+                  # atime <= mtime is treated as no read since the last write.
                   "@media" = {
                     mountpoint = paths.ssd;
                     mountOptions = [ "relatime" ];

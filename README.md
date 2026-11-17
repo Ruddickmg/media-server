@@ -122,7 +122,7 @@ Everything lives under `data/` so a tree can be moved between tiers as a unit:
 /media/data/nas/private           private NAS share
 ```
 
-`/media` fills the SSD first and only spills to the HDD pool when the SSD is nearly full. A nightly job moves the oldest completed torrents, together with every hard link, to the HDDs once the SSD reaches 85% full, and stops when it drops below 60%. Hot torrents keep seeding from the SSD; cold ones keep seeding from the HDDs indefinitely. NAS data uses the same tiers, but is evicted file by file and only when the SSD is under pressure (see [Nightly SSD-to-HDD mover](#nightly-ssd-to-hdd-mover)).
+`/media` fills the SSD first and only spills to the HDD pool when the SSD is nearly full. A nightly job compares NAS files and media files in one least-recently-accessed queue, moves whole hard-link sets together, starts at 85% SSD usage, and stops below 60%. A file that appears never to have been read since it was written gets a two-week grace period; a recent read keeps any file on the SSD regardless of which tree it is in (see [Nightly SSD-to-HDD mover](#nightly-ssd-to-hdd-mover)).
 
 ### Set the real paths and devices
 
@@ -208,15 +208,15 @@ The mover runs at 02:00. To change the thresholds or schedule, set them in your 
 ```nix
 media-server.storage.tiering = {
   enable = true;
-  highPercent = 85;   # start moving at or above this SSD usage
-  lowPercent = 50;    # stop once the SSD is below this usage
-  minFreeGiB = 150;   # never fill an HDD past this reserve
-  nasColdDays = 30;   # only evict NAS files untouched for this long
-  time = "02:00";     # OnCalendar time for the timer
+  highPercent = 85;            # start moving at or above this SSD usage
+  lowPercent = 50;             # stop once the SSD is below this usage
+  minFreeGiB = 150;            # never fill an HDD past this reserve
+  neverAccessedGraceDays = 14; # grace period for files never read since written
+  time = "02:00";              # OnCalendar time for the timer
 };
 ```
 
-When the SSD reaches `highPercent`, the mover first evicts NAS files whose access **and** modification times are both older than `nasColdDays`. If that brings the SSD back below `highPercent`, it stops without pausing Deluge. Otherwise it continues with the media hard-link mover. NAS data is never moved while the SSD is below the threshold.
+Once the SSD reaches `highPercent`, the mover builds one coldest-first queue from NAS and media together. Files with a later access time than modification time are ranked purely by access time, so frequently accessed NAS files compete equally with media. Files whose access time is not later than their modification time appear never to have been read since they were written; they are only eligible after `neverAccessedGraceDays`. The pass continues until the SSD is below `lowPercent` and pauses Deluge for the whole pass. Nothing moves while the SSD is below `highPercent`.
 
 Preview what it would move without changing anything:
 

@@ -25,7 +25,7 @@ let
     SSD=${lib.escapeShellArg cfg.ssdPath}
     HDD_POOL=${lib.escapeShellArg cfg.hddPoolPath}
     UNIFIED=${lib.escapeShellArg cfg.unifiedPath}
-    NAS_COLD_DAYS=${toString tier.nasColdDays}
+    NEVER_GRACE_DAYS=${toString tier.neverAccessedGraceDays}
     HIGH=${toString tier.highPercent}
     LOW=${toString tier.lowPercent}
     MIN_FREE_KIB=${toString minFreeKiB}
@@ -71,6 +71,13 @@ let
     mountpoint -q "$SSD" || { log "$SSD is not a mount point"; exit 0; }
     mountpoint -q "$HDD_POOL" || { log "$HDD_POOL is not a mount point"; exit 0; }
 
+    if ! read -r ssd_size_kib ssd_used_kib < <(df -Pk "$SSD" 2>/dev/null | awk 'NR==2 {print $2, $3}'); then
+      log "cannot read capacity of $SSD"
+      exit 1
+    fi
+    [ "$ssd_size_kib" -gt 0 ] 2>/dev/null || { log "invalid capacity for $SSD"; exit 1; }
+    [ "$ssd_used_kib" -ge 0 ] 2>/dev/null || { log "invalid usage for $SSD"; exit 1; }
+
     # Pick the data disk with the most free space that can fit the group while
     # still keeping minFreeGiB free. Writing to the disk directly (not the
     # pool) guarantees every hardlink in a media group stays on one filesystem.
@@ -92,144 +99,20 @@ let
     prune_media_empty() {
       # Keep the well-known top-level dirs: library/{movies,tv,music} and
       # torrents/{complete,xseeds}. Only remove empty release/torrent shells.
+      # NAS directories are user-facing and are deliberately left alone.
       find "$SSD/data/library" -mindepth 2 -type d -empty -delete 2>/dev/null || true
       find "$SSD/data/torrents/complete" "$SSD/data/torrents/xseeds" \
         -mindepth 1 -type d -empty -delete 2>/dev/null || true
     }
 
-    # NAS data has no hard links, so it can be moved file by file. Only files
-    # whose atime and mtime are both older than nasColdDays are eligible; a
-    # recent read keeps a file hot on the SSD. This phase only runs once the
-    # SSD has reached HIGH, so cold data is never moved early.
-    nas_phase() {
-      local root="$SSD/data/nas"
-      if [ ! -d "$root" ]; then
-        log "no NAS tree on $SSD; skipping NAS phase"
-        return 0
-      fi
-
-      local cutoff
-      cutoff=$(date -d "-$NAS_COLD_DAYS days" +%s 2>/dev/null) \
-        || { log "cannot compute NAS cold cutoff"; return 0; }
-
-      local entry atime mtime rest path rel union_path size_kib target used
-      while IFS= read -r -d "" entry; do
-        atime=''${entry%%$'\t'*}
-        rest=''${entry#*$'\t'}
-        mtime=''${rest%%$'\t'*}
-        path=''${rest#*$'\t'}
-        atime=''${atime%.*}
-        mtime=''${mtime%.*}
-
-        [ -f "$path" ] || continue
-        [ "$atime" -le "$cutoff" ] || continue
-        [ "$mtime" -le "$cutoff" ] || continue
-
-        rel=''${path#"$SSD"/}
-        union_path="$UNIFIED/$rel"
-
-        # Samba and other processes may hold either the raw branch path or the
-        # union path; fuser treats them as different inode namespaces.
-        if fuser -s "$path" 2>/dev/null || fuser -s "$union_path" 2>/dev/null; then
-          log "skip open: $rel"
-          continue
-        fi
-
-        size_kib=$(du -k "$path" 2>/dev/null | cut -f1)
-        [ -n "$size_kib" ] || continue
-
-        target=$(pick_target "$size_kib")
-        if [ -z "$target" ]; then
-          log "no data disk with room for $size_kib KiB; stopping NAS phase"
-          return 0
-        fi
-
-        log "moving NAS $size_kib KiB -> $target: $rel"
-        if [ "$DRY_RUN" = "1" ]; then
-          continue
-        fi
-
-        if ! (cd "$SSD" && rsync -aAX --preallocate --remove-source-files --relative \
-              "$rel" "$target/"); then
-          log "rsync failed; stopping NAS phase"
-          return 0
-        fi
-
-        # Emptied directories are deliberately left in place: a NAS share is
-        # user-facing, so folder structure a user created must survive the
-        # mover, and stale empty directories cost nothing.
-        used=$(usage_pct "$SSD")
-        if [ -n "$used" ] && [ "$used" -lt "$HIGH" ]; then
-          log "SSD at ''${used}%; below start threshold ''${HIGH}%; stopping NAS phase"
-          return 0
-        fi
-      done < <(find "$root" -xdev -type f -printf '%A@\t%T@\t%p\0' 2>/dev/null | sort -z -n)
-    }
-
-    # The original media mover: move whole hard-link groups (library copy +
-    # torrent copy + cross-seed link) to one HDD so -H preserves the links.
-    media_phase() {
-      declare -A SEEN=()
-      local entry path key skip l union_l size_kib target used
-      local -a links rel
-
-      while IFS= read -r -d "" entry; do
-        # entry = "<atime>\t<path>"
-        path=''${entry#*$'\t'}
-        [ -f "$path" ] || continue
-        key=$(stat -c '%d:%i' "$path" 2>/dev/null) || continue
-        [ -n "''${SEEN[$key]:-}" ] && continue
-        SEEN[$key]=1
-
-        # Every hardlink to this inode on the SSD, including the library copy
-        # and the torrent copy. Move them in one rsync invocation so -H
-        # preserves the link set on the destination.
-        mapfile -d "" -t links < <(find "$SSD/data" -xdev -samefile "$path" -print0 2>/dev/null)
-        [ "''${#links[@]}" -gt 0 ] || continue
-
-        skip=0
-        for l in "''${links[@]}"; do
-          union_l="$UNIFIED/''${l#"$SSD"/}"
-          if fuser -s "$l" 2>/dev/null || fuser -s "$union_l" 2>/dev/null; then
-            skip=1
-            break
-          fi
-        done
-        [ "$skip" = 1 ] && continue
-
-        size_kib=$(du -ck "''${links[@]}" 2>/dev/null | awk 'END {print $1}')
-        [ -n "$size_kib" ] || continue
-
-        target=$(pick_target "$size_kib")
-        if [ -z "$target" ]; then
-          log "no data disk with room for ''${size_kib} KiB; stopping"
-          break
-        fi
-
-        rel=()
-        for l in "''${links[@]}"; do
-          rel+=("''${l#"$SSD"/}")
-        done
-
-        log "moving ''${#links[@]} link(s), ''${size_kib} KiB -> $target"
-        if [ "$DRY_RUN" = "1" ]; then
-          printf '  %s\n' "''${rel[@]}" >&2
-        else
-          if ! (cd "$SSD" && rsync -axHAXWES --preallocate --remove-source-files --relative \
-                "''${rel[@]}" "$target/"); then
-            log "rsync failed; stopping"
-            break
-          fi
-        fi
-
-        [ "$DRY_RUN" = "1" ] || prune_media_empty
-        used=$(usage_pct "$SSD")
-        if [ -n "$used" ] && [ "$used" -lt "$LOW" ]; then
-          log "SSD at ''${used}%; below stop threshold ''${LOW}%"
-          break
-        fi
-      done < <(find "$SSD/data/library" "$SSD/data/torrents/complete" "$SSD/data/torrents/xseeds" \
-                 -xdev -type f -printf '%A@\t%p\0' 2>/dev/null | sort -z -n)
+    # One coldest-first queue covers NAS and media. Files with atime > mtime
+    # were read after their last write and have no age gate. Files with
+    # atime <= mtime look never accessed since their last write; relatime and
+    # whole-second timestamps make that an approximation, so they get a grace
+    # period based on mtime instead of being evicted immediately.
+    never_grace_cutoff=$(date -d "-$NEVER_GRACE_DAYS days" +%s 2>/dev/null) || {
+      log "cannot compute never-accessed grace cutoff"
+      exit 1
     }
 
     used=$(usage_pct "$SSD")
@@ -239,27 +122,119 @@ let
       exit 0
     fi
 
-    log "SSD at ''${used}%; reclaiming cold NAS data first"
-    nas_phase
+    # Dry runs do not free space, so project usage instead of re-reading df.
+    projected_used_kib=$ssd_used_kib
+    projected_pct=$((projected_used_kib * 100 / ssd_size_kib))
 
-    used=$(usage_pct "$SSD")
-    if [ -n "$used" ] && [ "$used" -lt "$HIGH" ]; then
-      log "SSD at ''${used}%; below start threshold ''${HIGH}%; done"
-      exit 0
-    fi
-
-    # Dry runs are pure inspection: never touch Deluge.
+    # Dry runs are pure inspection: never touch Deluge. A real pass may hit
+    # media at any point in the queue, so pause once for the whole pass.
     [ "$DRY_RUN" = "1" ] || pause_deluge
-    log "SSD at $(usage_pct "$SSD")%; moving cold media"
-    media_phase
+    log "SSD at ''${used}%; moving coldest NAS and media data"
 
-    log "finished; SSD at $(usage_pct "$SSD")%"
+    declare -A SEEN=()
+    links=()
+    rel=()
+    skipped_new=0
+    while IFS= read -r -d "" entry; do
+      atime=''${entry%%$'\t'*}
+      rest=''${entry#*$'\t'}
+      mtime=''${rest%%$'\t'*}
+      rest=''${rest#*$'\t'}
+      key=''${rest%%$'\t'*}
+      path=''${rest#*$'\t'}
+      atime=''${atime%.*}
+      mtime=''${mtime%.*}
+
+      [ -f "$path" ] || continue
+      [ -n "''${SEEN[$key]:-}" ] && continue
+      SEEN[$key]=1
+
+      if [ "$atime" -le "$mtime" ]; then
+        class=never
+        if [ "$mtime" -gt "$never_grace_cutoff" ]; then
+          skipped_new=$((skipped_new + 1))
+          continue
+        fi
+      else
+        class=accessed
+      fi
+
+      # Every hardlink to this inode, including library, torrent, and
+      # cross-seed copies, moves in one rsync so -H preserves the link set.
+      mapfile -d "" -t links < <(find "$SSD/data" -xdev -samefile "$path" -print0 2>/dev/null | sort -z)
+      [ "''${#links[@]}" -gt 0 ] || continue
+
+      # Samba and other processes may hold either the raw branch path or the
+      # union path; fuser treats them as different inode namespaces.
+      skip=0
+      for l in "''${links[@]}"; do
+        union_l="$UNIFIED/''${l#"$SSD"/}"
+        if fuser -s "$l" 2>/dev/null || fuser -s "$union_l" 2>/dev/null; then
+          log "skip open: ''${l#"$SSD"/}"
+          skip=1
+          break
+        fi
+      done
+      [ "$skip" = 1 ] && continue
+
+      size_kib=$(du -ck "''${links[@]}" 2>/dev/null | awk 'END {print $1}')
+      [ -n "$size_kib" ] || continue
+
+      target=$(pick_target "$size_kib")
+      if [ -z "$target" ]; then
+        log "no data disk with room for ''${size_kib} KiB; stopping"
+        break
+      fi
+
+      rel=()
+      for l in "''${links[@]}"; do
+        rel+=("''${l#"$SSD"/}")
+      done
+
+      log "moving $class: ''${#links[@]} link(s), ''${size_kib} KiB -> $target: ''${rel[0]}"
+      if [ "$DRY_RUN" = "1" ]; then
+        printf '  %s\n' "''${rel[@]}" >&2
+        projected_used_kib=$((projected_used_kib - size_kib))
+        [ "$projected_used_kib" -ge 0 ] || projected_used_kib=0
+        projected_pct=$((projected_used_kib * 100 / ssd_size_kib))
+        if [ "$projected_pct" -lt "$LOW" ]; then
+          log "dry run would leave SSD at ''${projected_pct}%; below stop threshold ''${LOW}%"
+          break
+        fi
+        continue
+      fi
+
+      if ! (cd "$SSD" && rsync -axHAXWES --preallocate --remove-source-files --relative \
+            "''${rel[@]}" "$target/"); then
+        log "rsync failed; stopping"
+        break
+      fi
+
+      prune_media_empty
+      used=$(usage_pct "$SSD")
+      if [ -n "$used" ] && [ "$used" -lt "$LOW" ]; then
+        log "SSD at ''${used}%; below stop threshold ''${LOW}%"
+        break
+      fi
+    done < <(find "$SSD/data/nas" "$SSD/data/library" "$SSD/data/torrents/complete" \
+               "$SSD/data/torrents/xseeds" -xdev -type f \
+               -printf '%A@\t%T@\t%D:%i\t%p\0' 2>/dev/null \
+             | sort -z -t $'\t' -k1,1n -k3,3)
+
+    if [ "$skipped_new" -gt 0 ]; then
+      log "skipped $skipped_new file(s) inside the never-accessed grace period (''${NEVER_GRACE_DAYS}d)"
+    fi
+    if [ "$DRY_RUN" = "1" ]; then
+      log "dry run complete; would leave SSD at ''${projected_pct}%"
+    else
+      log "finished; SSD at $(usage_pct "$SSD")%"
+    fi
   '';
 in
 {
   config = lib.mkIf (cfg.enable && tier.enable) {
     systemd.services.media-tier = {
-      description = "Move cold SSD media and NAS data to the HDD backing pool";
+      description = "Move coldest SSD NAS and media data to the HDD backing pool";
       after = [
         "deluged.service"
         "proxy-deluge.service"

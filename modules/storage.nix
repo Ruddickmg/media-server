@@ -164,13 +164,15 @@ in
         default = 150;
         description = "Never write to an HDD with less than this much free space.";
       };
-      nasColdDays = mkOption {
+      neverAccessedGraceDays = mkOption {
         type = types.ints.positive;
-        default = 30;
+        default = 14;
         description = ''
-          Only evict NAS files whose access and modification times are both
-          older than this many days. The age filter applies once the SSD reaches
-          `highPercent`; NAS data is never moved below that threshold.
+          Grace period for files that appear never to have been read since their
+          last write (`atime <= mtime`). These files are not eligible for eviction
+          from either NAS or media until `mtime` is older than this many days.
+          Files with `atime > mtime` have no age gate; they are ranked purely by
+          access time.
         '';
       };
       time = mkOption {
