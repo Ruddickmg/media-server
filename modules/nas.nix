@@ -75,7 +75,7 @@ in
             # Matches the range NixOS allocates to normal users (1000-29999),
             # and satisfies isNormalUser's uid >= 1000 rule.
             type = types.ints.between 1000 29999;
-            description = "Pinned Unix UID for this SMB-only user.";
+            description = "Pinned Unix UID for this SMB-only identity.";
           };
         }
       );
@@ -84,10 +84,19 @@ in
         moon.uid = 3001;
       };
       description = ''
-        SMB-only private users. Each gets a Unix account with no login shell and
-        no home directory, membership in the media, nas, and nas-private groups,
-        and read/write access to the private share. Pin the UID explicitly so
-        adding another user never renumbers existing files.
+        Unix identities used by the private share. Each gets an account with no
+        login shell and no home directory, membership in the media, nas, and
+        nas-private groups, and no password. Pin the UID explicitly so adding
+        another identity never renumbers existing files.
+      '';
+    };
+
+    privateShareUser = mkOption {
+      type = types.str;
+      default = "moon";
+      description = ''
+        Unix identity that all guest connections to the private share are forced
+        to use. Tailscale ACLs, not SMB passwords, decide who may reach the share.
       '';
     };
 
@@ -118,6 +127,10 @@ in
         assertion = !(cfg.privateUsers ? nas-guest);
         message = "media-server.nas.privateUsers cannot define \"nas-guest\": that name is reserved for the internal Samba guest account.";
       }
+      {
+        assertion = builtins.hasAttr cfg.privateShareUser cfg.privateUsers;
+        message = "media-server.nas.privateShareUser must exist in media-server.nas.privateUsers.";
+      }
     ];
 
     # Three groups keep the permission model explicit: media reaches the media
@@ -139,8 +152,8 @@ in
     users.users = {
       # Internal Samba guest identity. media lets it read the read-only
       # library share; nas lets it read/write the public share. It is
-      # deliberately not in nas-private, so unknown/guest users cannot reach
-      # the private tree.
+      # deliberately not in nas-private: private-share guests reach the tree
+      # only through the forced privateShareUser below.
       nas-guest = {
         isSystemUser = true;
         uid = 3002;
@@ -177,6 +190,9 @@ in
       (mkMount privateSource cfg.privateMount)
     ];
 
+    # openFirewall defaults to false. tailscale0 is a trusted interface in
+    # modules/services/tailscale.nix, so SMB is reachable over the tailnet
+    # without opening LAN ports. Tailscale ACLs decide which peers reach 445.
     services.samba = {
       enable = true;
       openFirewall = cfg.openFirewall;
@@ -192,7 +208,8 @@ in
           "security" = "user";
           "map to guest" = "Bad User";
           "guest account" = "nas-guest";
-          # Hide shares a user cannot access (notably `private` from guests).
+          # Hide shares a user cannot access. The private share is additionally
+          # browseable = no, so it never appears in guest share listings.
           "access based share enum" = "yes";
           "server min protocol" = "SMB2";
           "load printers" = "no";
@@ -219,13 +236,15 @@ in
         private = {
           comment = "Private NAS";
           path = cfg.privateMount;
-          # Guests cannot see or reach this share; only @nas-private can.
+          # Hidden from browse lists, but any peer allowed through the Tailscale
+          # ACL to port 445 can mount it directly. There is no SMB password;
+          # all connections are forced to privateShareUser on the server.
           browseable = "no";
-          "guest ok" = "no";
+          "guest ok" = "yes";
           "read only" = "no";
-          "valid users" = "@nas-private";
           "create mask" = "0660";
           "directory mask" = "2770";
+          "force user" = cfg.privateShareUser;
           "force group" = "nas-private";
         };
 

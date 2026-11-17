@@ -78,7 +78,8 @@ in
     };
 
     # SMB NAS on the same SSD/HDD tiers. Guests read/write the public share and
-    # read the media library; private users additionally get the private share.
+    # read the media library; Tailscale-authorized guests also get the private
+    # share, forced to the Unix identity below. There are no SMB passwords.
     nas = {
       enable = true;
       # SMB-only account, no SSH access. Pin the UID so adding more users never
