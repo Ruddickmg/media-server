@@ -105,6 +105,8 @@ Media lives on two tiers joined into a single `/media` view:
 | `/mnt/hdd1`, `/mnt/hdd2`, … | Data HDDs in the JBOD enclosure, one ext4 filesystem each |
 | `/mnt/hddpool` | mergerfs union of the data HDDs (backing pool) |
 | `/media` | mergerfs union of `/mnt/ssd` then `/mnt/hddpool` — the path every service uses |
+| `/nas` | bind mount of `/media/data/nas/public` — public SMB share |
+| `/nas-private` | bind mount of `/media/data/nas/private` — private SMB share |
 | `/mnt/parity1` | SnapRAID parity disk (not installed yet) |
 
 Everything lives under `data/` so a tree can be moved between tiers as a unit:
@@ -116,9 +118,11 @@ Everything lives under `data/` so a tree can be moved between tiers as a unit:
 /media/data/library/movies
 /media/data/library/tv
 /media/data/library/music
+/media/data/nas/public            public NAS share
+/media/data/nas/private           private NAS share
 ```
 
-`/media` fills the SSD first and only spills to the HDD pool when the SSD is nearly full. A nightly job moves the oldest completed torrents, together with every hard link, to the HDDs once the SSD reaches 85% full, and stops when it drops below 60%. Hot torrents keep seeding from the SSD; cold ones keep seeding from the HDDs indefinitely.
+`/media` fills the SSD first and only spills to the HDD pool when the SSD is nearly full. A nightly job moves the oldest completed torrents, together with every hard link, to the HDDs once the SSD reaches 85% full, and stops when it drops below 60%. Hot torrents keep seeding from the SSD; cold ones keep seeding from the HDDs indefinitely. NAS data uses the same tiers, but is evicted file by file and only when the SSD is under pressure (see [Nightly SSD-to-HDD mover](#nightly-ssd-to-hdd-mover)).
 
 ### Set the real paths and devices
 
@@ -207,9 +211,12 @@ media-server.storage.tiering = {
   highPercent = 85;   # start moving at or above this SSD usage
   lowPercent = 50;    # stop once the SSD is below this usage
   minFreeGiB = 150;   # never fill an HDD past this reserve
+  nasColdDays = 30;   # only evict NAS files untouched for this long
   time = "02:00";     # OnCalendar time for the timer
 };
 ```
+
+When the SSD reaches `highPercent`, the mover first evicts NAS files whose access **and** modification times are both older than `nasColdDays`. If that brings the SSD back below `highPercent`, it stops without pausing Deluge. Otherwise it continues with the media hard-link mover. NAS data is never moved while the SSD is below the threshold.
 
 Preview what it would move without changing anything:
 
@@ -228,7 +235,7 @@ The mover pauses Deluge for the duration and resumes it afterwards. Because it r
 
 ### SnapRAID parity (add later)
 
-SnapRAID is preconfigured but disabled. It protects the HDD data disks against a disk failure; the SSD is not covered. To enable it once a parity disk is installed:
+SnapRAID is preconfigured but disabled. It protects the HDD data disks against a disk failure; the SSD is not covered. NAS data under `data/nas` is covered by the same array. To enable it once a parity disk is installed:
 
 1. Add the parity disk to `hosts/media-server/storage-paths.nix`:
 
@@ -314,6 +321,28 @@ Running `tuios` directly on the server after `ssh` also works and starts the sam
 
 The hostname is the machine's MagicDNS name (check `tailscale status` for yours).
 
+### NAS shares (SMB)
+
+SMB is reachable only over the tailnet; no SMB ports are opened on the LAN.
+
+| Share | URL | Access |
+|-------|-----|--------|
+| `public` | `smb://media-server/public` | Guests, read/write |
+| `private` | `smb://media-server/private` | Private users, read/write; hidden from everyone else |
+| `library` | `smb://media-server/library` | Guests, read-only |
+
+`moon` is the only private user for now. Set its SMB password once after the first rebuild (see [NAS — set the private SMB password](#nas--set-the-private-smb-password)).
+
+The private share is not listed for users without access, and its contents are not inside the public share. Media is read-only over SMB for everyone, including private users.
+
+To add another private user, add the account and a pinned UID to `hosts/media-server/default.nix`:
+
+```nix
+media-server.nas.privateUsers.alice.uid = 3003;
+```
+
+Then rebuild and set that user's SMB password with `smbpasswd -a alice`. Private users are added to the `media`, `nas`, and `nas-private` groups automatically and get no SSH access.
+
 > **Prerequisite:** Enable **HTTPS Certificates** in the Tailscale admin console (DNS → HTTPS Certificates). Without this, the HTTPS URLs above cannot provision TLS certificates.
 
 **Admin-only access:** Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, and autobrr are restricted to Tailscale users listed in `media-server.administrators` (defaults to `["ruddickmg@gmail.com"]`). Seerr is open to all Tailscale users so family members can make requests. To change the admin list:
@@ -327,6 +356,16 @@ media-server.administrators = [ "your@email.com" ];
 > **DLNA note:** Plex also opens UDP ports 1900 (DLNA) and 5353 (mDNS) for local device discovery, which broadcasts your library to any device on the LAN without authentication. Turn off DLNA in Plex's settings to stop this.
 
 ## Post-Deploy Steps
+
+### NAS — set the private SMB password
+
+Run once after the first rebuild that enables the NAS:
+
+```bash
+sudo smbpasswd -a moon
+```
+
+Samba stores the password separately from the Unix account, so this survives rebuilds. Re-run it only for new private users (replace `moon` with that username).
 
 ### Prowlarr — add indexers
 
@@ -366,6 +405,8 @@ media-server.deluge.diskGuard.notify = false;     # disable Gotify alerts
 ```
 
 ### Deleting media completely
+
+The SMB `library` share is read-only, so media cannot be deleted over the NAS. Delete over SSH instead.
 
 Deleting a file from the library leaves its hard links behind — the copy in `/media/data/torrents/complete` (and the cross-seed link in `/media/data/torrents/xseeds`) — so disk space is never freed. To remove a file or a whole movie/show folder together with every hard link:
 

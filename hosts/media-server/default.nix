@@ -10,6 +10,7 @@ in
     ../../modules/common.nix
     ../../modules/storage.nix
     ../../modules/media-tier.nix
+    ../../modules/nas.nix
     ../../modules/gotify.nix
     ../../modules/headless-server.nix
     ../../modules/auto-update.nix
@@ -74,6 +75,15 @@ in
       # described in storage.nix, so enabling it later is a one-line change.
       # TODO: set to true once a parity disk is added to storage-paths.nix.
       snapraid.enable = false;
+    };
+
+    # SMB NAS on the same SSD/HDD tiers. Guests read/write the public share and
+    # read the media library; private users additionally get the private share.
+    nas = {
+      enable = true;
+      # SMB-only account, no SSH access. Pin the UID so adding more users never
+      # renumbers moon's existing files.
+      privateUsers.moon.uid = 3001;
     };
 
     headless.authorizedKeys = [

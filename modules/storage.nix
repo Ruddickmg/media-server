@@ -164,6 +164,15 @@ in
         default = 150;
         description = "Never write to an HDD with less than this much free space.";
       };
+      nasColdDays = mkOption {
+        type = types.ints.positive;
+        default = 30;
+        description = ''
+          Only evict NAS files whose access and modification times are both
+          older than this many days. The age filter applies once the SSD reaches
+          `highPercent`; NAS data is never moved below that threshold.
+        '';
+      };
       time = mkOption {
         type = types.str;
         default = "02:00";
@@ -290,6 +299,14 @@ in
         "*.partial"
         "snapraid.*"
         ".mergerfs*"
+        # Client junk that SMB clients leave in NAS shares.
+        ".DS_Store"
+        "Thumbs.db"
+        "~$*"
+        "*.tmp"
+        "#recycle/"
+        "@eaDir/"
+        ".Trash-*"
       ];
       sync.interval = cfg.snapraid.syncInterval;
       scrub.interval = cfg.snapraid.scrubInterval;
