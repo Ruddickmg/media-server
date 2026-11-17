@@ -315,7 +315,19 @@ in
         ProtectSystem = "strict";
         ProtectHome = true;
         PrivateTmp = true;
+        PrivateDevices = true;
         NoNewPrivileges = true;
+        ProtectClock = true;
+        ProtectHostname = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictRealtime = true;
+        RestrictNamespaces = true;
+        LockPersonality = true;
+        SystemCallArchitectures = "native";
+        # Do not add RestrictSUIDSGID (runuser needs setuid) or
+        # ProtectProc/ProcSubset (fuser needs the process table).
         # The mover writes through the raw SSD/HDD paths, never the union, so
         # its unlinks do not generate union inotify events for
         # delete-media-watch.

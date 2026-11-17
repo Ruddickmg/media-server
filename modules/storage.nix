@@ -296,6 +296,10 @@ in
     systemd.tmpfiles.rules =
       mkDataDirs cfg.ssdPath
       ++ lib.concatMap mkDataDirs hddMounts
+      # Sticky bit on data/ stops media-group services from renaming or
+      # deleting sibling top-level trees such as data/nas. z re-asserts the
+      # mode on existing installs because d only creates missing paths.
+      ++ map (root: "z ${root}/data 3775 root media") ([ cfg.ssdPath ] ++ hddMounts)
       ++ [
         "d /var/lib/snapraid 0700 root root"
       ];

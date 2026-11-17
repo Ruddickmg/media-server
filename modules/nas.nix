@@ -26,13 +26,21 @@ let
   # pool fails to mount, services must not fall back to the root filesystem's
   # /media directory. public and private are siblings, so the public share
   # cannot traverse into the private tree.
+  #
+  # data/nas is traverse-only: group nas can reach public, and the "other"
+  # execute bit lets Samba's forced nas-private group reach private on the
+  # branch side (mergerfs switches to the request's primary gid; supplementary
+  # groups do not cross). It is not writable and not listable, so neither the
+  # guest identity nor media-group services can rename or delete either share.
+  # z rules re-assert the mode on existing installs because d only creates.
   mkNasDirs =
     root:
     map (line: "d ${root}/${line}") [
-      "data/nas 2770 root nas"
+      "data/nas 0711 root nas"
       "data/nas/public 2770 root nas"
       "data/nas/private 2770 root nas-private"
     ];
+  fixNasDirMode = root: "z ${root}/data/nas 0711 root nas";
 
   mkMount = what: where: {
     inherit what where;
@@ -156,7 +164,10 @@ in
       createHome = false;
     }) cfg.privateUsers;
 
-    systemd.tmpfiles.rules = mkNasDirs storage.ssdPath ++ lib.concatMap mkNasDirs hddMounts;
+    systemd.tmpfiles.rules =
+      mkNasDirs storage.ssdPath
+      ++ lib.concatMap mkNasDirs hddMounts
+      ++ map fixNasDirMode ([ storage.ssdPath ] ++ hddMounts);
 
     # /nas and /nas-private are real top-level mounts, separate from /media.
     # They bind the union paths so NAS data keeps following the tier mover and
