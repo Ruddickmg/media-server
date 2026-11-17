@@ -312,12 +312,14 @@ in
 
       serviceConfig = {
         ExecReload = "${pkgs.coreutils}/bin/kill -HUP $MAINPID";
-        ExecStart = "${config.services.samba.package}/sbin/smbd " + (lib.escapeShellArgs [
-          "--foreground"
-          "--no-process-group"
-          "--configfile=${privateSambaConfig}"
-          "--port=${toString cfg.privatePort}"
-        ]);
+        ExecStart =
+          "${config.services.samba.package}/sbin/smbd "
+          + (lib.escapeShellArgs [
+            "--foreground"
+            "--no-process-group"
+            "--configfile=${privateSambaConfig}"
+            "--port=${toString cfg.privatePort}"
+          ]);
         LimitCORE = "infinity";
         LimitNOFILE = "16384";
         PIDFile = "/run/samba/smbd-private.pid";
