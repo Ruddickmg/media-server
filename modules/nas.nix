@@ -7,7 +7,12 @@
 let
   cfg = config.media-server.nas;
   storage = config.media-server.storage;
-  inherit (lib) mkEnableOption mkIf mkOption types;
+  inherit (lib)
+    mkEnableOption
+    mkIf
+    mkOption
+    types
+    ;
 
   nologin = "${pkgs.shadow}/bin/nologin";
 
@@ -29,29 +34,27 @@ let
       "data/nas/private 2770 root nas-private"
     ];
 
-  mkMount =
-    what: where:
-    {
-      inherit what where;
-      type = "none";
-      options = "bind";
-      wantedBy = [ "multi-user.target" ];
-      # Mount only after tmpfiles has created the bind source. A plain
-      # local-fs mount (the default for fstab entries) would be ordered before
-      # tmpfiles and fail on first boot, so this unit opts out of the default
-      # dependencies and is pulled in by multi-user.target instead.
-      after = [ "systemd-tmpfiles-setup.service" ];
-      before = [
-        "multi-user.target"
-        "umount.target"
-      ];
-      conflicts = [ "umount.target" ];
-      unitConfig = {
-        DefaultDependencies = false;
-        # Pull /media (and transitively the SSD/HDD branches) in first.
-        RequiresMountsFor = [ storage.unifiedPath ];
-      };
+  mkMount = what: where: {
+    inherit what where;
+    type = "none";
+    options = "bind";
+    wantedBy = [ "multi-user.target" ];
+    # Mount only after tmpfiles has created the bind source. A plain
+    # local-fs mount (the default for fstab entries) would be ordered before
+    # tmpfiles and fail on first boot, so this unit opts out of the default
+    # dependencies and is pulled in by multi-user.target instead.
+    after = [ "systemd-tmpfiles-setup.service" ];
+    before = [
+      "multi-user.target"
+      "umount.target"
+    ];
+    conflicts = [ "umount.target" ];
+    unitConfig = {
+      DefaultDependencies = false;
+      # Pull /media (and transitively the SSD/HDD branches) in first.
+      RequiresMountsFor = [ storage.unifiedPath ];
     };
+  };
 in
 {
   options.media-server.nas = {
@@ -125,38 +128,35 @@ in
       };
     };
 
-    users.users =
-      {
-        # Internal Samba guest identity. media lets it read the read-only
-        # library share; nas lets it read/write the public share. It is
-        # deliberately not in nas-private, so unknown/guest users cannot reach
-        # the private tree.
-        nas-guest = {
-          isSystemUser = true;
-          uid = 3002;
-          group = "nas";
-          extraGroups = [ "media" ];
-          shell = nologin;
-          createHome = false;
-        };
-      }
-      # SMB-only private users. No SSH key and no login shell: SSH stays with
-      # the existing media-server account, exactly as before.
-      // lib.mapAttrs (_: user: {
-        isNormalUser = true;
-        uid = user.uid;
+    users.users = {
+      # Internal Samba guest identity. media lets it read the read-only
+      # library share; nas lets it read/write the public share. It is
+      # deliberately not in nas-private, so unknown/guest users cannot reach
+      # the private tree.
+      nas-guest = {
+        isSystemUser = true;
+        uid = 3002;
         group = "nas";
-        extraGroups = [
-          "media"
-          "nas-private"
-        ];
+        extraGroups = [ "media" ];
         shell = nologin;
         createHome = false;
-      }) cfg.privateUsers;
+      };
+    }
+    # SMB-only private users. No SSH key and no login shell: SSH stays with
+    # the existing media-server account, exactly as before.
+    // lib.mapAttrs (_: user: {
+      isNormalUser = true;
+      uid = user.uid;
+      group = "nas";
+      extraGroups = [
+        "media"
+        "nas-private"
+      ];
+      shell = nologin;
+      createHome = false;
+    }) cfg.privateUsers;
 
-    systemd.tmpfiles.rules =
-      mkNasDirs storage.ssdPath
-      ++ lib.concatMap mkNasDirs hddMounts;
+    systemd.tmpfiles.rules = mkNasDirs storage.ssdPath ++ lib.concatMap mkNasDirs hddMounts;
 
     # /nas and /nas-private are real top-level mounts, separate from /media.
     # They bind the union paths so NAS data keeps following the tier mover and
