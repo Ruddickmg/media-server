@@ -284,7 +284,7 @@ SMB is reachable only over the tailnet; no SMB ports are opened on the LAN.
 | Share | URL | Access |
 |-------|-----|--------|
 | `public` | `smb://media-server/public` | Guests, read/write |
-| `private` | `smb://media-server/private` | Private users, read/write; hidden from everyone else |
+| `private` | `smb://media-server/private` | Private users, read/write |
 | `library` | `smb://media-server/library` | Guests, read-only |
 
 `moon` is the only private user for now. Set its SMB password once after the first rebuild (see [NAS — set the private SMB password](#nas--set-the-private-smb-password)).
