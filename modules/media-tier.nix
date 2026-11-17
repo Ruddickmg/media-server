@@ -39,7 +39,8 @@ let
     log() { echo "media-tier: $*" >&2; }
 
     usage_pct() {
-      df -P --output=pcent "$1" 2>/dev/null | awk 'NR==2 {gsub(/%/,""); print $1}'
+      # GNU df rejects -P together with --output ("mutually exclusive").
+      df --output=pcent "$1" 2>/dev/null | awk 'NR==2 {gsub(/%/,""); print $1}'
     }
 
     pause_deluge() {
