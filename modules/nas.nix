@@ -22,6 +22,51 @@ let
 
   hddMounts = map (d: d.mountPoint) (lib.attrValues storage.hddDisks);
 
+  # Shared by both smbd instances. The private listener gets its own config
+  # file so port 445 cannot expose the private share at all.
+  commonSambaGlobal = {
+    "workgroup" = "WORKGROUP";
+    "server string" = "media-server NAS";
+    "server role" = "standalone server";
+    "security" = "user";
+    "map to guest" = "Bad User";
+    "guest account" = "nas-guest";
+    # Hide shares a user cannot access. The private share is additionally
+    # browseable = no in its own listener.
+    "access based share enum" = "yes";
+    "server min protocol" = "SMB2";
+    "load printers" = "no";
+    "printing" = "bsd";
+    "printcap name" = "/dev/null";
+    "disable spoolss" = "yes";
+    "invalid users" = [ "root" ];
+    # Refuse symlinks that escape a share into /nas-private or /media.
+    "wide links" = "no";
+    "unix extensions" = "no";
+  };
+
+  privateSambaFormat = pkgs.formats.ini {
+    listToValue = lib.concatMapStringsSep " " (lib.generators.mkValueStringDefault { });
+  };
+
+  privateSambaConfig = privateSambaFormat.generate "smb-private.conf" {
+    global = commonSambaGlobal // {
+      "log file" = "/var/log/samba/log.smbd-private";
+    };
+    private = {
+      comment = "Private NAS";
+      path = cfg.privateMount;
+      # Not advertised, and served only on the restricted port.
+      browseable = "no";
+      "guest ok" = "yes";
+      "read only" = "no";
+      "create mask" = "0660";
+      "directory mask" = "2770";
+      "force user" = cfg.privateShareUser;
+      "force group" = "nas-private";
+    };
+  };
+
   # Create the NAS skeleton on the raw branch, never through the union: if a
   # pool fails to mount, services must not fall back to the root filesystem's
   # /media directory. public and private are siblings, so the public share
@@ -75,7 +120,7 @@ in
             # Matches the range NixOS allocates to normal users (1000-29999),
             # and satisfies isNormalUser's uid >= 1000 rule.
             type = types.ints.between 1000 29999;
-            description = "Pinned Unix UID for this SMB-only user.";
+            description = "Pinned Unix UID for this SMB-only identity.";
           };
         }
       );
@@ -84,10 +129,29 @@ in
         moon.uid = 3001;
       };
       description = ''
-        SMB-only private users. Each gets a Unix account with no login shell and
-        no home directory, membership in the media, nas, and nas-private groups,
-        and read/write access to the private share. Pin the UID explicitly so
-        adding another user never renumbers existing files.
+        Unix identities used by the private share. Each gets an account with no
+        login shell and no home directory, membership in the media, nas, and
+        nas-private groups, and no password. Pin the UID explicitly so adding
+        another identity never renumbers existing files.
+      '';
+    };
+
+    privateShareUser = mkOption {
+      type = types.str;
+      default = "moon";
+      description = ''
+        Unix identity that all guest connections to the private share are forced
+        to use. Tailscale ACLs, not SMB passwords, decide who may reach the share.
+      '';
+    };
+
+    privatePort = mkOption {
+      type = types.ints.between 1 65535;
+      default = 1445;
+      description = ''
+        TCP port for the separate smbd instance that serves only the private
+        share. The public and library shares stay on the standard port 445 so
+        Tailscale ACLs can grant them separately.
       '';
     };
 
@@ -118,6 +182,14 @@ in
         assertion = !(cfg.privateUsers ? nas-guest);
         message = "media-server.nas.privateUsers cannot define \"nas-guest\": that name is reserved for the internal Samba guest account.";
       }
+      {
+        assertion = builtins.hasAttr cfg.privateShareUser cfg.privateUsers;
+        message = "media-server.nas.privateShareUser must exist in media-server.nas.privateUsers.";
+      }
+      {
+        assertion = cfg.privatePort != 445;
+        message = "media-server.nas.privatePort must differ from 445 so public and private SMB access can be gated separately.";
+      }
     ];
 
     # Three groups keep the permission model explicit: media reaches the media
@@ -139,8 +211,8 @@ in
     users.users = {
       # Internal Samba guest identity. media lets it read the read-only
       # library share; nas lets it read/write the public share. It is
-      # deliberately not in nas-private, so unknown/guest users cannot reach
-      # the private tree.
+      # deliberately not in nas-private: private-share guests reach the tree
+      # only through the forced privateShareUser below.
       nas-guest = {
         isSystemUser = true;
         uid = 3002;
@@ -177,6 +249,10 @@ in
       (mkMount privateSource cfg.privateMount)
     ];
 
+    # openFirewall defaults to false. tailscale0 is a trusted interface in
+    # modules/services/tailscale.nix, so both SMB listeners are reachable over
+    # the tailnet without opening LAN ports. Tailscale ACLs gate public (445)
+    # and private (privatePort) separately.
     services.samba = {
       enable = true;
       openFirewall = cfg.openFirewall;
@@ -185,25 +261,7 @@ in
       winbindd.enable = false;
 
       settings = {
-        global = {
-          "workgroup" = "WORKGROUP";
-          "server string" = "media-server NAS";
-          "server role" = "standalone server";
-          "security" = "user";
-          "map to guest" = "Bad User";
-          "guest account" = "nas-guest";
-          # Hide shares a user cannot access (notably `private` from guests).
-          "access based share enum" = "yes";
-          "server min protocol" = "SMB2";
-          "load printers" = "no";
-          "printing" = "bsd";
-          "printcap name" = "/dev/null";
-          "disable spoolss" = "yes";
-          "invalid users" = [ "root" ];
-          # Refuse symlinks that escape a share into /nas-private or /media.
-          "wide links" = "no";
-          "unix extensions" = "no";
-        };
+        global = commonSambaGlobal;
 
         public = {
           comment = "Public NAS";
@@ -216,36 +274,73 @@ in
           "force group" = "nas";
         };
 
-        private = {
-          comment = "Private NAS";
-          path = cfg.privateMount;
-          # Guests cannot see or reach this share; only @nas-private can.
-          browseable = "no";
-          "guest ok" = "no";
-          "read only" = "no";
-          "valid users" = "@nas-private";
-          "create mask" = "0660";
-          "directory mask" = "2770";
-          "force group" = "nas-private";
-        };
-
         library = {
           comment = "Media library (read-only)";
           path = "${storage.unifiedPath}/data/library";
           browseable = "yes";
           "guest ok" = "yes";
-          # Read-only for everyone over SMB, private users included.
+          # Read-only for everyone over SMB.
           "read only" = "yes";
           "force group" = "media";
         };
       };
     };
 
+    # The private share is served by a second smbd process with its own config,
+    # so a client allowed only to port 445 cannot mount it. Type=notify matches
+    # the upstream smbd unit; the PID file is distinct from the public daemon.
+    environment.etc."samba/smb-private.conf".source = privateSambaConfig;
+
+    systemd.services."samba-smbd-private" = {
+      description = "Samba SMB Daemon (private share)";
+      documentation = [
+        "man:smbd(8)"
+        "man:samba(7)"
+        "man:smb.conf(5)"
+      ];
+
+      after = [
+        "network.target"
+        "network-online.target"
+      ];
+
+      partOf = [ "samba.target" ];
+      wantedBy = [ "samba.target" ];
+      wants = [ "network-online.target" ];
+
+      environment.LD_LIBRARY_PATH = config.system.nssModules.path;
+
+      serviceConfig = {
+        ExecReload = "${pkgs.coreutils}/bin/kill -HUP $MAINPID";
+        ExecStart =
+          "${config.services.samba.package}/sbin/smbd "
+          + (lib.escapeShellArgs [
+            "--foreground"
+            "--no-process-group"
+            "--configfile=${privateSambaConfig}"
+            "--port=${toString cfg.privatePort}"
+          ]);
+        LimitCORE = "infinity";
+        LimitNOFILE = "16384";
+        PIDFile = "/run/samba/smbd-private.pid";
+        RuntimeDirectory = "samba";
+        RuntimeDirectoryMode = "0755";
+        Slice = "system-samba.slice";
+        Type = "notify";
+      };
+
+      unitConfig.RequiresMountsFor = [
+        "/var/lib/samba"
+        cfg.privateMount
+      ];
+
+      restartTriggers = [ privateSambaConfig ];
+    };
+
     # Never serve an empty root-filesystem fallback if a NAS mount failed.
     # Merged with the existing RequiresMountsFor = "/var/lib/samba".
     systemd.services.samba-smbd.unitConfig.RequiresMountsFor = [
       cfg.publicMount
-      cfg.privateMount
     ];
   };
 }
