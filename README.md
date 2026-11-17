@@ -122,7 +122,7 @@ Everything lives under `data/` so a tree can be moved between tiers as a unit:
 /media/data/nas/private           private NAS share
 ```
 
-`/media` fills the SSD first and only spills to the HDD pool when the SSD is nearly full. A nightly job compares NAS files and media files in one least-recently-accessed queue, moves whole hard-link sets together, starts at 85% SSD usage, and stops below 60%. A file that appears never to have been read since it was written gets a two-week grace period; a recent read keeps any file on the SSD regardless of which tree it is in (see [Nightly SSD-to-HDD mover](#nightly-ssd-to-hdd-mover)).
+`/media` fills the SSD first and only spills to the HDD pool when the SSD has less than 50 GiB free. A mover checks usage every 15 minutes, compares NAS files and media files in one least-recently-accessed queue, moves whole hard-link sets together, starts at 85% SSD usage, and keeps going until it is below 60%. A file that appears never to have been read since it was written gets a two-week grace period; if the normal queue cannot reach 60%, those files are moved oldest-first by modification time instead of leaving the SSD under pressure (see [SSD-to-HDD mover](#ssd-to-hdd-mover)).
 
 ### Set the real paths and devices
 
@@ -201,22 +201,27 @@ sudo nixos-rebuild switch --flake /etc/nixos#media-server
 sudo reboot
 ```
 
-### Nightly SSD-to-HDD mover
+### SSD-to-HDD mover
 
-The mover runs at 02:00. To change the thresholds or schedule, set them in your host config:
+The mover checks every 15 minutes and also at 02:00. To change the thresholds or schedule, set them in your host config:
 
 ```nix
+media-server.storage.ssdReserveGiB = 50; # keep this much SSD free for new writes
+
 media-server.storage.tiering = {
   enable = true;
-  highPercent = 85;            # start moving at or above this SSD usage
-  lowPercent = 50;             # stop once the SSD is below this usage
+  highPercent = 85;            # start a pass at or above this SSD usage
+  lowPercent = 50;             # keep moving until the SSD is below this usage
   minFreeGiB = 150;            # never fill an HDD past this reserve
+  checkIntervalMinutes = 15;   # how often to check for bursts
   neverAccessedGraceDays = 14; # grace period for files never read since written
-  time = "02:00";              # OnCalendar time for the timer
+  time = "02:00";              # additional full-pass OnCalendar time
 };
 ```
 
-Once the SSD reaches `highPercent`, the mover builds one coldest-first queue from NAS and media together. Files with a later access time than modification time are ranked purely by access time, so frequently accessed NAS files compete equally with media. Files whose access time is not later than their modification time appear never to have been read since they were written; they are only eligible after `neverAccessedGraceDays`. The pass continues until the SSD is below `lowPercent` and pauses Deluge for the whole pass. Nothing moves while the SSD is below `highPercent`.
+`ssdReserveGiB` is enforced by mergerfs, so writes through `/media` (including the `/nas` and `/nas-private` SMB shares) spill to the HDDs once the SSD has less than that much free. Direct writes to the raw `/mnt/ssd` mount bypass it.
+
+Once the SSD reaches `highPercent`, the mover builds one coldest-first queue from NAS and media together. Files with a later access time than modification time are ranked purely by access time, so frequently accessed NAS files compete equally with media. Files whose access time is not later than their modification time appear never to have been read since they were written. Those files are held back for `neverAccessedGraceDays` while normal candidates are considered. A pass does not stop merely because usage drops below `highPercent`: if the normal queue is exhausted while the SSD is still at or above `lowPercent`, the mover moves the held-back files oldest-first by modification time. It stops only below `lowPercent` and pauses Deluge for the whole pass. Nothing moves while the SSD is below `highPercent`.
 
 Preview what it would move without changing anything:
 

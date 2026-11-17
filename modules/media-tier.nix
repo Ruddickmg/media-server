@@ -105,11 +105,91 @@ let
         -mindepth 1 -type d -empty -delete 2>/dev/null || true
     }
 
+    current_pct() {
+      if [ "$DRY_RUN" = "1" ]; then
+        printf '%s' "$projected_pct"
+      else
+        usage_pct "$SSD"
+      fi
+    }
+
+    # Move one inode group. Return 0 to keep scanning, 1 when the pass reached
+    # lowPercent, and 2 when no safe target remains. Both queues share this so
+    # the fallback cannot bypass open-file, hardlink, or placement checks.
+    move_candidate() {
+      local key=$1 path=$2 class=$3 phase=$4 seen_name=$5
+      local -n seen=$seen_name
+      local -a links rel
+      local l union_l skip size_kib target used
+
+      [ -n "''${seen[$key]:-}" ] && return 0
+      seen[$key]=1
+
+      # Every hardlink to this inode, including library, torrent, and
+      # cross-seed copies, moves in one rsync so -H preserves the link set.
+      mapfile -d "" -t links < <(find "$SSD/data" -xdev -samefile "$path" -print0 2>/dev/null | sort -z)
+      [ "''${#links[@]}" -gt 0 ] || return 0
+
+      # Samba and other processes may hold either the raw branch path or the
+      # union path; fuser treats them as different inode namespaces.
+      skip=0
+      for l in "''${links[@]}"; do
+        union_l="$UNIFIED/''${l#"$SSD"/}"
+        if fuser -s "$l" 2>/dev/null || fuser -s "$union_l" 2>/dev/null; then
+          log "skip open: ''${l#"$SSD"/}"
+          skip=1
+          break
+        fi
+      done
+      [ "$skip" = 1 ] && return 0
+
+      size_kib=$(du -ck "''${links[@]}" 2>/dev/null | awk 'END {print $1}')
+      [ -n "$size_kib" ] || return 0
+
+      target=$(pick_target "$size_kib")
+      if [ -z "$target" ]; then
+        log "no data disk with room for ''${size_kib} KiB; stopping"
+        return 2
+      fi
+
+      rel=()
+      for l in "''${links[@]}"; do
+        rel+=("''${l#"$SSD"/}")
+      done
+
+      log "moving ''${phase}/''${class}: ''${#links[@]} link(s), ''${size_kib} KiB -> $target: ''${rel[0]}"
+      if [ "$DRY_RUN" = "1" ]; then
+        printf '  %s\n' "''${rel[@]}" >&2
+        projected_used_kib=$((projected_used_kib - size_kib))
+        [ "$projected_used_kib" -ge 0 ] || projected_used_kib=0
+        projected_pct=$((projected_used_kib * 100 / ssd_size_kib))
+        if [ "$projected_pct" -lt "$LOW" ]; then
+          log "dry run would leave SSD at ''${projected_pct}%; below stop threshold ''${LOW}%"
+          return 1
+        fi
+        return 0
+      fi
+
+      if ! (cd "$SSD" && rsync -axHAXWES --preallocate --remove-source-files --relative \
+            "''${rel[@]}" "$target/"); then
+        log "rsync failed; stopping"
+        return 2
+      fi
+
+      prune_media_empty
+      used=$(usage_pct "$SSD")
+      if [ -n "$used" ] && [ "$used" -lt "$LOW" ]; then
+        log "SSD at ''${used}%; below stop threshold ''${LOW}%"
+        return 1
+      fi
+      return 0
+    }
+
     # One coldest-first queue covers NAS and media. Files with atime > mtime
     # were read after their last write and have no age gate. Files with
     # atime <= mtime look never accessed since their last write; relatime and
     # whole-second timestamps make that an approximation, so they get a grace
-    # period based on mtime instead of being evicted immediately.
+    # period based on mtime before they enter the normal queue.
     never_grace_cutoff=$(date -d "-$NEVER_GRACE_DAYS days" +%s 2>/dev/null) || {
       log "cannot compute never-accessed grace cutoff"
       exit 1
@@ -127,14 +207,14 @@ let
     projected_pct=$((projected_used_kib * 100 / ssd_size_kib))
 
     # Dry runs are pure inspection: never touch Deluge. A real pass may hit
-    # media at any point in the queue, so pause once for the whole pass.
+    # media at any point in either queue, so pause once for the whole pass.
     [ "$DRY_RUN" = "1" ] || pause_deluge
     log "SSD at ''${used}%; moving coldest NAS and media data"
 
-    declare -A SEEN=()
-    links=()
-    rel=()
-    skipped_new=0
+    declare -A SEEN_PRIMARY=() SEEN_FALLBACK=() FALLBACK_COLLECTED=()
+    fallback_entries=()
+    STOPPED=0
+
     while IFS= read -r -d "" entry; do
       atime=''${entry%%$'\t'*}
       rest=''${entry#*$'\t'}
@@ -146,84 +226,56 @@ let
       mtime=''${mtime%.*}
 
       [ -f "$path" ] || continue
-      [ -n "''${SEEN[$key]:-}" ] && continue
-      SEEN[$key]=1
 
       if [ "$atime" -le "$mtime" ]; then
         class=never
         if [ "$mtime" -gt "$never_grace_cutoff" ]; then
-          skipped_new=$((skipped_new + 1))
+          # Keep grace-protected files aside. If the normal queue cannot get
+          # the SSD below LOW, they move by age (oldest mtime first) instead of
+          # leaving the drive under pressure.
+          if [ -z "''${FALLBACK_COLLECTED[$key]:-}" ]; then
+            FALLBACK_COLLECTED[$key]=1
+            fallback_entries+=("$entry")
+          fi
           continue
         fi
       else
         class=accessed
       fi
 
-      # Every hardlink to this inode, including library, torrent, and
-      # cross-seed copies, moves in one rsync so -H preserves the link set.
-      mapfile -d "" -t links < <(find "$SSD/data" -xdev -samefile "$path" -print0 2>/dev/null | sort -z)
-      [ "''${#links[@]}" -gt 0 ] || continue
-
-      # Samba and other processes may hold either the raw branch path or the
-      # union path; fuser treats them as different inode namespaces.
-      skip=0
-      for l in "''${links[@]}"; do
-        union_l="$UNIFIED/''${l#"$SSD"/}"
-        if fuser -s "$l" 2>/dev/null || fuser -s "$union_l" 2>/dev/null; then
-          log "skip open: ''${l#"$SSD"/}"
-          skip=1
-          break
-        fi
-      done
-      [ "$skip" = 1 ] && continue
-
-      size_kib=$(du -ck "''${links[@]}" 2>/dev/null | awk 'END {print $1}')
-      [ -n "$size_kib" ] || continue
-
-      target=$(pick_target "$size_kib")
-      if [ -z "$target" ]; then
-        log "no data disk with room for ''${size_kib} KiB; stopping"
-        break
-      fi
-
-      rel=()
-      for l in "''${links[@]}"; do
-        rel+=("''${l#"$SSD"/}")
-      done
-
-      log "moving $class: ''${#links[@]} link(s), ''${size_kib} KiB -> $target: ''${rel[0]}"
-      if [ "$DRY_RUN" = "1" ]; then
-        printf '  %s\n' "''${rel[@]}" >&2
-        projected_used_kib=$((projected_used_kib - size_kib))
-        [ "$projected_used_kib" -ge 0 ] || projected_used_kib=0
-        projected_pct=$((projected_used_kib * 100 / ssd_size_kib))
-        if [ "$projected_pct" -lt "$LOW" ]; then
-          log "dry run would leave SSD at ''${projected_pct}%; below stop threshold ''${LOW}%"
-          break
-        fi
-        continue
-      fi
-
-      if ! (cd "$SSD" && rsync -axHAXWES --preallocate --remove-source-files --relative \
-            "''${rel[@]}" "$target/"); then
-        log "rsync failed; stopping"
-        break
-      fi
-
-      prune_media_empty
-      used=$(usage_pct "$SSD")
-      if [ -n "$used" ] && [ "$used" -lt "$LOW" ]; then
-        log "SSD at ''${used}%; below stop threshold ''${LOW}%"
-        break
-      fi
+      move_candidate "$key" "$path" "$class" primary SEEN_PRIMARY
+      case $? in
+        0) ;;
+        *) STOPPED=1; break ;;
+      esac
     done < <(find "$SSD/data/nas" "$SSD/data/library" "$SSD/data/torrents/complete" \
                "$SSD/data/torrents/xseeds" -xdev -type f \
                -printf '%A@\t%T@\t%D:%i\t%p\0' 2>/dev/null \
              | sort -z -t $'\t' -k1,1n -k3,3)
 
-    if [ "$skipped_new" -gt 0 ]; then
-      log "skipped $skipped_new file(s) inside the never-accessed grace period (''${NEVER_GRACE_DAYS}d)"
+    used_now=$(current_pct)
+    if [ "$STOPPED" = "0" ] && [ "''${#fallback_entries[@]}" -gt 0 ] \
+       && [ -n "$used_now" ] && [ "$used_now" -ge "$LOW" ]; then
+      log "normal queue exhausted at ''${used_now}%; falling back to file age"
+      while IFS= read -r -d "" entry; do
+        atime=''${entry%%$'\t'*}
+        rest=''${entry#*$'\t'}
+        mtime=''${rest%%$'\t'*}
+        rest=''${rest#*$'\t'}
+        key=''${rest%%$'\t'*}
+        path=''${rest#*$'\t'}
+        [ -f "$path" ] || continue
+        move_candidate "$key" "$path" never fallback SEEN_FALLBACK
+        case $? in
+          0) ;;
+          *) STOPPED=1; break ;;
+        esac
+      done < <(printf '%s\0' "''${fallback_entries[@]}" \
+               | sort -z -t $'\t' -k2,2n)
+    elif [ "''${#fallback_entries[@]}" -gt 0 ] && [ "$STOPPED" = "0" ]; then
+      log "left ''${#fallback_entries[@]} grace-protected file(s) untouched"
     fi
+
     if [ "$DRY_RUN" = "1" ]; then
       log "dry run complete; would leave SSD at ''${projected_pct}%"
     else
@@ -277,10 +329,13 @@ in
     };
 
     systemd.timers.media-tier = {
-      description = "Nightly SSD-to-HDD tier mover";
+      description = "SSD-to-HDD tier mover and fill guard";
       wantedBy = [ "timers.target" ];
       timerConfig = {
-        OnCalendar = "*-*-* ${tier.time}:00";
+        OnCalendar = [
+          "*-*-* ${tier.time}:00"
+          "*:0/${toString tier.checkIntervalMinutes}"
+        ];
         Persistent = true;
       };
     };

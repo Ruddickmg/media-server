@@ -79,6 +79,15 @@ in
       default = "/mnt/hddpool";
       description = "Mount point of the HDD-only mergerfs pool.";
     };
+    ssdReserveGiB = mkOption {
+      type = types.ints.positive;
+      default = 50;
+      description = ''
+        Free space kept on the SSD when mergerfs places new files. Writes
+        through `/media` (and the NAS bind mounts below it) spill to the HDD
+        pool once the SSD has less than this much free.
+      '';
+    };
     unifiedPath = mkOption {
       type = types.str;
       default = "/media";
@@ -163,6 +172,14 @@ in
         type = types.ints.positive;
         default = 150;
         description = "Never write to an HDD with less than this much free space.";
+      };
+      checkIntervalMinutes = mkOption {
+        type = types.ints.between 1 1440;
+        default = 15;
+        description = ''
+          How often to check SSD usage. A run below `highPercent` exits before
+          scanning any files, so frequent checks only cost a `df` call.
+        '';
       };
       neverAccessedGraceDays = mkOption {
         type = types.ints.positive;
@@ -259,7 +276,7 @@ in
               "default_permissions"
               "inodecalc=hybrid-hash"
               "category.create=ff"
-              "minfreespace=20G"
+              "minfreespace=${toString cfg.ssdReserveGiB}G"
               "moveonenospc=true"
               "nofail"
             ];
