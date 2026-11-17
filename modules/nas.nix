@@ -52,6 +52,9 @@ let
   privateSambaConfig = privateSambaFormat.generate "smb-private.conf" {
     global = commonSambaGlobal // {
       "log file" = "/var/log/samba/log.smbd-private";
+      # smbd creates its own PID file in this directory; it must not collide
+      # with the public daemon's /run/samba/smbd.pid.
+      "pid directory" = "/run/samba-private";
     };
     private = {
       comment = "Private NAS";
@@ -322,8 +325,8 @@ in
           ]);
         LimitCORE = "infinity";
         LimitNOFILE = "16384";
-        PIDFile = "/run/samba/smbd-private.pid";
-        RuntimeDirectory = "samba";
+        PIDFile = "/run/samba-private/smbd.pid";
+        RuntimeDirectory = "samba-private";
         RuntimeDirectoryMode = "0755";
         Slice = "system-samba.slice";
         Type = "notify";
