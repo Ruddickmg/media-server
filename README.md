@@ -104,8 +104,10 @@ Media lives on two tiers joined into a single `/media` view:
 | `/mnt/ssd` | SSD cache (`@media` btrfs subvolume). New downloads land here. |
 | `/mnt/hdd1`, `/mnt/hdd2`, … | Data HDDs in the JBOD enclosure, one ext4 filesystem each |
 | `/mnt/hddpool` | mergerfs union of the data HDDs (backing pool) |
+| `/mnt/parity1` | SnapRAID parity disk |
 | `/media` | mergerfs union of `/mnt/ssd` then `/mnt/hddpool` — the path every service uses |
-| `/mnt/parity1` | SnapRAID parity disk (not installed yet) |
+| `/nas` | bind mount of `/media/data/nas/public` — public SMB share |
+| `/nas-private` | bind mount of `/media/data/nas/private` — private SMB share |
 
 Everything lives under `data/` so a tree can be moved between tiers as a unit:
 
@@ -116,9 +118,11 @@ Everything lives under `data/` so a tree can be moved between tiers as a unit:
 /media/data/library/movies
 /media/data/library/tv
 /media/data/library/music
+/media/data/nas/public            public NAS share
+/media/data/nas/private           private NAS share
 ```
 
-`/media` fills the SSD first and only spills to the HDD pool when the SSD is nearly full. A nightly job moves the oldest completed torrents, together with every hard link, to the HDDs once the SSD reaches 85% full, and stops when it drops below 60%. Hot torrents keep seeding from the SSD; cold ones keep seeding from the HDDs indefinitely.
+`/media` fills the SSD first and only spills to the HDD pool when the SSD has less than 50 GiB free. A mover checks usage every 15 minutes, compares NAS files and media files in one least-recently-accessed queue, moves whole hard-link sets together, starts at 85% SSD usage, and keeps going until it is below 60%. A file that appears never to have been read since it was written gets a two-week grace period; if the normal queue cannot reach 60%, those files are moved oldest-first by modification time instead of leaving the SSD under pressure (see [SSD-to-HDD mover](#ssd-to-hdd-mover)).
 
 ### Set the real paths and devices
 
@@ -150,64 +154,23 @@ sudo mkfs.ext4 -L hdd1 /dev/disk/by-id/ata-WDC_WD240EDAZZ-...
 
 Add each additional data disk to `hddDisks`; both mergerfs pools pick it up automatically.
 
-### Migrate an existing library (one time)
+### SSD-to-HDD mover
 
-The old layout mounted the SSD at `/media`, with `/media/downloads/...` and `/media/{movies,tv,music}`. The new layout moves everything under `data/` on the same filesystem, which preserves hard links. Stop the services first:
+The mover checks every 15 minutes to see how much space there is on the ssd. If the usage has gone above 85%, then it will move data onto the hdd drives until the ssd usage is below 60%.
 
-```bash
-sudo systemctl stop deluged deluge-web sonarr radarr lidarr bazarr plex unpackerr cross-seed delete-media-watch
-```
-
-Move the trees on the SSD while it is still mounted at `/media`:
-
-```bash
-sudo mkdir -p /media/data/torrents /media/data/library
-sudo mv /media/downloads/incomplete /media/data/torrents/incomplete
-sudo mv /media/downloads/completed  /media/data/torrents/complete
-sudo mv /media/downloads/xseeds     /media/data/torrents/xseeds
-sudo mv /media/movies /media/data/library/movies
-sudo mv /media/tv     /media/data/library/tv
-sudo mv /media/music  /media/data/library/music
-sudo rmdir /media/downloads
-```
-
-Do the same for the HDD, writing to the filesystem directly rather than through the union:
-
-```bash
-sudo mkdir -p /mnt/hdd1
-sudo mount /dev/disk/by-id/<hdd-id> /mnt/hdd1
-sudo mkdir -p /mnt/hdd1/data/torrents /mnt/hdd1/data/library
-sudo mv /mnt/hdd1/downloads/incomplete /mnt/hdd1/data/torrents/incomplete
-sudo mv /mnt/hdd1/downloads/completed  /mnt/hdd1/data/torrents/complete
-sudo mv /mnt/hdd1/downloads/xseeds     /mnt/hdd1/data/torrents/xseeds
-sudo mv /mnt/hdd1/movies /mnt/hdd1/data/library/movies
-sudo mv /mnt/hdd1/tv     /mnt/hdd1/data/library/tv
-sudo mv /mnt/hdd1/music  /mnt/hdd1/data/library/music
-sudo rmdir /mnt/hdd1/downloads 2>/dev/null || true
-sudo umount /mnt/hdd1
-```
-
-If the HDD already holds a copy of the library (for example an rsync of the SSD), keep only one copy: mergerfs does not merge duplicate directory trees, it shows the first branch's copy.
-
-Then unmount the old `/media` mount so the mergerfs union can take over, apply the configuration, and reboot:
-
-```bash
-sudo umount /media
-sudo nixos-rebuild switch --flake /etc/nixos#media-server
-sudo reboot
-```
-
-### Nightly SSD-to-HDD mover
-
-The mover runs at 02:00. To change the thresholds or schedule, set them in your host config:
+To change the thresholds or schedule, set them in your host config:
 
 ```nix
+media-server.storage.ssdReserveGiB = 50; # keep this much SSD free for new writes
+
 media-server.storage.tiering = {
   enable = true;
-  highPercent = 85;   # start moving at or above this SSD usage
-  lowPercent = 50;    # stop once the SSD is below this usage
-  minFreeGiB = 150;   # never fill an HDD past this reserve
-  time = "02:00";     # OnCalendar time for the timer
+  highPercent = 85;            # start a pass at or above this SSD usage
+  lowPercent = 50;             # keep moving until the SSD is below this usage
+  minFreeGiB = 150;            # never fill an HDD past this reserve
+  checkIntervalMinutes = 15;   # how often to check for bursts
+  neverAccessedGraceDays = 14; # grace period for files never read since written
+  time = "02:00";              # additional full-pass OnCalendar time
 };
 ```
 
@@ -226,9 +189,9 @@ journalctl -u media-tier -f
 
 The mover pauses Deluge for the duration and resumes it afterwards. Because it resumes every torrent, torrents you paused manually will also resume.
 
-### SnapRAID parity (add later)
+### SnapRAID parity
 
-SnapRAID is preconfigured but disabled. It protects the HDD data disks against a disk failure; the SSD is not covered. To enable it once a parity disk is installed:
+SnapRAID is preconfigured but disabled. It protects the HDD data disks against a disk failure; the SSD is not covered. NAS data under `data/nas` is covered by the same array. To enable it:
 
 1. Add the parity disk to `hosts/media-server/storage-paths.nix`:
 
@@ -314,6 +277,28 @@ Running `tuios` directly on the server after `ssh` also works and starts the sam
 
 The hostname is the machine's MagicDNS name (check `tailscale status` for yours).
 
+### NAS shares (SMB)
+
+SMB is reachable only over the tailnet; no SMB ports are opened on the LAN.
+
+| Share | URL | Access |
+|-------|-----|--------|
+| `public` | `smb://media-server/public` | Guests, read/write |
+| `private` | `smb://media-server/private` | Private users, read/write; hidden from everyone else |
+| `library` | `smb://media-server/library` | Guests, read-only |
+
+`moon` is the only private user for now. Set its SMB password once after the first rebuild (see [NAS — set the private SMB password](#nas--set-the-private-smb-password)).
+
+The private share is not listed for users without access, and its contents are not inside the public share. Media is read-only over SMB for everyone, including private users.
+
+To add another private user, add the account and a pinned UID to `hosts/media-server/default.nix`:
+
+```nix
+media-server.nas.privateUsers.alice.uid = 3003;
+```
+
+Then rebuild and set that user's SMB password with `smbpasswd -a alice`. Private users are added to the `media`, `nas`, and `nas-private` groups automatically and get no SSH access.
+
 > **Prerequisite:** Enable **HTTPS Certificates** in the Tailscale admin console (DNS → HTTPS Certificates). Without this, the HTTPS URLs above cannot provision TLS certificates.
 
 **Admin-only access:** Prowlarr, Sonarr, Radarr, Lidarr, Bazarr, and autobrr are restricted to Tailscale users listed in `media-server.administrators` (defaults to `["ruddickmg@gmail.com"]`). Seerr is open to all Tailscale users so family members can make requests. To change the admin list:
@@ -327,6 +312,16 @@ media-server.administrators = [ "your@email.com" ];
 > **DLNA note:** Plex also opens UDP ports 1900 (DLNA) and 5353 (mDNS) for local device discovery, which broadcasts your library to any device on the LAN without authentication. Turn off DLNA in Plex's settings to stop this.
 
 ## Post-Deploy Steps
+
+### NAS — set the private SMB password
+
+Run once after the first rebuild that enables the NAS:
+
+```bash
+sudo smbpasswd -a moon
+```
+
+Samba stores the password separately from the Unix account, so this survives rebuilds. Re-run it only for new private users (replace `moon` with that username).
 
 ### Prowlarr — add indexers
 
@@ -366,6 +361,8 @@ media-server.deluge.diskGuard.notify = false;     # disable Gotify alerts
 ```
 
 ### Deleting media completely
+
+The SMB `library` share is read-only, so media cannot be deleted over the NAS. Delete over SSH instead.
 
 Deleting a file from the library leaves its hard links behind — the copy in `/media/data/torrents/complete` (and the cross-seed link in `/media/data/torrents/xseeds`) — so disk space is never freed. To remove a file or a whole movie/show folder together with every hard link:
 

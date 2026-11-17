@@ -79,6 +79,15 @@ in
       default = "/mnt/hddpool";
       description = "Mount point of the HDD-only mergerfs pool.";
     };
+    ssdReserveGiB = mkOption {
+      type = types.ints.positive;
+      default = 50;
+      description = ''
+        Free space kept on the SSD when mergerfs places new files. Writes
+        through `/media` (and the NAS bind mounts below it) spill to the HDD
+        pool once the SSD has less than this much free.
+      '';
+    };
     unifiedPath = mkOption {
       type = types.str;
       default = "/media";
@@ -164,6 +173,25 @@ in
         default = 150;
         description = "Never write to an HDD with less than this much free space.";
       };
+      checkIntervalMinutes = mkOption {
+        type = types.ints.between 1 1440;
+        default = 15;
+        description = ''
+          How often to check SSD usage. A run below `highPercent` exits before
+          scanning any files, so frequent checks only cost a `df` call.
+        '';
+      };
+      neverAccessedGraceDays = mkOption {
+        type = types.ints.positive;
+        default = 14;
+        description = ''
+          Grace period for files that appear never to have been read since their
+          last write (`atime <= mtime`). These files are not eligible for eviction
+          from either NAS or media until `mtime` is older than this many days.
+          Files with `atime > mtime` have no age gate; they are ranked purely by
+          access time.
+        '';
+      };
       time = mkOption {
         type = types.str;
         default = "02:00";
@@ -248,7 +276,7 @@ in
               "default_permissions"
               "inodecalc=hybrid-hash"
               "category.create=ff"
-              "minfreespace=20G"
+              "minfreespace=${toString cfg.ssdReserveGiB}G"
               "moveonenospc=true"
               "nofail"
             ];
@@ -268,6 +296,10 @@ in
     systemd.tmpfiles.rules =
       mkDataDirs cfg.ssdPath
       ++ lib.concatMap mkDataDirs hddMounts
+      # Sticky bit on data/ stops media-group services from renaming or
+      # deleting sibling top-level trees such as data/nas. z re-asserts the
+      # mode on existing installs because d only creates missing paths.
+      ++ map (root: "z ${root}/data 3775 root media") ([ cfg.ssdPath ] ++ hddMounts)
       ++ [
         "d /var/lib/snapraid 0700 root root"
       ];
@@ -290,6 +322,14 @@ in
         "*.partial"
         "snapraid.*"
         ".mergerfs*"
+        # Client junk that SMB clients leave in NAS shares.
+        ".DS_Store"
+        "Thumbs.db"
+        "~$*"
+        "*.tmp"
+        "#recycle/"
+        "@eaDir/"
+        ".Trash-*"
       ];
       sync.interval = cfg.snapraid.syncInterval;
       scrub.interval = cfg.snapraid.scrubInterval;
