@@ -23,7 +23,8 @@ let
   hddMounts = map (d: d.mountPoint) (lib.attrValues storage.hddDisks);
 
   # Shared by both smbd instances. The private listener gets its own config
-  # file so port 445 cannot expose the private share at all.
+  # file so port 445 cannot expose its read/write shares or the hidden private
+  # share at all.
   commonSambaGlobal = {
     "workgroup" = "WORKGROUP";
     "server string" = "media-server NAS";
@@ -31,8 +32,8 @@ let
     "security" = "user";
     "map to guest" = "Bad User";
     "guest account" = "nas-guest";
-    # Hide shares a user cannot access. The private share is additionally
-    # browseable = no in its own listener.
+    # Hide shares a user cannot access. Every share on the private listener is
+    # additionally browseable = no.
     "access based share enum" = "yes";
     "server min protocol" = "SMB2";
     "load printers" = "no";
@@ -59,6 +60,21 @@ let
     ncalrpc = "/run/samba-private/ncalrpc";
   };
 
+  # Every share on the private listener uses the same Unix user, but each tree
+  # needs its own primary gid: mergerfs only forwards the primary gid to the
+  # branch filesystem, so supplementary groups cannot grant access there.
+  privateShare = comment: path: group: {
+    inherit comment path;
+    # Port-gated already, so keep them out of browse lists too.
+    browseable = "no";
+    "guest ok" = "yes";
+    "read only" = "no";
+    "create mask" = "0660";
+    "directory mask" = "2770";
+    "force user" = cfg.privateShareUser;
+    "force group" = group;
+  };
+
   privateSambaConfig = privateSambaFormat.generate "smb-private.conf" {
     global = commonSambaGlobal // {
       "log file" = "/var/log/samba/log.smbd-private";
@@ -69,18 +85,12 @@ let
       "pid directory" = privateSambaDirs.run;
       "ncalrpc dir" = privateSambaDirs.ncalrpc;
     };
-    private = {
-      comment = "Private NAS";
-      path = cfg.privateMount;
-      # Not advertised, and served only on the restricted port.
-      browseable = "no";
-      "guest ok" = "yes";
-      "read only" = "no";
-      "create mask" = "0660";
-      "directory mask" = "2770";
-      "force user" = cfg.privateShareUser;
-      "force group" = "nas-private";
-    };
+    private = privateShare "Private NAS" cfg.privateMount "nas-private";
+
+    # Privileged versions of the public shares. Same names as on 445, but
+    # read/write and reachable only through the private listener.
+    public = privateShare "Public NAS (private port)" cfg.publicMount "nas";
+    library = privateShare "Media library (private port)" "${storage.unifiedPath}/data/library" "media";
   };
 
   # Create the NAS skeleton on the raw branch, never through the union: if a
@@ -145,10 +155,10 @@ in
         moon.uid = 3001;
       };
       description = ''
-        Unix identities used by the private share. Each gets an account with no
-        login shell and no home directory, membership in the media, nas, and
-        nas-private groups, and no password. Pin the UID explicitly so adding
-        another identity never renumbers existing files.
+        Unix identities used by the private listener's shares. Each gets an
+        account with no login shell and no home directory, membership in the
+        media, nas, and nas-private groups, and no password. Pin the UID
+        explicitly so adding another identity never renumbers existing files.
       '';
     };
 
@@ -156,8 +166,9 @@ in
       type = types.str;
       default = "moon";
       description = ''
-        Unix identity that all guest connections to the private share are forced
-        to use. Tailscale ACLs, not SMB passwords, decide who may reach the share.
+        Unix identity that all guest connections to the private listener's shares
+        are forced to use. Tailscale ACLs, not SMB passwords, decide who may reach
+        them.
       '';
     };
 
@@ -165,9 +176,9 @@ in
       type = types.ints.between 1 65535;
       default = 1445;
       description = ''
-        TCP port for the separate smbd instance that serves only the private
-        share. The public and library shares stay on the standard port 445 so
-        Tailscale ACLs can grant them separately.
+        TCP port for the separate smbd instance. It serves a hidden private
+        share plus read/write versions of the public and library shares, so
+        Tailscale ACLs can grant privileged access independently from 445.
       '';
     };
 
@@ -305,20 +316,21 @@ in
           path = "${storage.unifiedPath}/data/library";
           browseable = "yes";
           "guest ok" = "yes";
-          # Read-only for everyone over SMB.
+          # Read-only on the public listener; 1445 serves a read/write version.
           "read only" = "yes";
           "force group" = "media";
         };
       };
     };
 
-    # The private share is served by a second smbd process with its own config,
-    # so a client allowed only to port 445 cannot mount it. Type=notify matches
-    # the upstream smbd unit; the PID file is distinct from the public daemon.
+    # The private listener is a second smbd process with its own config, so a
+    # client allowed only to port 445 cannot reach its read/write shares or the
+    # hidden private share. Type=notify matches the upstream smbd unit; the PID
+    # file is distinct from the public daemon.
     environment.etc."samba/smb-private.conf".source = privateSambaConfig;
 
     systemd.services."samba-smbd-private" = {
-      description = "Samba SMB Daemon (private share)";
+      description = "Samba SMB Daemon (private listener)";
       documentation = [
         "man:smbd(8)"
         "man:samba(7)"
@@ -358,6 +370,8 @@ in
       unitConfig.RequiresMountsFor = [
         privateSambaDirs.state
         cfg.privateMount
+        cfg.publicMount
+        storage.unifiedPath
       ];
 
       restartTriggers = [ privateSambaConfig ];
