@@ -49,12 +49,25 @@ let
     listToValue = lib.concatMapStringsSep " " (lib.generators.mkValueStringDefault { });
   };
 
+  # Keep every piece of private smbd state away from the public daemon's
+  # /var/{lock,lib,cache}/samba and /run/samba trees.
+  privateSambaDirs = {
+    lock = "/var/lock/samba-private";
+    state = "/var/lib/samba-private";
+    cache = "/var/cache/samba-private";
+    run = "/run/samba-private";
+    ncalrpc = "/run/samba-private/ncalrpc";
+  };
+
   privateSambaConfig = privateSambaFormat.generate "smb-private.conf" {
     global = commonSambaGlobal // {
       "log file" = "/var/log/samba/log.smbd-private";
-      # smbd creates its own PID file in this directory; it must not collide
-      # with the public daemon's /run/samba/smbd.pid.
-      "pid directory" = "/run/samba-private";
+      "lock directory" = privateSambaDirs.lock;
+      "state directory" = privateSambaDirs.state;
+      "cache directory" = privateSambaDirs.cache;
+      "private dir" = "${privateSambaDirs.state}/private";
+      "pid directory" = privateSambaDirs.run;
+      "ncalrpc dir" = privateSambaDirs.ncalrpc;
     };
     private = {
       comment = "Private NAS";
@@ -242,7 +255,17 @@ in
     systemd.tmpfiles.rules =
       mkNasDirs storage.ssdPath
       ++ lib.concatMap mkNasDirs hddMounts
-      ++ map fixNasDirMode ([ storage.ssdPath ] ++ hddMounts);
+      ++ map fixNasDirMode ([ storage.ssdPath ] ++ hddMounts)
+      ++ [
+        # All state for the private smbd listener, kept separate from the
+        # public daemon's /var/{lock,lib,cache}/samba and /run/samba trees.
+        "d ${privateSambaDirs.lock} 0755 root root -"
+        "d ${privateSambaDirs.state} 0755 root root -"
+        "d ${privateSambaDirs.state}/private 0700 root root -"
+        "d ${privateSambaDirs.cache} 0755 root root -"
+        "d ${privateSambaDirs.run} 0755 root root -"
+        "d ${privateSambaDirs.ncalrpc} 0755 root root -"
+      ];
 
     # /nas and /nas-private are real top-level mounts, separate from /media.
     # They bind the union paths so NAS data keeps following the tier mover and
@@ -325,7 +348,7 @@ in
           ]);
         LimitCORE = "infinity";
         LimitNOFILE = "16384";
-        PIDFile = "/run/samba-private/smbd.pid";
+        PIDFile = "${privateSambaDirs.run}/smbd.pid";
         RuntimeDirectory = "samba-private";
         RuntimeDirectoryMode = "0755";
         Slice = "system-samba.slice";
@@ -333,7 +356,7 @@ in
       };
 
       unitConfig.RequiresMountsFor = [
-        "/var/lib/samba"
+        privateSambaDirs.state
         cfg.privateMount
       ];
 
