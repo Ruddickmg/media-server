@@ -52,9 +52,10 @@ let
   privateSambaConfig = privateSambaFormat.generate "smb-private.conf" {
     global = commonSambaGlobal // {
       "log file" = "/var/log/samba/log.smbd-private";
-      # smbd creates its own PID file in this directory; it must not collide
-      # with the public daemon's /run/samba/smbd.pid.
+      # smbd creates its own PID and IPC directories; they must not collide
+      # with the public daemon's /run/samba state.
       "pid directory" = "/run/samba-private";
+      "ncalrpc dir" = "/run/samba-private/ncalrpc";
     };
     private = {
       comment = "Private NAS";
@@ -242,7 +243,13 @@ in
     systemd.tmpfiles.rules =
       mkNasDirs storage.ssdPath
       ++ lib.concatMap mkNasDirs hddMounts
-      ++ map fixNasDirMode ([ storage.ssdPath ] ++ hddMounts);
+      ++ map fixNasDirMode ([ storage.ssdPath ] ++ hddMounts)
+      ++ [
+        # Runtime state for the private smbd listener, kept separate from the
+        # public daemon under /run/samba.
+        "d /run/samba-private 0755 root root -"
+        "d /run/samba-private/ncalrpc 0755 root root -"
+      ];
 
     # /nas and /nas-private are real top-level mounts, separate from /media.
     # They bind the union paths so NAS data keeps following the tier mover and
@@ -326,7 +333,10 @@ in
         LimitCORE = "infinity";
         LimitNOFILE = "16384";
         PIDFile = "/run/samba-private/smbd.pid";
-        RuntimeDirectory = "samba-private";
+        RuntimeDirectory = [
+          "samba-private"
+          "samba-private/ncalrpc"
+        ];
         RuntimeDirectoryMode = "0755";
         Slice = "system-samba.slice";
         Type = "notify";
