@@ -348,11 +348,8 @@ in
           ]);
         LimitCORE = "infinity";
         LimitNOFILE = "16384";
-        PIDFile = "/run/samba-private/smbd.pid";
-        RuntimeDirectory = [
-          "samba-private"
-          "samba-private/ncalrpc"
-        ];
+        PIDFile = "${privateSambaDirs.run}/smbd.pid";
+        RuntimeDirectory = "samba-private";
         RuntimeDirectoryMode = "0755";
         Slice = "system-samba.slice";
         Type = "notify";
