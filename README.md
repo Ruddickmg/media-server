@@ -106,7 +106,7 @@ Media lives on two tiers joined into a single `/media` view:
 | `/mnt/hddpool` | mergerfs union of the data HDDs (backing pool) |
 | `/mnt/parity1` | SnapRAID parity disk |
 | `/media` | mergerfs union of `/mnt/ssd` then `/mnt/hddpool` — the path every service uses |
-| `/nas` | bind mount of `/media/data/nas/public` — public SMB share |
+| `/nas` | bind mount of `/media/data/nas/public` — shared SMB share |
 | `/nas-private` | bind mount of `/media/data/nas/private` — private SMB share |
 
 Everything lives under `data/` so a tree can be moved between tiers as a unit:
@@ -118,7 +118,7 @@ Everything lives under `data/` so a tree can be moved between tiers as a unit:
 /media/data/library/movies
 /media/data/library/tv
 /media/data/library/music
-/media/data/nas/public            public NAS share
+/media/data/nas/public            shared NAS share
 /media/data/nas/private           private NAS share
 ```
 
@@ -283,12 +283,14 @@ SMB is reachable only over the tailnet
 
 | Share | URL | Access |
 |-------|-----|--------|
-| `public` | `smb://media-server/public` | TCP 445, guest read/write |
-| `library` | `smb://media-server/library` | TCP 445, guest read-only |
+| `shared` | `smb://media-server/shared` | TCP 445, guest read/write |
+| `media` | `smb://media-server/media` | TCP 445, guest read-only |
 | `private` | `smb://media-server:1445/private` | TCP 1445, guest read/write, hidden from browse lists |
-| `public` | `smb://media-server:1445/public` | TCP 1445, guest read/write |
-| `library` | `smb://media-server:1445/library` | TCP 1445, guest read/write |
+| `shared` | `smb://media-server:1445/shared` | TCP 1445, guest read/write |
+| `media` | `smb://media-server:1445/media` | TCP 1445, guest read/write |
+| `torrents` | `smb://media-server:1445/torrents` | TCP 1445, guest read/write, not served on 445 |
 
+Port 445 is SMB's default, so `smb://media-server/shared` needs no `:445`. The port belongs after the hostname, e.g. `smb://media-server:1445/private`; `media-server/shared:445` is not valid SMB URL syntax. Connecting to `smb://media-server` shows the share list — Samba cannot auto-open one share as the server root.
 
 > **Prerequisite:** Enable **HTTPS Certificates** in the Tailscale admin console (DNS → HTTPS Certificates). Without this, the HTTPS URLs above cannot provision TLS certificates.
 
@@ -306,7 +308,7 @@ media-server.administrators = [ "your@email.com" ];
 
 ### Tailscale ACL for SMB access
 
-SMB has no passwords: all shares are guest-accessible at the Samba layer, and Tailscale ACLs are the only control over which peers reach each listener. In the Tailscale admin console, grant TCP **445** to everyone who should use `public`/`library`, and TCP **1445** only to peers that may mount `private`:
+SMB has no passwords: all shares are guest-accessible at the Samba layer, and Tailscale ACLs are the only control over which peers reach each listener. In the Tailscale admin console, grant TCP **445** to everyone who should use `shared`/`media`, and TCP **1445** only to peers that may mount `private` or use the read/write `shared`, `media`, and `torrents` shares:
 
 ```json
 [
@@ -370,7 +372,7 @@ media-server.deluge.diskGuard.notify = false;     # disable Gotify alerts
 
 ### Deleting media completely
 
-The SMB `library` share is read-only, so media cannot be deleted over the NAS. Delete over SSH instead.
+The SMB `media` share is read-only, so media cannot be deleted over the NAS. Delete over SSH instead.
 
 Deleting a file from the library leaves its hard links behind — the copy in `/media/data/torrents/complete` (and the cross-seed link in `/media/data/torrents/xseeds`) — so disk space is never freed. To remove a file or a whole movie/show folder together with every hard link:
 
