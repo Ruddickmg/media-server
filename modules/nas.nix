@@ -87,18 +87,20 @@ let
     };
     private = privateShare "Private NAS" cfg.privateMount "nas-private";
 
-    # Privileged versions of the public shares. Same names as on 445, but
-    # read/write and reachable only through the private listener.
-    public = privateShare "Public NAS (private port)" cfg.publicMount "nas";
-    library = privateShare "Media library (private port)" "${storage.unifiedPath}/data/library" "media";
+    # Privileged versions of the 445 shares, plus the torrents tree that exists
+    # only here. Read/write and reachable only through the private listener.
+    shared = privateShare "Shared NAS (private port)" cfg.publicMount "nas";
+    media = privateShare "Media (private port)" "${storage.unifiedPath}/data/library" "media";
+    # Torrents are R/W only here; there is no 445 share for this tree.
+    torrents = privateShare "Torrents (private port)" "${storage.unifiedPath}/data/torrents" "media";
   };
 
   # Create the NAS skeleton on the raw branch, never through the union: if a
   # pool fails to mount, services must not fall back to the root filesystem's
-  # /media directory. public and private are siblings, so the public share
+  # /media directory. shared and private are siblings, so the shared share
   # cannot traverse into the private tree.
   #
-  # data/nas is traverse-only: group nas can reach public, and the "other"
+  # data/nas is traverse-only: group nas can reach shared, and the "other"
   # execute bit lets Samba's forced nas-private group reach private on the
   # branch side (mergerfs switches to the request's primary gid; supplementary
   # groups do not cross). It is not writable and not listable, so neither the
@@ -177,8 +179,9 @@ in
       default = 1445;
       description = ''
         TCP port for the separate smbd instance. It serves a hidden private
-        share plus read/write versions of the public and library shares, so
-        Tailscale ACLs can grant privileged access independently from 445.
+        share plus read/write versions of the shared and media shares and the
+        torrents tree, so Tailscale ACLs can grant privileged access
+        independently from 445.
       '';
     };
 
@@ -215,7 +218,7 @@ in
       }
       {
         assertion = cfg.privatePort != 445;
-        message = "media-server.nas.privatePort must differ from 445 so public and private SMB access can be gated separately.";
+        message = "media-server.nas.privatePort must differ from 445 so shared/media and private SMB access can be gated separately.";
       }
     ];
 
@@ -237,7 +240,7 @@ in
 
     users.users = {
       # Internal Samba guest identity. media lets it read the read-only
-      # library share; nas lets it read/write the public share. It is
+      # media share; nas lets it read/write the shared share. It is
       # deliberately not in nas-private: private-share guests reach the tree
       # only through the forced privateShareUser below.
       nas-guest = {
@@ -300,8 +303,8 @@ in
       settings = {
         global = commonSambaGlobal;
 
-        public = {
-          comment = "Public NAS";
+        shared = {
+          comment = "Shared NAS";
           path = cfg.publicMount;
           browseable = "yes";
           "guest ok" = "yes";
@@ -311,8 +314,8 @@ in
           "force group" = "nas";
         };
 
-        library = {
-          comment = "Media library (read-only)";
+        media = {
+          comment = "Media (read-only)";
           path = "${storage.unifiedPath}/data/library";
           browseable = "yes";
           "guest ok" = "yes";
