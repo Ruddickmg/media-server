@@ -29,6 +29,8 @@ let
       api_key_file = cfg.apiKeyFile;
       api_key_file_fallback = autobrrApiKeyFile;
       gotify_token_file = cfg.gotifyTokenFile;
+      cross_seed_announce_url = "http://127.0.0.1:2468/api/announce";
+      cross_seed_api_key = apiKeys.cross-seed;
       arrs = [
         {
           name = "Sonarr";
