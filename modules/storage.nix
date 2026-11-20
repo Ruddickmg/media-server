@@ -133,7 +133,9 @@ in
       };
       syncInterval = mkOption {
         type = types.str;
-        default = "04:00";
+        # 02:00 keeps parity work clear of the 03:00 tier mover and the
+        # 04:00 kernel-update reboot check.
+        default = "02:00";
         description = "systemd OnCalendar expression for snapraid sync.";
       };
       scrubInterval = mkOption {
@@ -161,7 +163,12 @@ in
       highPercent = mkOption {
         type = types.ints.between 1 99;
         default = 85;
-        description = "Start moving when the SSD is at least this full.";
+        description = "Start a scheduled move when the SSD is at least this full.";
+      };
+      criticalPercent = mkOption {
+        type = types.ints.between 1 99;
+        default = 90;
+        description = "Move immediately, outside the scheduled window, once the SSD reaches this full.";
       };
       lowPercent = mkOption {
         type = types.ints.between 1 99;
@@ -177,8 +184,9 @@ in
         type = types.ints.between 1 1440;
         default = 15;
         description = ''
-          How often to check SSD usage. A run below `highPercent` exits before
-          scanning any files, so frequent checks only cost a `df` call.
+          How often the critical fill guard checks SSD usage. Runs below
+          `criticalPercent` exit before scanning any files, so frequent checks
+          only cost a `df` call.
         '';
       };
       neverAccessedGraceDays = mkOption {
@@ -192,10 +200,10 @@ in
           access time.
         '';
       };
-      time = mkOption {
-        type = types.str;
-        default = "02:00";
-        description = "Time of day (HH:MM) to run the mover.";
+      windowTimes = mkOption {
+        type = types.listOf (types.strMatching "([01][0-9]|2[0-3]):[0-5][0-9]");
+        default = [ "03:00" ];
+        description = "OnCalendar times (HH:MM) for the normal-tier mover pass.";
       };
     };
   };
@@ -209,6 +217,14 @@ in
       {
         assertion = cfg.tiering.highPercent > cfg.tiering.lowPercent;
         message = "media-server.storage.tiering.highPercent must be greater than lowPercent.";
+      }
+      {
+        assertion = !cfg.tiering.enable || (cfg.tiering.criticalPercent > cfg.tiering.highPercent);
+        message = "media-server.storage.tiering.criticalPercent must be greater than highPercent.";
+      }
+      {
+        assertion = !cfg.tiering.enable || (cfg.tiering.windowTimes != [ ]);
+        message = "media-server.storage.tiering.windowTimes must contain at least one time.";
       }
       {
         assertion = !cfg.snapraid.enable || (cfg.parityFiles != [ ] && cfg.parityDisks != { });
@@ -342,16 +358,19 @@ in
         unitConfig = {
           # Skip the timer run when the DAS is unplugged.
           ConditionPathIsMountPoint = hddMounts ++ map (d: d.mountPoint) parityDisks;
-          # Never sync while the mover is relocating files: SnapRAID would scan
-          # half-moved inode groups.
-          Conflicts = [ "media-tier.service" ];
+          # The mover creates this marker only while it is actually relocating
+          # files. A start condition is used instead of Conflicts= because
+          # Conflicts= fires when a unit is queued, before the mover can decide
+          # that a check-only run does not need to interrupt parity work.
+          ConditionPathExists = [ "!${cfg.ssdPath}/.media-tier.active" ];
         };
         serviceConfig.ReadWritePaths = lib.mkForce snapraidReadWritePaths;
       };
       snapraid-scrub = {
         unitConfig = {
           ConditionPathIsMountPoint = hddMounts ++ map (d: d.mountPoint) parityDisks;
-          Conflicts = [ "media-tier.service" ];
+          # Same mover guard as sync.
+          ConditionPathExists = [ "!${cfg.ssdPath}/.media-tier.active" ];
         };
         serviceConfig.ReadWritePaths = lib.mkForce snapraidReadWritePaths;
       };
