@@ -39,9 +39,19 @@ jobs:
           name: Configure Cachix binary cache (if set up)
           command: |
             if [ -n "${CACHIX_CACHE:-}" ] && [ -n "${CACHIX_PUBLIC_KEY:-}" ]; then
+              # Cachix shows the full "<name>.cachix.org-1:<base64>" entry in
+              # some places and just the base64 value in others. Nix wants one
+              # name:key pair, so strip whitespace and everything through the
+              # last colon, then add the name we generate from CACHIX_CACHE.
+              key=${CACHIX_PUBLIC_KEY//[[:space:]]/}
+              key=${key##*:}
+              if [ -z "$key" ]; then
+                echo "CACHIX_PUBLIC_KEY did not contain a key" >&2
+                exit 1
+              fi
               printf '%s\n' \
                 "extra-substituters = https://${CACHIX_CACHE}.cachix.org" \
-                "extra-trusted-public-keys = ${CACHIX_CACHE}.cachix.org-1:${CACHIX_PUBLIC_KEY}" \
+                "extra-trusted-public-keys = ${CACHIX_CACHE}.cachix.org-1:${key}" \
                 >> /etc/nix/nix.conf
             else
               echo "CACHIX_CACHE/CACHIX_PUBLIC_KEY not set — building without extra cache"
