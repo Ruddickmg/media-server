@@ -12,8 +12,11 @@
 --   5. create/reconcile per-*arr filters (priority 1000-1002): Radarr is
 --      gated by its list (shows matching); Sonarr/Lidarr are plain category
 --      filters that route by announce category and let the arr decide
---   6. remove stale lists and filters from earlier architectures
---   7. refresh the lists, then create the Gotify notification agent
+--   6. create/reconcile the cross-seed filter (priority 2000): an External
+--      webhook asks cross-seed to inject matched announces directly into
+--      Deluge before any arr filter sees them
+--   7. remove stale lists and filters from earlier architectures
+--   8. refresh the lists, then create the Gotify notification agent
 --
 -- Dependencies (nixpkgs): lua5_3, lua53Packages.{cjson,luasocket,luasql-sqlite3}
 --
@@ -35,13 +38,16 @@ local CONFIG = {
   api_key_file = "/var/lib/autobrr/apiKey",
   gotify_token_file = "/etc/nixos/secrets/gotify-token",
   gotify_host = "http://127.0.0.1:6789",
+  -- Cross-seed announce endpoint. The API key is injected by Nix; the env
+  -- fallback keeps this copy usable with the local test harness.
+  cross_seed_announce_url = "http://127.0.0.1:2468/api/announce",
+  cross_seed_api_key = os.getenv("CROSS_SEED_API_KEY") or "CROSS_SEED_API_KEY",
   -- Filters/lists from earlier architectures that get deleted on boot. Sonarr
   -- and Lidarr lists are gone because their title matching is unreliable;
   -- Radarr is the only list-gated arr (movies have stable titles). The
   -- category filters ("* Fallback", catch-all) were superseded by per-arr
   -- filters that route by announce category.
   stale_filters = {
-    "cross-seed",
     "arrs",
     "Sonarr Fallback",
     "Radarr Fallback",
@@ -336,6 +342,151 @@ local function reconcile_filter(autobrr, name, priority, categories, indexers, a
     or ("autobrr-setup: failed to reconcile %s filter (%s), retried next boot"):format(name, err))
 end
 
+-- The cross-seed filter is intentionally broader than the arr filters: no
+-- size, category, quality, title or list gates. Its External WEBHOOK POSTs each
+-- announce to cross-seed's /api/announce. cross-seed returns 200 only for a
+-- release that matches an existing library torrent and injects it directly
+-- into Deluge; 204 means no match, so the filter rejects and the announce
+-- falls through to the arr filters; 202 means the source is still downloading
+-- and autobrr retries at the configured interval.
+--
+-- The only action is TEST: a 200 marks this higher-priority filter as matched,
+-- which stops the lower-priority arr filters from also pushing the same
+-- announce. There is deliberately no download action on this filter.
+local function reconcile_cross_seed_filter(autobrr, indexers)
+  local name = "cross-seed"
+  local id = ensure_filter_id(autobrr, name)
+  if not id then
+    print("autobrr-setup: failed to create cross-seed filter")
+    return
+  end
+
+  -- StoreFilterActions updates actions with an id and inserts ones without,
+  -- but never removes actions omitted from the payload. Reuse an existing TEST
+  -- action and delete the rest after the PATCH so this filter always ends with
+  -- exactly one action.
+  local path = ("/filters/%d"):format(id)
+  local current = autobrr:get(path)
+  local action = { name = name, type = "TEST", enabled = true }
+  local stale_actions = empty()
+  if current and current.actions then
+    for _, existing in ipairs(current.actions) do
+      if existing.type == "TEST" and not action.id then
+        action.id = existing.id
+      elseif existing.id and existing.id > 0 then
+        stale_actions[#stale_actions + 1] = existing.id
+      end
+    end
+  end
+
+  -- Explicitly clear every gate that could survive from an older version of
+  -- this filter. Omitted PATCH fields are left untouched by autobrr.
+  local payload = {
+    name = name,
+    enabled = true,
+    priority = 2000,
+    min_size = "",
+    max_size = "",
+    delay = 0,
+    max_downloads = 0,
+    max_downloads_unit = "",
+    max_downloads_period = 0,
+    max_downloads_window_type = "",
+    announce_types = empty(),
+    scene = false,
+    origins = empty(),
+    except_origins = empty(),
+    match_releases = "",
+    except_releases = "",
+    use_regex = false,
+    match_release_groups = "",
+    except_release_groups = "",
+    bonus = empty(),
+    freeleech = false,
+    freeleech_percent = "",
+    smart_episode = false,
+    shows = "",
+    seasons = "",
+    episodes = "",
+    resolutions = empty(),
+    codecs = empty(),
+    sources = empty(),
+    containers = empty(),
+    match_hdr = empty(),
+    except_hdr = empty(),
+    match_other = empty(),
+    except_other = empty(),
+    years = "",
+    months = "",
+    days = "",
+    artists = "",
+    albums = "",
+    match_release_types = empty(),
+    except_release_types = "",
+    formats = empty(),
+    quality = empty(),
+    media = empty(),
+    perfect_flac = false,
+    cue = false,
+    log = false,
+    log_score = 0,
+    match_categories = "",
+    except_categories = "",
+    match_uploaders = "",
+    except_uploaders = "",
+    match_record_labels = "",
+    except_record_labels = "",
+    match_language = empty(),
+    except_language = empty(),
+    tags = "",
+    except_tags = "",
+    tags_any = "",
+    except_tags_any = "",
+    tags_match_logic = "",
+    except_tags_match_logic = "",
+    match_release_tags = "",
+    except_release_tags = "",
+    use_regex_release_tags = false,
+    match_description = "",
+    except_description = "",
+    use_regex_description = false,
+    min_seeders = 0,
+    max_seeders = 0,
+    min_leechers = 0,
+    max_leechers = 0,
+    release_profile_duplicate_id = 0,
+    indexers = indexers,
+    actions = { action },
+    external = {
+      {
+        name = name,
+        index = 0,
+        type = "WEBHOOK",
+        enabled = true,
+        webhook_host = CONFIG.cross_seed_announce_url,
+        webhook_method = "POST",
+        webhook_headers = "x-api-key=" .. tostring(CONFIG.cross_seed_api_key),
+        webhook_data = '{ "name": {{ toRawJson .TorrentName }}, "guid": "{{ .TorrentUrl }}", "link": "{{ .TorrentUrl }}", "tracker": {{ toRawJson .IndexerName }} }',
+        webhook_expect_status = 200,
+        webhook_retry_status = "202",
+        webhook_retry_attempts = 100,
+        webhook_retry_delay_seconds = 900,
+        on_error = "REJECT",
+      },
+    },
+  }
+
+  local ok, err = autobrr:patch(path, payload)
+  if not ok then
+    print(("autobrr-setup: failed to reconcile cross-seed filter (%s), retried next boot"):format(err))
+    return
+  end
+  for _, action_id in ipairs(stale_actions) do
+    autobrr:delete(("/actions/%d"):format(action_id))
+  end
+  print(("autobrr-setup: reconciled cross-seed filter id=%d"):format(id))
+end
+
 local function ensure_list(autobrr, arr)
   local lists = autobrr:get("/lists")
   local existing = lists and find_by_name(lists, arr.name)
@@ -397,7 +548,34 @@ local function remove_stale_lists(autobrr)
   end
 end
 
--- --- step 7: list refresh + Gotify ----------------------------------------
+-- Configured indexers live at /indexer/options on autobrr 1.90+; older
+-- releases expose the same list at /indexers. Archived indexers are rejected
+-- by the filter API, so never send their ids. Both endpoints are tried on each
+-- attempt to keep boot reconciliation working across versions.
+local function configured_indexers(autobrr)
+  local function collect(data, out)
+    if type(data) ~= "table" then return end
+    for _, ix in ipairs(data) do
+      local id = tonumber(ix.id) or 0
+      if id > 0 and ix.archived ~= true then
+        out[#out + 1] = { id = id, name = ix.name }
+      end
+    end
+  end
+
+  for _ = 1, 5 do
+    local indexers = empty()
+    collect(autobrr:get("/indexer/options"), indexers)
+    if #indexers == 0 then
+      collect(autobrr:get("/indexers"), indexers)
+    end
+    if #indexers > 0 then return indexers end
+    socket.sleep(5)
+  end
+  return empty()
+end
+
+-- --- step 8: list refresh + Gotify ----------------------------------------
 
 local function ensure_gotify(autobrr, token)
   if not token then return end
@@ -463,23 +641,16 @@ local function main()
     ensure_download_client(autobrr, arr)
   end
 
-  local indexers = {}
-  for _ = 1, 5 do
-    indexers = {}
-    local data = autobrr:get("/indexers")
-    if data then
-      for _, ix in ipairs(data) do
-        indexers[#indexers + 1] = { id = ix.id, name = ix.name }
-      end
-    end
-    if #indexers > 0 then break end
-    socket.sleep(5)
-  end
-
+  local indexers = configured_indexers(autobrr)
   if #indexers > 0 then
     local names = {}
     for _, ix in ipairs(indexers) do names[#names + 1] = ix.name end
     print(("autobrr-setup: attaching %d indexers to filters: %s"):format(#indexers, table.concat(names, ", ")))
+    -- Cross-seed only needs indexers; it does not depend on the *arr download
+    -- clients, so reconcile it before and independently of that readiness gate.
+    reconcile_cross_seed_filter(autobrr, indexers)
+  else
+    print("autobrr-setup: no configured indexers found; skipping filter reconciliation to protect existing filter connections")
   end
 
   local clients = autobrr:get("/download_clients")
@@ -496,10 +667,9 @@ local function main()
 
   if not all_clients then
     print("autobrr-setup: download clients not found, skipping *arr filters")
+  elseif #indexers == 0 then
+    print("autobrr-setup: no configured indexers found, skipping *arr filters")
   else
-    if #indexers == 0 then
-      print("autobrr-setup: no indexers from /indexers; skipping filter reconciliation to protect existing filter connections")
-    else
     remove_stale_filters(autobrr)
     remove_stale_lists(autobrr)
 
@@ -528,7 +698,6 @@ local function main()
       local ok, err = autobrr:post("/lists/refresh")
       print(ok and "autobrr-setup: refreshed lists"
       or ("autobrr-setup: list refresh failed (%s) (non-fatal)"):format(err))
-    end
     end
   end
 
