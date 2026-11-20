@@ -52,13 +52,19 @@ let
     # RSS polling is cross-seed's new-release discovery path (autobrr no
     # longer feeds announces). Minimum cadence is 10 minutes.
     rssCadence = "10 minutes";
-    # cross-seed validates: searchCadence >= 1 day, excludeRecentSearch >=
-    # 3x searchCadence, excludeOlder between 2x and 5x excludeRecentSearch.
-    # Docs: don't raise searchCadence above 1 day (bunches up searches,
-    # hurts searchLimit) — control frequency via excludeOlder/excludeRecentSearch.
+    # The daemon owns periodic searches. Upstream says to keep the cadence at
+    # its 1 day minimum and control coverage with the exclusion windows.
+    # These are the documented longer-safety-net values: a torrent stays
+    # eligible for 450 days, but is re-searched no more often than every
+    # 90 days. Validation requires excludeRecentSearch >= 3x searchCadence
+    # and excludeOlder between 2x and 5x excludeRecentSearch.
     searchCadence = "1 day";
-    excludeOlder = "2 weeks";
-    excludeRecentSearch = "3 days";
+    excludeOlder = "450 days";
+    excludeRecentSearch = "90 days";
+    # Explicit upstream default (unique queries per indexer per run). Raise
+    # only after checking the "unique queries" count in scheduler logs and
+    # respecting tracker rules.
+    searchLimit = 400;
     skipRecheck = false;
     autoResumeMaxDownload = 0;
     includeSingleEpisodes = false;
@@ -79,9 +85,11 @@ let
   # Dispatcher: `cross-seed search` (and `rss`) triggers the job via the daemon
   # HTTP API. v6 forbids running `cross-seed search` as a separate CLI process
   # while the daemon runs ("creates errors with the sqlite database"), so we
-  # use /api/job (same as the daily timer). For search we mirror the
-  # full-library sweep flags (ignore exclude windows). Other subcommands run
-  # against the daemon's state dir as the cross-seed user.
+  # use /api/job. For search we mirror the full-library sweep flags (ignore
+  # exclude windows). In v6 this shifts the daemon's next scheduled run, so
+  # it remains an explicit manual override — automatic searches are owned by
+  # the daemon. Other subcommands run against the daemon's state dir as the
+  # cross-seed user.
   crossSeedDrop = pkgs.writeShellScriptBin "cross-seed" ''
     set -euo pipefail
     target_uid=$(${pkgs.coreutils}/bin/id -u cross-seed)
@@ -96,7 +104,7 @@ let
         data='{"name":"rss"}'
       fi
       echo "cross-seed: triggering $cmd on port ${toString port}" >&2
-      exec ${pkgs.curl}/bin/curl -q --noproxy '*' -fsS -XPOST \
+      exec ${pkgs.curl}/bin/curl -q --noproxy '*' --fail-with-body -XPOST \
         'http://127.0.0.1:${toString port}/api/job?apikey=${apiKeys.cross-seed}' \
         -H 'Content-Type: application/json' --data "$data"
     fi
@@ -332,34 +340,10 @@ in
         // loopbackServiceHardening;
       };
 
-      # Daily full-library search sweep via /api/job (no second process touches
-      # the daemon's SQLite DB). ignoreExclude* flags make this a complete
-      # sweep.
-      cross-seed-search = {
-        description = "Trigger daily full-library cross-seed search";
-        wants = [ "rdfind-sweep.service" ];
-        after = [
-          "network.target"
-          "cross-seed.service"
-        ];
-        requires = [ "cross-seed.service" ];
-        serviceConfig = {
-          Type = "oneshot";
-          User = "cross-seed";
-          Group = "cross-seed";
-          ExecStart = pkgs.writeShellScript "cross-seed-search-all" ''
-            ${pkgs.curl}/bin/curl -fsS -XPOST \
-              'http://127.0.0.1:${toString port}/api/job?apikey=${apiKeys.cross-seed}' \
-              -H 'Content-Type: application/json' \
-              --data '{"name":"search","ignoreExcludeRecentSearch":true,"ignoreExcludeOlder":true}'
-          '';
-        }
-        // loopbackServiceHardening;
-      };
-
       # Nightly dedup safety net across the full media/torrent trees (union
       # paths are fine: rdfind hardlinks identical files wherever it finds
-      # them). Runs after the daily cross-seed search attempt.
+      # them). Runs on its own timer; the daemon owns all cross-seed search
+      # scheduling.
       rdfind-sweep = {
         description = "Deduplicate hard links across media and torrent trees";
         unitConfig.RequiresMountsFor = [
@@ -368,7 +352,7 @@ in
           "/media/data/library/movies"
           "/media/data/library/tv"
         ];
-        after = [ "cross-seed-search.service" ];
+        after = [ "cross-seed.service" ];
         serviceConfig = {
           Type = "oneshot";
           # Single entry spanning every tree rdfind hardlinks between: with
@@ -416,13 +400,12 @@ in
       wantedBy = [ "sockets.target" ];
     };
 
-    systemd.timers.cross-seed-search = {
-      description = "Daily full-library cross-seed search";
+    systemd.timers.rdfind-sweep = {
+      description = "Daily hardlink deduplication sweep";
       wantedBy = [ "timers.target" ];
       timerConfig = {
-        OnCalendar = "*-*-* 04:30:00";
+        OnCalendar = "*-*-* 06:30:00";
         Persistent = true;
-        RandomizedDelaySec = "15m";
       };
     };
 
