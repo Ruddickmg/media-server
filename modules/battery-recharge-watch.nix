@@ -110,11 +110,11 @@ in
   services.matter-server = {
     enable = true;
     port = 5580;
-    # For pairing, uncomment and refactor as necessary if needing to pair
-    # extraArgs = {
-    #   primary-interface = "wlp0s20f3";
-    #   bluetooth-adapter = 0;
-    # };
+    extraArgs = {
+      primary-interface = "wlp0s20f3";
+      # For pairing, uncomment and refactor as necessary if needing to pair
+      # bluetooth-adapter = 0;
+    };
   };
 
   # Watchdog to power-cycle the GE Cync plug (Node 4) when plugged in but drops
