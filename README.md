@@ -109,9 +109,6 @@ Media lives on two tiers joined into a single `/media` view:
 | `/nas` | bind mount of `/media/data/nas/public` — shared SMB share |
 | `/nas-private` | bind mount of `/media/data/nas/private` — private SMB share |
 
-The 1TB OS NVMe keeps the system, `/nix`, `/var/lib` (including Plex metadata), and `/var/log`. The 4TB NVMe holds only the migratable data under `/mnt/ssd/data`.
-
-Everything lives under `data/` so a tree can be moved between tiers as a unit:
 
 ```
 /media/data/torrents/incomplete   active downloads (SSD only)
@@ -123,8 +120,6 @@ Everything lives under `data/` so a tree can be moved between tiers as a unit:
 /media/data/nas/public            shared NAS share
 /media/data/nas/private           private NAS share
 ```
-
-`/media` fills the SSD first and only spills to the HDD pool when the SSD has less than 50 GiB free. A mover checks usage every 15 minutes, compares NAS files and media files in one least-recently-accessed queue, moves whole hard-link sets together, starts at 85% SSD usage, and keeps going until it is below 60%. A file that appears never to have been read since it was written gets a two-week grace period; if the normal queue cannot reach 60%, those files are moved oldest-first by modification time instead of leaving the SSD under pressure (see [SSD-to-HDD mover](#ssd-to-hdd-mover)).
 
 ### Set the real paths and devices
 
