@@ -111,7 +111,7 @@ in
     enable = true;
     port = 5580;
     extraArgs = {
-      primary-interface = "wlp0s20f3";
+      primary-interface = "enp0s20f0u1u4";
       # For pairing, uncomment and refactor as necessary if needing to pair
       # bluetooth-adapter = 0;
     };
