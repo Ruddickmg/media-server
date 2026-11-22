@@ -302,10 +302,12 @@ in
           "proxy-deluge-web.service"
         ]
         ++ [ "gotify-provision.service" ];
+      requires = [ "gotify-provision.service" ];
       wants = [
         "network.target"
         "delugeweb.service"
         "proxy-deluge-web.socket"
+        "gotify-provision.service"
       ];
       unitConfig = {
         StartLimitBurst = 10;

@@ -86,7 +86,7 @@ in
 
   config = {
     # Pin gids to their current server values. Auto-assigned gids shift whenever
-    # the set of declared groups changes; that drift left the persistent @media
+    # the set of declared groups changes; that drift left the persistent media
     # tree's files on stale numeric gids (the hardlink breakage). Pinning freezes
     # the numbering so it can never renumber again.
     users.groups.media = {
