@@ -58,9 +58,9 @@ in
   time.timeZone = "Pacific/Honolulu";
 
   media-server = {
-    # SSD-first tiered storage: @media (SSD) + the HDD pool behind a single
-    # /media union. Paths/devices live in storage-paths.nix so the standalone
-    # disko module can read the same values.
+    # SSD-first tiered storage: the 4TB data disk (SSD) + the HDD pool behind a
+    # single /media union. Paths/devices live in storage-paths.nix so the
+    # standalone disko module can read the same values.
     storage = {
       enable = true;
       ssdPath = paths.ssd;

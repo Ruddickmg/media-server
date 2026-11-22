@@ -101,13 +101,15 @@ Media lives on two tiers joined into a single `/media` view:
 
 | Path | What it is |
 |------|------------|
-| `/mnt/ssd` | SSD cache (`@media` btrfs subvolume). New downloads land here. |
+| `/mnt/ssd` | 4TB NVMe ext4 data disk — the SSD tier. New downloads land here. |
 | `/mnt/hdd1`, `/mnt/hdd2`, … | Data HDDs in the JBOD enclosure, one ext4 filesystem each |
 | `/mnt/hddpool` | mergerfs union of the data HDDs (backing pool) |
 | `/mnt/parity1` | SnapRAID parity disk |
 | `/media` | mergerfs union of `/mnt/ssd` then `/mnt/hddpool` — the path every service uses |
 | `/nas` | bind mount of `/media/data/nas/public` — shared SMB share |
 | `/nas-private` | bind mount of `/media/data/nas/private` — private SMB share |
+
+The 1TB OS NVMe keeps the system, `/nix`, `/var/lib` (including Plex metadata), and `/var/log`. The 4TB NVMe holds only the migratable data under `/mnt/ssd/data`.
 
 Everything lives under `data/` so a tree can be moved between tiers as a unit:
 
@@ -358,7 +360,7 @@ For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers
 
 ### Disk-space download guard
 
-Deluge halts downloads when free disk space runs low (preventing the disk-full failure that can corrupt the system). By default it stops downloads when free space on the SSD cache mount (`/mnt/ssd`) drops below **5 GB** and resumes when it recovers above **10 GB**, checking every minute. The guard watches the SSD, not the `/media` union, because downloads land on the SSD first.
+Deluge halts downloads when free disk space runs low (preventing the disk-full failure that can corrupt the system). By default it stops downloads when free space on the 4TB SSD data mount (`/mnt/ssd`) drops below **5 GB** and resumes when it recovers above **10 GB**, checking every minute. The guard watches the SSD, not the `/media` union, because downloads land on the SSD first.
 
 To adjust, configure in your host config:
 

@@ -5,15 +5,9 @@
 # live only in the NixOS module tree. Replace the placeholders below with the
 # real paths/devices from the target host before switching.
 {
-  # SSD cache/ingest filesystem (the btrfs @media subvolume). The old
-  # mountpoint was /media; it moves here so /media can become the mergerfs
-  # union every service already uses.
+  # 4TB NVMe ext4 data disk: the SSD tier behind the /media mergerfs union.
+  # The 1TB OS NVMe keeps /, /nix, /var/lib (including Plex metadata) and /var/log.
   ssd = "/mnt/ssd";
-
-  # Temporary staging mount for the new 4TB data disk. Data is rsynced here from
-  # paths.ssd, then the two mountpoints are swapped in disko.nix. Remove this
-  # entry once the cutover is complete.
-  ssdNew = "/mnt/ssd-new";
 
   # HDD-only mergerfs pool. Add future data disks to hddDisks; both this pool
   # and the unified pool derive their branches automatically.

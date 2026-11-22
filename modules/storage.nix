@@ -72,7 +72,7 @@ in
     ssdPath = mkOption {
       type = types.str;
       default = "/mnt/ssd";
-      description = "Mount point of the SSD cache/ingest filesystem (the disko @media subvolume).";
+      description = "Mount point of the SSD tier (the 4TB ext4 data disk).";
     };
     hddPoolPath = mkOption {
       type = types.str;

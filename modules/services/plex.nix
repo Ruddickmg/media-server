@@ -37,7 +37,7 @@ in
     #
     # The render group needs no declaration here: nixpkgs already creates it
     # unconditionally at a fixed ids.gids.render (303), so unlike media/dhcpcd
-    # above it is never auto-assigned and cannot drift the @media numbering.
+    # above it is never auto-assigned and cannot drift the media group numbering.
     users.users.plex = {
       extraGroups = [ "render" ];
     };

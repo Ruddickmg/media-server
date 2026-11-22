@@ -63,16 +63,6 @@ in
                       "noatime"
                     ];
                   };
-                  # The SSD is the fast tier, not the union mountpoint. relatime
-                  # (not noatime) gives the media-tier mover an LRU signal for
-                  # choosing which files to evict. SMB reads through /nas and
-                  # /media must advance atime for that signal to work.
-                  # atime <= mtime is treated as no read since the last write.
-                  # This subvolume is removed after the 4TB data-disk cutover.
-                  "@media" = {
-                    mountpoint = paths.ssd;
-                    mountOptions = [ "relatime" ];
-                  };
                 };
               };
             };
@@ -80,11 +70,11 @@ in
         };
       };
 
-      # New 4TB data disk. It is mounted at a temporary path during migration so
-      # the old @media subvolume can keep serving /mnt/ssd. After the rsync
-      # cutover, change mountpoint to paths.ssd and delete @media from the main
-      # disk. ext4 is enough here: one filesystem, no subvolume management, and
-      # full hardlink/xattr/ACL support for the media hardlink topology.
+      # 4TB NVMe data disk: the sole SSD tier behind /media. ext4 keeps the
+      # hardlink/xattr/ACL topology simple; relatime (not noatime) preserves the
+      # mover's atime-based LRU signal. This disk is internal and required, so a
+      # failed mount stops the boot instead of leaving a partially mounted stack.
+      # The 30s device timeout avoids a long stall before that failure is reported.
       data = {
         type = "disk";
         device = "/dev/disk/by-id/nvme-TEAM_TM8FPW004T_TM702510160250200214";
@@ -96,12 +86,9 @@ in
               content = {
                 type = "filesystem";
                 format = "ext4";
-                mountpoint = paths.ssdNew;
-                # relatime keeps the mover's atime-based LRU signal. nofail lets
-                # the host boot if this disk is not installed yet.
+                mountpoint = paths.ssd;
                 mountOptions = [
                   "relatime"
-                  "nofail"
                   "x-systemd.device-timeout=30s"
                 ];
               };

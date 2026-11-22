@@ -126,22 +126,31 @@ in
         group = "autobrr";
         mode = "700";
       };
-      # Ensure secret files are readable by the autobrr group.
-      # Rules only apply to existing files — create them after first boot.
+      # Ensure secret files are readable by their consumers. Rules only apply to
+      # existing files — create them after first boot.
       "${cfg.apiKeyFile}".z = {
         mode = "0640";
         group = "autobrr";
       };
+      # The Gotify token is shared with declarr and notify-gotify@ through the
+      # gotify-readers group. Do not reset it to autobrr here: gotify-provision
+      # owns the canonical root:gotify-readers 0640 state.
       "${cfg.gotifyTokenFile}".z = {
         mode = "0640";
-        group = "autobrr";
+        group = "gotify-readers";
       };
     };
 
     systemd.services.autobrr = {
       description = "autobrr - IRC announce-based release automation";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
+      after = [
+        "network-online.target"
+        "gotify-provision.service"
+      ];
+      wants = [
+        "network-online.target"
+        "gotify-provision.service"
+      ];
       wantedBy = [ "multi-user.target" ];
 
       environment = {
@@ -167,6 +176,7 @@ in
         Type = "simple";
         User = "autobrr";
         Group = "autobrr";
+        SupplementaryGroups = [ "gotify-readers" ];
         ExecStart = "${pkgs-unstable.autobrr}/bin/autobrr --config=${cfg.dataDir}";
         Restart = "on-failure";
         RestartSec = "10s";
