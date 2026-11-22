@@ -10,6 +10,11 @@
   # union every service already uses.
   ssd = "/mnt/ssd";
 
+  # Temporary staging mount for the new 4TB data disk. Data is rsynced here from
+  # paths.ssd, then the two mountpoints are swapped in disko.nix. Remove this
+  # entry once the cutover is complete.
+  ssdNew = "/mnt/ssd-new";
+
   # HDD-only mergerfs pool. Add future data disks to hddDisks; both this pool
   # and the unified pool derive their branches automatically.
   hddPool = "/mnt/hddpool";
