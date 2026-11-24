@@ -353,8 +353,12 @@ in
         apiKeyApi() { api "$1" "$2" "''${3-}" "X-Api-Key: $API_KEY"; }
         bearerApi() { api "$1" "$2" "''${3-}" "Authorization: Bearer $TOKEN"; }
 
+        # cleanuparr.service is Type=simple, so After= only means bwrap was
+        # launched, not that the HTTP listener is up. Wait for health here.
+        # NixOS prepends `set -e` to every unit script, so the probe curl must
+        # tolerate a refused connection or it aborts before the loop can retry.
         for ((i = 1; i <= 60; i++)); do
-          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 "$BASE_URL/health" 2>/dev/null)
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 "$BASE_URL/health" 2>/dev/null || true)
           [ "$HTTP_CODE" = "200" ] && break
           sleep 2
         done
@@ -379,7 +383,7 @@ in
         if [ -s "$KEY_CACHE" ]; then
           API_KEY=$(tr -d '\n' < "$KEY_CACHE")
           code=$(curl -s -o /dev/null -w '%{http_code}' \
-            -H "X-Api-Key: $API_KEY" "$BASE_URL/api/configuration/general" 2>/dev/null)
+            -H "X-Api-Key: $API_KEY" "$BASE_URL/api/configuration/general" 2>/dev/null || true)
           [ "$code" = "200" ] || API_KEY=""
         fi
 
