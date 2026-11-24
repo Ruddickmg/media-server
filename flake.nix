@@ -29,6 +29,7 @@
     }:
     let
       system = "x86_64-linux";
+      lib = pkgs-unstable.lib;
       pkgs-unstable = import nixpkgs-unstable {
         inherit system;
         config.allowUnfree = true;
@@ -37,6 +38,72 @@
         inherit system;
         config.allowUnfree = true;
       };
+      tailscaleStable =
+        let
+          inherit (pkgs-unstable)
+            fetchurl
+            getent
+            iproute2
+            iptables
+            makeWrapper
+            procps
+            shadow
+            stdenv
+            ;
+          version = "1.104.7";
+        in
+        stdenv.mkDerivation {
+          pname = "tailscale";
+          inherit version;
+          # Pinned official stable tarball and its published checksum.
+          src = fetchurl {
+            url = "https://pkgs.tailscale.com/stable/tailscale_${version}_amd64.tgz";
+            hash = "sha256-5WaT/3SmTyWRt+gZwoBjWhAKrh3fsO8Fj80FK3zY0Ww=";
+          };
+          sourceRoot = "tailscale_${version}_amd64";
+
+          nativeBuildInputs = [ makeWrapper ];
+          dontConfigure = true;
+          dontBuild = true;
+
+          installPhase = ''
+            runHook preInstall
+
+            mkdir -p "$out/bin" "$out/lib/systemd/system"
+            install -D -m 0755 tailscale "$out/bin/tailscale"
+            install -D -m 0755 tailscaled "$out/bin/tailscaled"
+
+            # Match nixpkgs: tailscaled shells out to these tools at runtime.
+            wrapProgram "$out/bin/tailscaled" \
+              --prefix PATH : ${
+                lib.makeBinPath [
+                  getent
+                  iproute2
+                  iptables
+                  shadow
+                ]
+              } \
+              --suffix PATH : ${lib.makeBinPath [ procps ]}
+
+            # The official unit expects a distro layout and
+            # /etc/default/tailscaled. NixOS supplies PORT/FLAGS as service
+            # Environment, so only the binary paths need rewriting.
+            sed -e "s#/usr/sbin#$out/bin#g" -e "/^EnvironmentFile/d" \
+              systemd/tailscaled.service \
+              > "$out/lib/systemd/system/tailscaled.service"
+            chmod 0444 "$out/lib/systemd/system/tailscaled.service"
+
+            runHook postInstall
+          '';
+
+          meta = {
+            homepage = "https://tailscale.com";
+            description = "Node agent for Tailscale, a mesh VPN built on WireGuard";
+            changelog = "https://tailscale.com/changelog#client";
+            license = lib.licenses.bsd3;
+            mainProgram = "tailscale";
+          };
+        };
       # Local version pins ahead of nixpkgs (see pkgs/*/default.nix for why).
       # Exposed as flake packages so CI can push just these to the binary
       # cache — same pkgs-unstable.callPackage the service modules use, so
@@ -131,7 +198,7 @@
       packages.${system} = localPkgs;
 
       nixosConfigurations.media-server = nixpkgs.lib.nixosSystem {
-        specialArgs = { inherit pkgs-unstable declarr; };
+        specialArgs = { inherit pkgs-unstable declarr tailscaleStable; };
         modules = [
           { nixpkgs.hostPlatform = system; }
           disko.nixosModules.disko
@@ -146,7 +213,7 @@
       };
 
       nixosConfigurations.media-server-ci = nixpkgs.lib.nixosSystem {
-        specialArgs = { inherit pkgs-unstable declarr; };
+        specialArgs = { inherit pkgs-unstable declarr tailscaleStable; };
         modules = [
           { nixpkgs.hostPlatform = system; }
           disko.nixosModules.disko
