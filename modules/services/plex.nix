@@ -117,7 +117,7 @@ in
         ProtectHostname = true;
         ProtectProc = "invisible";
         # /media is read-only to Plex except the two Plex-managed library roots
-        # (delete-media-watch, sonarr/radarr/etc. keep their own access).
+        # (Cleanuparr, sonarr/radarr/etc. keep their own access).
         ReadOnlyPaths = [
           "/media"
         ];

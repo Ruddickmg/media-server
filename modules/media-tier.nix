@@ -70,8 +70,8 @@ let
       # Do not add RestrictSUIDSGID (runuser needs setuid) or
       # ProtectProc/ProcSubset (fuser needs the process table).
       # The mover writes through the raw SSD/HDD paths, never the union, so
-      # its unlinks do not generate union inotify events for
-      # delete-media-watch. smbstatus needs Samba's state/lock dirs.
+      # its unlinks do not generate union inotify events. smbstatus needs
+      # Samba's state/lock dirs.
       ReadWritePaths = [ cfg.ssdPath ] ++ hddMounts ++ [ delugeDataDir ];
       RestrictAddressFamilies = [
         "AF_UNIX"

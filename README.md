@@ -266,6 +266,7 @@ Running `tuios` directly on the server after `ssh` also works and starts the sam
 | autobrr | 7474 | `https://media-server.tailbac0df.ts.net/autobrr` | Tailscale admin |
 | Seerr | 5055 | `https://media-server.tailbac0df.ts.net/seerr` (also root `/`) | Plex sign-in (all Tailscale users) |
 | Profilarr | 6865 | `https://media-server.tailbac0df.ts.net:6868` | Onboarding wizard |
+| Cleanuparr | 11011 | `https://media-server.tailbac0df.ts.net:11011` | `admin` / `administrator` |
 | Beszel | 8090 | `https://media-server.tailbac0df.ts.net:28090` | Beszel login |
 | Gotify | 6789 | `https://media-server.tailbac0df.ts.net:6789` | Gotify login |
 | Plex | 32400 | `http://<lan-ip>:32400/web` or the Plex app | Plex.tv account |
@@ -324,6 +325,11 @@ SMB has no passwords: all shares are guest-accessible at the Samba layer, and Ta
 
 Replace `*` with a narrower user/group if needed, and replace `moon@example.com` with your Tailscale login or device tag. Remove any broader rule that exposes both ports to everyone.
 
+### Cleanuparr — sign in
+
+1. Open `https://media-server.tailbac0df.ts.net:11011`
+2. Sign in with username `admin` and password `administrator`
+
 If an SMB password was set on the server previously, remove the stale Samba account:
 
 ```bash
@@ -342,7 +348,7 @@ sudo smbpasswd -x moon
 
 ### Seeding and ratio management
 
-Deluge has no seeding limits by default. To set a global safety net, configure the optional limits in your host config:
+Deluge has no seeding limits by default. To set optional limits that stop torrents at a ratio or seed time, configure them in your host config:
 
 ```nix
 media-server.deluge.seedRatioLimit = 3.0;   # stop at 3.0 share ratio
@@ -351,7 +357,7 @@ media-server.deluge.seedTimeLimit = 86400;   # stop after 60 days (in minutes)
 
 Either or both can be set independently. When unset, there is no limit.
 
-For each indexer, set realistic seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**).
+Cleanuparr removes public torrents at ratio 1 after 24 hours and deletes torrents with no remaining library hardlink. For each indexer, set seed goals in Prowlarr's **Settings → Indexers** (select an indexer → **Show Advanced**).
 
 ### Disk-space download guard
 
@@ -369,17 +375,11 @@ media-server.deluge.diskGuard.notify = false;     # disable Gotify alerts
 
 ### Deleting media completely
 
-The SMB `media` share is read-only, so media cannot be deleted over the NAS. Delete over SSH instead.
+The SMB `media` share is read-only, so media cannot be deleted over the NAS. Delete over SSH or from the Plex UI.
 
-Deleting a file from the library leaves its hard links behind — the copy in `/media/data/torrents/complete` (and the cross-seed link in `/media/data/torrents/xseeds`) — so disk space is never freed. To remove a file or a whole movie/show folder together with every hard link:
+Cleanuparr scans hourly: torrents with no remaining library hardlink are moved to the `cleanuparr-unlinked` label and deleted with their source files; orphaned files under `complete/` and `xseeds/` are moved to `/media/data/torrents/orphaned` and purged after seven days. Open `https://media-server.tailbac0df.ts.net:11011` to review cleanup history.
 
-```bash
-delete-media /media/data/library/movies/Some\ Movie\ (2020)
-```
-
-The command lists every hard link it found, asks for confirmation, deletes them all, and prunes the emptied folders. Remove the torrent from Deluge first if it is still seeding.
-
-**Deleting from the Plex UI** also removes every hard link, so no Plex settings are needed for this to work. Verify with `journalctl -u delete-media-watch` after a deletion.
+Leave Plex library deletion enabled so Plex and Cleanuparr handle removals together.
 
 ### Plex — add libraries
 

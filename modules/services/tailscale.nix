@@ -133,6 +133,13 @@ in
       bind 127.0.0.1
       reverse_proxy http://127.0.0.1:6865
     '';
+
+    # Cleanuparr is served on a dedicated Tailscale HTTPS port because its UI
+    # assumes it is hosted at the root path.
+    virtualHosts.":11112".extraConfig = ''
+      bind 127.0.0.1
+      reverse_proxy http://127.0.0.1:11011
+    '';
   };
 
   systemd.services.tailscale-serve-paths = {
@@ -191,12 +198,14 @@ in
       # Clear any existing serve config, then serve root to local Caddy
       tailscale serve reset
       tailscale serve --bg http://127.0.0.1:8080
-      # Gotify, Beszel, and Profilarr don't support subpath proxying (root-relative URLs in UI).
-      # Serve them on dedicated Tailscale HTTPS ports, proxied through Caddy so
-      # X-Forwarded-Proto and other reverse-proxy headers are set correctly.
+      # Gotify, Beszel, Profilarr, and Cleanuparr don't support subpath proxying
+      # (root-relative URLs in UI). Serve them on dedicated Tailscale HTTPS ports,
+      # proxied through Caddy so X-Forwarded-Proto and other reverse-proxy headers
+      # are set correctly.
       tailscale serve --bg --https 6789  http://127.0.0.1:16789
       tailscale serve --bg --https 28090 http://127.0.0.1:28090
       tailscale serve --bg --https 6868  http://127.0.0.1:16868
+      tailscale serve --bg --https 11011 http://127.0.0.1:11112
     '';
   };
 

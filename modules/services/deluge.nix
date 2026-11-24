@@ -257,13 +257,14 @@ in
         max_active_downloading = 5;
         max_active_seeding = 40;
 
-        # Seeding: *arrs remove their own torrents via per-indexer goals.
-        # These settings act as a safety net for manually-added torrents.
+        # Seeding: *arrs set their own per-indexer goals; Cleanuparr owns removal
+        # and source-file deletion. Deluge may stop torrents at a ratio, but must
+        # never delete them itself or the hard-linked copies stay behind.
         stop_seed_at_ratio = cfg.seedRatioLimit != -1.0;
         stop_seed_ratio = cfg.seedRatioLimit;
         seed_time_limit = cfg.seedTimeLimit;
         share_ratio_limit = cfg.seedRatioLimit;
-        remove_seed_at_ratio = true;
+        remove_seed_at_ratio = false;
         auto_managed = true;
       };
       authFile = pkgs.writeText "deluge-auth" ''
@@ -376,9 +377,10 @@ in
     # is saved/tested (label.add); at grab time they only call label.set_torrent,
     # which throws "Unknown Label" if the label is missing. Declare them so grabs
     # can't silently fail again — they were lost once in the config-dir reset
-    # incidents. "f" creates the file only if absent, preserving torrent->label
-    # mappings and manual labels. Runs after nixpkgs' "10-deluged" config-dir
-    # rule (lexicographic order).
+    # incidents. Cleanuparr also creates/moves torrents into the unlinked label
+    # when no library hardlink remains. "f" creates the file only if absent,
+    # preserving torrent->label mappings and manual labels. Runs after nixpkgs'
+    # "10-deluged" config-dir rule (lexicographic order).
     systemd.tmpfiles.settings."90-deluge-labels" = {
       "${config.services.deluge.dataDir}/.config/deluge/label.conf".f = {
         mode = "0644";
@@ -393,6 +395,7 @@ in
             tv-sonarr = { };
             lidarr = { };
             cross-seed = { };
+            cleanuparr-unlinked = { };
           };
         };
       };
