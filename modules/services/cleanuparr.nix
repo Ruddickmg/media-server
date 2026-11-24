@@ -254,7 +254,10 @@ in
         KeyringMode = "private";
         ProtectHostname = true;
         ProtectProc = "invisible";
-        ProcSubset = "pid";
+        # buildFHSEnv enters through bubblewrap, which reads
+        # /proc/sys/kernel/overflowuid and overflowgid. ProcSubset=pid hides
+        # /proc/sys entirely, so this service needs the full proc subset.
+        ProcSubset = "all";
         # One bind mount for the whole media tree: under ProtectSystem=strict,
         # separate ReadWritePaths entries are different vfsmounts and link(2)
         # / rename(2) between them fails with EXDEV.
