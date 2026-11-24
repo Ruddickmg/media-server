@@ -23,7 +23,7 @@ let
 
     src = fetchzip {
       url = "https://github.com/Cleanuparr/Cleanuparr/releases/download/v${version}/Cleanuparr-${version}-linux-amd64.zip";
-      hash = "sha256-8QlUVETCl7UYf9kJIYFASGZIj7EU/4cjM3dOCcPLToM=";
+      hash = "sha256-OPTtW+eNKgyJbAfcaWiLGw8oTV1tHwiKmWEMBb9CwMI=";
     };
 
     dontConfigure = true;
