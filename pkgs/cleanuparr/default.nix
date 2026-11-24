@@ -46,13 +46,14 @@ in
 buildFHSEnv {
   name = "cleanuparr";
 
-  targetPkgs = pkgs: with pkgs; [
-    cacert
-    icu
-    openssl
-    stdenv.cc.cc.lib
-    zlib
-  ];
+  targetPkgs =
+    pkgs: with pkgs; [
+      cacert
+      icu
+      openssl
+      stdenv.cc.cc.lib
+      zlib
+    ];
 
   inherit runScript;
 

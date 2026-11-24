@@ -269,7 +269,10 @@ in
     systemd.services.cleanuparr-init = {
       description = "Reconcile declarative Cleanuparr configuration";
       bindsTo = [ "cleanuparr.service" ];
-      after = [ "cleanuparr.service" ] ++ lib.optionals (config.media-server.deluge.enable or false) [
+      after = [
+        "cleanuparr.service"
+      ]
+      ++ lib.optionals (config.media-server.deluge.enable or false) [
         "deluged.service"
         "delugeweb.service"
         "proxy-deluge-web.service"
