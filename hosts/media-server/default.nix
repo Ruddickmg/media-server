@@ -13,6 +13,7 @@ in
     ../../modules/nas.nix
     ../../modules/gotify.nix
     ../../modules/headless-server.nix
+    ../../modules/thunderbolt.nix
     ../../modules/auto-update.nix
     ../../modules/auto-reboot.nix
     ../../modules/vpn-confinement.nix
@@ -32,7 +33,6 @@ in
     ../../modules/services/profilarr.nix
     ../../modules/services/cross-seed.nix
     ../../modules/services/delete-media-watch.nix
-    ../../modules/battery-recharge-watch.nix
     ../../modules/services/autobrr
     ../../modules/declarr.nix
   ];
@@ -117,6 +117,7 @@ in
     bazarr.enable = true;
     plex.enable = true;
     graphics.enable = true;
+    thunderbolt.enable = true;
     seerr.enable = true;
     unpackerr.enable = true;
     profilarr.enable = true;
@@ -126,9 +127,6 @@ in
 
     beszel.enable = true;
   };
-  # Enable Bluetooth if pairing with Matter (required for Matter initial pairing)
-  # hardware.bluetooth.enable = true;
-  # hardware.bluetooth.powerOnBoot = true;
   services.gotify = {
     enable = true;
     package = pkgs-unstable.gotify-server;
@@ -151,7 +149,6 @@ in
     allowedTCPPorts = [
       # Deluge, Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, Plex
       # opened conditionally per-service via openFirewall option
-      # 5580 # Used for pairing, uncomment if needed
     ];
     allowedUDPPorts = [
       # Opened conditionally per-service

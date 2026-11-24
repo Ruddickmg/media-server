@@ -72,9 +72,9 @@ in
 
       # 4TB NVMe data disk: the sole SSD tier behind /media. ext4 keeps the
       # hardlink/xattr/ACL topology simple; relatime (not noatime) preserves the
-      # mover's atime-based LRU signal. This disk is internal and required, so a
-      # failed mount stops the boot instead of leaving a partially mounted stack.
-      # The 30s device timeout avoids a long stall before that failure is reported.
+      # mover's atime-based LRU signal. nofail lets the machine boot while the
+      # SSD is detached (e.g. during a hardware move); the 30s device timeout
+      # bounds the wait before boot continues without it.
       data = {
         type = "disk";
         device = "/dev/disk/by-id/nvme-TEAM_TM8FPW004T_TM702510160250200214";
@@ -89,6 +89,7 @@ in
                 mountpoint = paths.ssd;
                 mountOptions = [
                   "relatime"
+                  "nofail"
                   "x-systemd.device-timeout=30s"
                 ];
               };
