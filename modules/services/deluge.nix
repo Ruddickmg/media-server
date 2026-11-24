@@ -317,7 +317,14 @@ in
           cp ${ltconfigConf} "$configDir/ltconfig.conf"
         '';
         # The union (and therefore the torrent trees) must be mounted first.
+        # Include the branch mounts and /media itself so deluged waits for the
+        # SSD, HDD pool, and union before starting. nofail on those mounts means
+        # boot can proceed without a detached disk; this keeps deluged from
+        # touching a partial mount tree when that happens.
         unitConfig.RequiresMountsFor = [
+          "/media"
+          "/mnt/ssd"
+          "/mnt/hdd1"
           "/media/data/torrents/incomplete"
           "/media/data/torrents/complete"
         ];
