@@ -1,8 +1,8 @@
 {
   lib,
   pkgs,
+  pkgs-unstable,
   config,
-  tailscaleStable,
   ...
 }:
 let
@@ -13,8 +13,8 @@ in
 {
   services.tailscale = {
     enable = true;
-    # Pinned official stable client, not nixpkgs.
-    package = tailscaleStable;
+    # Follow nixpkgs-unstable for automatic Tailscale updates.
+    package = pkgs-unstable.tailscale;
     useRoutingFeatures = "both";
     # Tailscale SSH is the transport tuios uses for its remote-host links
     # (`tuios attach --host media-server` from another machine). tuios opens a
@@ -153,7 +153,7 @@ in
     ];
     wants = [ "tailscaled.service" ];
     wantedBy = [ "multi-user.target" ];
-    path = [ tailscaleStable ];
+    path = [ pkgs-unstable.tailscale ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -212,5 +212,5 @@ in
     '';
   };
 
-  environment.systemPackages = [ tailscaleStable ];
+  environment.systemPackages = [ pkgs-unstable.tailscale ];
 }
