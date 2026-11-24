@@ -49,7 +49,7 @@ in
       ];
       serviceConfig = {
         # Keep *arr-created dirs/files group-writable for media (nixpkgs sets
-        # 0022, which would break Plex/delete-media-watch unlinks).
+        # 0022, which would break Plex/Cleanuparr unlinks).
         UMask = lib.mkForce "0002";
         PrivateTmp = true;
         NoNewPrivileges = true;

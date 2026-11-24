@@ -20,6 +20,7 @@ in
     ../../modules/graphics.nix
     ../../modules/services/tailscale.nix
     ../../modules/services/deluge.nix
+    ../../modules/services/cleanuparr.nix
     ../../modules/services/unpackerr.nix
     ../../modules/services/prowlarr.nix
     ../../modules/services/sonarr.nix
@@ -32,7 +33,6 @@ in
     ../../modules/services/podman.nix
     ../../modules/services/profilarr.nix
     ../../modules/services/cross-seed.nix
-    ../../modules/services/delete-media-watch.nix
     ../../modules/services/autobrr
     ../../modules/declarr.nix
   ];
@@ -114,6 +114,7 @@ in
     deluge.enable = true;
     deluge.vpnConfinement = true;
     deluge.authUsername = "ruddickmg";
+    cleanuparr.enable = true;
     bazarr.enable = true;
     plex.enable = true;
     graphics.enable = true;
@@ -123,7 +124,6 @@ in
     profilarr.enable = true;
     cross-seed.enable = true;
     autobrr.enable = true;
-    delete-media-watch.enable = true;
 
     beszel.enable = true;
   };

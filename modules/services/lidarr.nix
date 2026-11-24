@@ -49,7 +49,7 @@ in
       ];
       serviceConfig = {
         # Keep *arr-created dirs/files group-writable for media (systemd's
-        # default 0022 would break Plex/delete-media-watch unlinks).
+        # default 0022 would break Plex/Cleanuparr unlinks).
         UMask = lib.mkForce "0002";
         ProtectHome = true;
         PrivateTmp = true;

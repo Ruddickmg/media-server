@@ -43,6 +43,7 @@
       # the store paths match what the system closure builds.
       localPkgs = {
         beszel = pkgs-unstable.callPackage ./pkgs/beszel { };
+        cleanuparr = pkgs-unstable.callPackage ./pkgs/cleanuparr { };
         cross-seed = pkgs-unstable.callPackage ./pkgs/cross-seed { };
         seerr = pkgs-unstable.callPackage ./pkgs/seerr { };
         unpackerr = pkgs-unstable.callPackage ./pkgs/unpackerr { };
