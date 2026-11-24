@@ -13,6 +13,7 @@ in
     ../../modules/nas.nix
     ../../modules/gotify.nix
     ../../modules/headless-server.nix
+    ../../modules/thunderbolt.nix
     ../../modules/auto-update.nix
     ../../modules/auto-reboot.nix
     ../../modules/vpn-confinement.nix
@@ -116,6 +117,7 @@ in
     bazarr.enable = true;
     plex.enable = true;
     graphics.enable = true;
+    thunderbolt.enable = true;
     seerr.enable = true;
     unpackerr.enable = true;
     profilarr.enable = true;
