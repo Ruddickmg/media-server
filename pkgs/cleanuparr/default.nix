@@ -10,19 +10,20 @@
   zlib,
 }:
 let
-  version = "2.10.12";
+  version = "2.11.1";
 
   # The upstream release is a .NET single-file bundle. It expects its bundled
   # wwwroot/ and libe_sqlite3.so to stay next to the executable, so keep the
   # unpacked tree intact and launch it in place rather than patchelf-ing it.
-  # The zip wraps that tree in a Cleanuparr-<version>-linux-amd64/ directory.
+  # fetchzip strips the archive's single top-level directory, so the files are
+  # already at the source root.
   unpacked = stdenv.mkDerivation {
     pname = "cleanuparr-unpacked";
     inherit version;
 
     src = fetchzip {
       url = "https://github.com/Cleanuparr/Cleanuparr/releases/download/v${version}/Cleanuparr-${version}-linux-amd64.zip";
-      hash = "sha256-XOb4CNsqxTlceZiDRfClwxVaKo+7aZFdSxhUunix8/8=";
+      hash = "sha256-8QlUVETCl7UYf9kJIYFASGZIj7EU/4cjM3dOCcPLToM=";
     };
 
     dontConfigure = true;
@@ -31,7 +32,7 @@ let
     installPhase = ''
       runHook preInstall
       mkdir -p "$out"
-      cp -r "$src/Cleanuparr-${version}-linux-amd64"/. "$out"/
+      cp -r "$src"/. "$out"/
       chmod +x "$out/Cleanuparr"
       runHook postInstall
     '';
