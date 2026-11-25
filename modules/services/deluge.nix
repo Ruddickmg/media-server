@@ -16,7 +16,8 @@ let
   cfg = config.media-server.deluge;
   vpnNs = config.media-server.vpn.namespace;
   useVpn = cfg.vpnConfinement && config.media-server.vpn.enable;
-  downloadSpeedLabel = if cfg.downloadSpeed < 0 then "unlimited" else "${toString cfg.downloadSpeed} KiB/s";
+  downloadSpeedLabel =
+    if cfg.downloadSpeed < 0 then "unlimited" else "${toString cfg.downloadSpeed} KiB/s";
 
   blocklistUrl = "https://github.com/colindean/transmission-blocklist/releases/latest/download/blocklist.gz";
 
