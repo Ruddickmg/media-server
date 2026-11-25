@@ -16,6 +16,7 @@ let
   cfg = config.media-server.deluge;
   vpnNs = config.media-server.vpn.namespace;
   useVpn = cfg.vpnConfinement && config.media-server.vpn.enable;
+  downloadSpeedLabel = if cfg.downloadSpeed < 0 then "unlimited" else "${toString cfg.downloadSpeed} KiB/s";
 
   blocklistUrl = "https://github.com/colindean/transmission-blocklist/releases/latest/download/blocklist.gz";
 
@@ -30,10 +31,18 @@ let
     }
   );
 
-  # ltConfig — Deluge plugin for direct libtorrent tuning
-  # HIGH_PERFORMANCE_SEED base with overrides for home-server use:
-  #   inactivity_timeout 60s (not 20s — avoids churn behind VPN/NAT)
-  #   allow_multiple_connections_per_ip false (redundant connections)
+  # ltConfig — Deluge plugin for direct libtorrent tuning.
+  #
+  # Deluge 2.2.0 ships libtorrent 2.0.12. Its disk I/O uses mmap and the kernel
+  # page cache, so libtorrent's old user-space cache knobs (cache_size,
+  # cache_expiry, use_read_cache, coalesce_*, read/write_cache_line_size, ...)
+  # are deprecated and do nothing here. They are deliberately absent.
+  #
+  # Deluge core.conf owns the settings it exposes (rate limits, connections,
+  # upload slots, active torrents). ltConfig applies settings on plugin enable,
+  # after PreferencesManager has applied core.conf, so duplicating those keys
+  # here would silently override the declarative Deluge values. Only
+  # libtorrent-specific knobs live in this map.
   ltconfigPkg = pkgs.callPackage ../../pkgs/deluge-ltconfig { };
 
   ltconfigConf = pkgs.writeText "ltconfig.conf" (
@@ -41,53 +50,38 @@ let
       apply_on_start = true;
       settings = {
         active_dht_limit = 600;
-        active_limit = 2000;
-        active_seeds = 2000;
         active_tracker_limit = 2000;
-        aio_threads = 8;
+        aio_threads = 16;
         alert_queue_size = 10000;
         allow_multiple_connections_per_ip = false;
         allowed_fast_set_size = 0;
-        auto_upload_slots = false;
-        cache_buffer_chunk_size = 128;
-        cache_expiry = 30;
-        cache_size = 65536;
         checking_mem_usage = 2048;
         choking_algorithm = 0;
         close_redundant_connections = true;
-        coalesce_reads = false;
-        coalesce_writes = false;
-        connection_speed = 500;
-        connections_limit = 8000;
         dht_upload_rate_limit = 20000;
-        disk_cache_algorithm = 2;
-        explicit_read_cache = false;
         file_pool_size = 500;
+        # libtorrent 2.0 split hash threads out of aio_threads. These only
+        # affect full rechecks, but make them quick on the SSD tier.
+        hashing_threads = 4;
         inactivity_timeout = 60;
         listen_queue_size = 3000;
         max_allowed_in_request_queue = 2000;
         max_failcount = 1;
         max_http_recv_buffer_size = 6291456;
         max_out_request_queue = 1500;
+        max_peer_recv_buffer_size = 5242880;
         max_queued_disk_bytes = 7340032;
         max_rejects = 10;
         mixed_mode_algorithm = 0;
         no_atime_storage = true;
-        optimize_hashing_for_speed = true;
         peer_timeout = 20;
-        read_cache_line_size = 32;
-        recv_socket_buffer_size = 1048576;
+        # Ask for adjacent 4 MiB piece extents: less random I/O on downloads
+        # with small piece sizes.
+        piece_extent_affinity = true;
         request_timeout = 10;
         send_buffer_low_watermark = 1048576;
         send_buffer_watermark = 3145728;
         send_buffer_watermark_factor = 150;
-        send_socket_buffer_size = 1048576;
-        suggest_mode = 1;
-        unchoke_slots_limit = -1;
-        use_disk_cache_pool = true;
-        use_read_cache = true;
-        utp_dynamic_sock_buf = true;
-        write_cache_line_size = 256;
       };
     }
   );
@@ -134,13 +128,19 @@ in
     };
     downloadSpeed = mkOption {
       type = types.float;
-      default = 7000.0;
-      description = "Global maximum download speed in KiB/s";
+      default = -1.0;
+      description = ''
+        Global maximum download speed in KiB/s. -1.0 means unlimited: with a
+        4 Gbps symmetric line there is no reason to engage libtorrent's rate
+        limiter, which adds overhead even at high limits.
+      '';
     };
     uploadSpeed = mkOption {
       type = types.float;
-      default = 1000.0;
-      description = "Global maximum upload speed in KiB/s";
+      default = -1.0;
+      description = ''
+        Global maximum upload speed in KiB/s. -1.0 means unlimited.
+      '';
     };
     natpmpGateway = mkOption {
       type = types.str;
@@ -163,18 +163,22 @@ in
       };
       thresholdGiB = mkOption {
         type = types.int;
-        default = 5;
+        # At 4 Gbps (~500 MB/s) a 5 GiB margin is gone in ~10 seconds. Keep a
+        # margin well above the SSD reserve (50 GiB) but below the tiering
+        # critical threshold, so a runaway download is caught before the disk
+        # mover or a full filesystem becomes the emergency brake.
+        default = 100;
         description = "Halt downloads when free space on checkPath drops below this many GiB";
       };
       resumeGiB = mkOption {
         type = types.int;
-        default = 10;
+        default = 200;
         description = "Resume downloads once free space on checkPath recovers above this many GiB (hysteresis)";
       };
-      intervalMins = mkOption {
+      intervalSeconds = mkOption {
         type = types.int;
-        default = 1;
-        description = "How often (in minutes) the disk-space guard checks free space";
+        default = 10;
+        description = "How often (in seconds) the disk-space guard checks free space";
       };
       notify = mkOption {
         type = types.bool;
@@ -236,26 +240,31 @@ in
         dht = false;
         utpex = false;
 
-        # Bandwidth (capped at ~80% of 73.4/10.3 Mbps connection)
+        # Bandwidth. Values are KiB/s; -1 means unlimited. Deluge maps these to
+        # libtorrent's download_rate_limit/upload_rate_limit, so -1 avoids the
+        # rate limiter entirely rather than setting a very high cap.
         max_download_speed = cfg.downloadSpeed;
         max_upload_speed = cfg.uploadSpeed;
 
-        # Connections
-        max_connections_global = 500;
+        # Connections. These and the queue limits below are the single source
+        # of truth: ltConfig must not duplicate them, because its apply_on_start
+        # settings are applied after this config and would silently win.
+        max_connections_global = 2000;
         max_connections_per_torrent = 100;
-        max_connections_per_second = 20;
-        max_upload_slots_global = 20;
-        max_upload_slots_per_torrent = 8;
-        max_half_open_connections = 50;
+        max_connections_per_second = 100;
+        max_upload_slots_global = -1;
+        max_upload_slots_per_torrent = -1;
+        max_half_open_connections = 100;
+        # Don't let torrents with no payload traffic hold an active slot.
+        dont_count_slow_torrents = true;
 
-        # Cache
-        cache_size = 8192;
-        cache_expiry = 90;
+        # No Deluge cache settings: libtorrent 2.0 uses mmap with the kernel
+        # page cache and ignores cache_size/cache_expiry.
 
         # Queue — *arrs remove their own torrents via per-indexer goals
-        max_active_limit = 100;
+        max_active_limit = 200;
         max_active_downloading = 5;
-        max_active_seeding = 40;
+        max_active_seeding = 100;
 
         # Seeding: *arrs set their own per-indexer goals; Cleanuparr owns removal
         # and source-file deletion. Deluge may stop torrents at a ratio, but must
@@ -721,9 +730,11 @@ in
     #
     # The speed is 1, NOT 0: Deluge maps max_download_speed to libtorrent's
     # download_rate_limit, where 0 means "unlimited" — a naive 0 would do
-    # nothing. A state marker makes the unit idempotent so config --set only
-    # fires on transitions. The console connects to 127.0.0.1:58846 from the
-    # root namespace (same path the *arr apps use) — via proxy-deluge when
+    # nothing. The configured resume speed may itself be -1 (unlimited), which
+    # deluge-console accepts, so the guard restores exactly what core.conf has.
+    # A state marker makes the unit idempotent so config --set only fires on
+    # transitions. The console connects to 127.0.0.1:58846 from the root
+    # namespace (same path the *arr apps use) — via proxy-deluge when
     # VPN-confined, directly otherwise — so no NetworkNamespacePath is needed.
     systemd.services.deluge-disk-guard = mkIf cfg.diskGuard.enable {
       description = "Halt Deluge downloads when disk space runs low";
@@ -777,7 +788,7 @@ in
           echo "deluge-disk-guard: free space above ${toString cfg.diskGuard.resumeGiB} GiB, resuming downloads"
           if deluge-console "$CONSOLE_CMD config --set max_download_speed ${toString cfg.downloadSpeed}"; then
             rm -f "$STATE_FILE"
-            notify "Downloads resumed" "Free space on $CHECK_PATH recovered above ${toString cfg.diskGuard.resumeGiB} GiB (now $(( free_kib / 1048576 )) GiB). Download speed restored to ${toString cfg.downloadSpeed} KiB/s."
+            notify "Downloads resumed" "Free space on $CHECK_PATH recovered above ${toString cfg.diskGuard.resumeGiB} GiB (now $(( free_kib / 1048576 )) GiB). Download speed restored to ${downloadSpeedLabel}."
           else
             echo "deluge-disk-guard: deluge-console failed, will retry" >&2
           fi
@@ -822,8 +833,10 @@ in
       description = "Check Deluge disk-space guard";
       wantedBy = [ "timers.target" ];
       timerConfig = {
-        OnCalendar = "*:0/${toString cfg.diskGuard.intervalMins}";
-        Persistent = true;
+        # Sub-minute checks are needed now that an unlimited download can
+        # consume gigabytes in seconds. Persistent only applies to OnCalendar.
+        OnUnitActiveSec = "${toString cfg.diskGuard.intervalSeconds}s";
+        AccuracySec = "1s";
       };
     };
 
